@@ -1,0 +1,10 @@
+[package]
+name = "math-once"
+version = "0.1.0"
+entrypoint = "lib.typ"
+authors = ["Mikkel"]
+license = "MIT"
+description = "Write a numerical expression once, show its result, and reuse the value."
+categories = ["utility"]
+compiler = "0.14.0"
+
