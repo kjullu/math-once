@@ -53,10 +53,11 @@ Prefixes are resolved generically for supported SI units. Micro accepts `µ`,
 | Dimension or group | Units |
 | --- | --- |
 | SI bases | `m`/`meter`/`metre`, `g`/`kg`, `s`, `A`, `K`, `mol`, `cd` |
+| Length | `km`, `dm`, `cm`, `mm`, `µm`/`μm`/`um`, `nm`, `pm` |
 | Time | `s`/`sec`, `min`, `h`/`hr`, `t`, `day`, `week` |
 | Volume | `L`/`l` and derived `m^3` |
 | Angles | `rad`, `sr`, `deg`, `degree`, `°` |
-| Mechanical SI | `Hz`, `N`, `Pa`, `J`, `W` |
+| Mechanical SI | `Hz`, `N`, `Nm`, `Ncm`, `Nmm`, `Pa`, `J`, `W` |
 | Electrical SI | `C`, `V`, `F`, `ohm`/`Ω`, `S`, `Wb`, `T`, `H` |
 | Other derived SI | `lm`, `lx`, `Bq`, `Gy`, `Sv`, `kat` |
 | Energy and pressure | `Wh`, `eV`, `cal`, `bar`, `atm` |
@@ -64,6 +65,19 @@ Prefixes are resolved generically for supported SI units. Micro accepts `µ`,
 
 `t` is accepted as the Danish abbreviation for hours. Arbitrary products,
 quotients, and integer powers can be built from supported units.
+
+Unit symbols are case-sensitive. In particular:
+
+- `nm` is a nanometre (`10^-9 m`).
+- `Nm` is a newton metre, used for torque and dimensionally equivalent to `J`.
+- `mN` is a millinewton (`10^-3 N`).
+- `Nmm` is a newton millimetre (`10^-3 Nm`).
+
+```typ
+#calculate(`530 nm to µm`).display
+#calculate(`2 N * 3 m`, unit: `Nm`).display
+#calculate(`1 kNm to Nm`).display
+```
 
 ```typ
 #calculate(`1 MJ to kWh`).display
