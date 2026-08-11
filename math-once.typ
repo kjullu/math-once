@@ -467,6 +467,26 @@ let expression-tokens(source) = {
   tokens
 }
 
+let equivalent-tokens(left, right) = {
+  left = compact-unit-tokens(left)
+  right = compact-unit-tokens(right)
+  if left.len() != right.len() { return false }
+  for (left-token, right-token) in left.zip(right) {
+    if is-number(left-token) and is-number(right-token) {
+      if float(left-token) != float(right-token) { return false }
+    } else if left-token != right-token {
+      return false
+    }
+  }
+  true
+}
+
+let result-tokens(result) = {
+  let tokens = (str(result.value),)
+  if result.unit != none { tokens += tokenize(result.unit) }
+  tokens
+}
+
 let expand-variables(tokens, scope) = {
   let expanded = ()
   let changed = false
@@ -743,9 +763,12 @@ let calculation-builder(
         if has-variables {
           labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded)
         }
-        labelled-body += h(0.25em) + math.eq + h(0.25em) + str(result.value)
-        if result.unit != none {
-          labelled-body += h(0.2em) + render-tokens(tokenize(result.unit))
+        let last-visible-tokens = if has-variables { expanded } else { tokens }
+        if not equivalent-tokens(last-visible-tokens, result-tokens(result)) {
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + str(result.value)
+          if result.unit != none {
+            labelled-body += h(0.2em) + render-tokens(tokenize(result.unit))
+          }
         }
         result.insert("display", math.equation(labelled-body, block: block))
         result.insert("variable", name)

@@ -28,7 +28,7 @@ functions you need:
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.3.0": calculate, calculation-builder, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.3.1": calculate, calculation-builder, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst and has no runtime dependencies.

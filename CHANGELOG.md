@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1
+
+- Direct assignments no longer repeat an identical value and unit. For
+  example, `v = 10 m/s = 10 m/s` is now displayed as `v = 10 m/s`.
+- Variable aliases also omit a duplicate final step, while arithmetic,
+  conversions, and rounded results remain visible.
+
 ## 0.3.0
 
 - Captioned, labelled equations now display their reference prefix before the

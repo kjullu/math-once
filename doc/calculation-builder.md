@@ -20,6 +20,20 @@ unit-aware results, and later equations visibly substitute stored values.
 Calculations use the unrounded stored value. This avoids accumulating rounding
 errors even though the substituted step shows the rounded value.
 
+A direct assignment is not repeated when its visible value and unit already
+are the result:
+
+```typ
+#eq($v = 10 m/s$)
+// v = 10 m/s
+
+#eq($a = v * 2$)
+// a = v ⋅ 2 = 10 m/s ⋅ 2 = 20 m/s
+```
+
+Arithmetic, unit conversions, and rounding still add a result step whenever it
+contains new information.
+
 ## Signature
 
 ```typ
