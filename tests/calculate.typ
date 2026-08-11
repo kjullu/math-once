@@ -16,6 +16,19 @@
 // The named `unit` argument is an alternative to writing `to`.
 #let requested-unit = calculate(`(1 m/s + 2 m/s)`, unit: `km/h`, digits: 1)
 #assert(requested-unit.value == 10.8)
+
+// `size` accepts wrapped math and keeps the exact SI value.
+#let sized-length = calculate(`2047.762752 nm`, size: $10^(-6)$, digits: 9)
+#assert(sized-length.value == 2.047762752)
+#assert(sized-length.unit == "µm")
+#assert(sized-length.size == 0.000001)
+#assert(calc.abs(sized-length.si-value - 0.000002047762752) < 0.000000000000001)
+#let twice-sized = calculate(`x * 2`, scope: (x: sized-length), digits: 9)
+#assert(twice-sized.value == 4.095525504)
+#assert(twice-sized.unit == "µm")
+#assert(calculate(`1000 nm`, size: `10^(-6)`).value == 1.0)
+#assert(calculate(`1000 nm`, size: "10^(-6)").value == 1.0)
+#assert(calculate(`1000 nm`, size: calc.pow(10, -6)).value == 1.0)
 #assert(requested-unit.unit == "km/h")
 #assert(calc.abs(requested-unit.si-value - 3.0) < 0.000000000001)
 

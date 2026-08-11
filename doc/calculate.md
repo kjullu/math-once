@@ -25,6 +25,7 @@ calculate(
   digits: 4,
   scope: (:),
   unit: none,
+  size: none,
   block: true,
 ) -> dictionary
 ```
@@ -107,6 +108,26 @@ the three forms in a call.
 #calculate(`3 m/s = km/h`, digits: 1).display
 ```
 
+### `size`
+
+`int` or `float` or `decimal` or string/raw/math `content` or `none` — optional,
+named — default: `none`
+
+Displays the result in multiples of a positive SI scale. Wrap exponent
+notation in Typst math: `$10^(-6)$` selects millionths of the SI unit. Known
+length scales are written with their normal prefix.
+
+```typ
+#calculate(`2047.762752 nm`, size: $10^(-6)$, digits: 9).display
+// 2047.762752 nm = 2.047762752 µm
+```
+
+The result keeps its unchanged `si-value` for later calculations. `size`
+cannot be combined with `unit`, `to`, or an output `=` and requires a result
+with physical dimensions. Bare `10^(-6)` is invalid Typst code; equivalent
+accepted forms are `$10^(-6)$`, `` `10^(-6)` ``, `"10^(-6)"`, and
+`calc.pow(10, -6)`.
+
 ### Trigonometric functions
 
 `sin`, `cos`, and `tan` accept a parenthesized angle. A bare number is treated
@@ -146,6 +167,7 @@ Returns a dictionary with these fields:
 | `si-value` | `float` | The unrounded value in SI base units. |
 | `dimensions` | dictionary | Exponents for the seven SI base dimensions. |
 | `unit` | `str` or `none` | The displayed output unit. |
+| `size` | number or `none` | The requested SI display scale. |
 | `source` | `str` | The normalized source expression. |
 
 Use `display` to show the equation and pass the full result through `scope`

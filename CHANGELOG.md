@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0
+
+- Added `size` to `calculate` and calculation-builder calls. It accepts a
+  positive number or wrapped expression such as `$10^(-6)$` and displays the
+  result in that SI scale while preserving its exact SI value.
+- Familiar length scales use their normal unit symbol, so `size: $10^(-6)$`
+  displays metres as micrometres (`µm`).
+
 ## 0.8.0
 
 - Unit names are now reserved and cannot be assigned as builder variables or
