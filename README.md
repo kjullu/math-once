@@ -5,7 +5,7 @@ Write a calculation once, show the equation, and reuse its exact result.
 conversion, and stateful equation variables.
 
 ```typ
-#import "math-once.typ": calculation-builder
+#import "math-once.typ": calculation-builder, unload
 
 #let eq = calculation-builder(digits: 2)
 
@@ -14,6 +14,11 @@ conversion, and stateful equation variables.
 
 #eq($v * 2$)
 // v ⋅ 2 = 250.56 ⋅ 2 = 501.11
+
+#unload($d$)
+#eq($d := 0.5 "mm"$)
+#eq($1 / d$, unit: $"linjer" / m$)
+// 1/d = 1/(0.5 mm) = 2000 linjer/m
 ```
 
 ## Install
@@ -28,7 +33,7 @@ functions you need:
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.13.0": calculate, calculation-builder, reset, unload, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.14.0": calculate, calculation-builder, reset, unload, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst and has no runtime dependencies.
