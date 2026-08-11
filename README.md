@@ -115,12 +115,18 @@ Supported syntax:
 - Parentheses and implicit multiplication, such as `10 m` and `2 N`
 - Scientific notation, such as `1.2e3`
 - Explicit conversion with `to`, such as `10 m/s to km/t`
+- Qalc-style conversion with `=`, such as `1 m/s + 1 m/s = km/s`
 - An output unit with `unit:`, for example the raw value `km/h`
 - Previous results and ordinary numbers supplied through `scope`
 
-`to` and `unit:` are equivalent ways to choose the output unit. Use only one
-of them in a calculation. Without either, the result uses the first compatible
-input unit where possible, otherwise a canonical SI unit.
+`to`, `=`, and `unit:` are equivalent ways to choose the output unit. Use only
+one in a calculation. Without one, the result uses the first compatible input
+unit where possible, otherwise a canonical SI unit.
+
+```typ
+#qalc(`1 m/s + 1 m/s = km/s`).display
+// 1 m/s + 1 m/s = 0.002 km/s
+```
 
 Calculations are block equations and centered by default. Pass `block: false`
 to `qalc` or `qalc-builder` when an inline equation is wanted instead.
@@ -184,20 +190,46 @@ Different runners should receive different state keys:
 #let second = qalc-builder(key: "second-calculator")
 ```
 
-Supported units:
+### Units and prefixes
+
+All SI prefixes are resolved generically and work with both base and derived
+units. Micro accepts `µ`, `μ`, and ASCII `u`.
+
+| Prefixes | Symbols |
+| --- | --- |
+| yotta through kilo | `Y`, `Z`, `E`, `P`, `T`, `G`, `M`, `k` |
+| hecto through deci | `h`, `da`, `d` |
+| centi through yocto | `c`, `m`, `µ`/`μ`/`u`, `n`, `p`, `f`, `a`, `z`, `y` |
+
+Supported units and their prefixed forms where meaningful:
 
 | Dimension | Units |
 | --- | --- |
-| Length | `mm`, `cm`, `m`, `km` |
-| Time | `s`, `min`, `h`, `t` (`t` is Danish *timer*) |
-| Mass | `g`, `kg` |
-| Volume | `mL`, `L`, plus derived `m^3` |
-| Derived SI | `Hz`, `N`, `Pa`, `J`, `W` |
-| Other SI bases | `A`, `K`, `mol`, `cd` |
+| SI bases | `m`, `g`/`kg`, `s`, `A`, `K`, `mol`, `cd` |
+| Time | `s`/`sec`, `min`, `h`/`hr`, `t` (Danish *timer*), `day`, `week` |
+| Volume | `L`/`l` and derived `m^3` |
+| Angles | `rad`, `sr`, `deg`, `°` |
+| Mechanical SI | `Hz`, `N`, `Pa`, `J`, `W` |
+| Electrical SI | `C`, `V`, `F`, `ohm`/`Ω`, `S`, `Wb`, `T`, `H` |
+| Other derived SI | `lm`, `lx`, `Bq`, `Gy`, `Sv`, `kat` |
+| Energy and pressure | `Wh`, `eV`, `cal`, `bar`, `atm` |
+| Imperial/common | `inch`, `ft`, `yd`, `mi`, `mph`, `kn`, `ton` |
+
+Examples:
+
+```typ
+#qalc(`1 µm to nm`).display
+#qalc(`1 MHz to Hz`).display
+#qalc(`1 mV * 1 A`, unit: `mW`).display
+#qalc(`1 MJ to kWh`).display
+#qalc(`1 mph to km/h`).display
+```
 
 Unit names are reserved and take precedence over equally named scope
-variables. Affine temperature units such as Celsius and Fahrenheit are not yet
-supported; `K` is supported.
+variables. Arbitrary products, quotients, and integer powers can be built from
+these units. Affine temperature scales such as Celsius and Fahrenheit,
+currencies, and context-dependent units are not multiplicative and are not yet
+supported; Kelvin is supported.
 
 Incompatible operations fail clearly. For example, the expression
 `10 m + 2 s` reports that length and time cannot be added, while `10 m to s`
@@ -263,6 +295,8 @@ typst compile --root . examples/all-functions.typ build/all-functions.pdf
 typst compile --root . tests/test.typ build/test.pdf
 typst compile --root . tests/qalc.typ build/qalc.pdf
 typst compile --root . tests/public-api.typ build/public-api.pdf
+typst compile --root . tests/unit-repro.typ build/unit-repro.pdf
+typst compile --root . tests/units.typ build/units.pdf
 ```
 
 Ordinary Typst packages are written in Typst itself. TypeScript is not needed,

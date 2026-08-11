@@ -120,7 +120,75 @@ let units = (
   K:   (scale: 1.0, dims: dim(temperature: 1)),
   mol: (scale: 1.0, dims: dim(amount: 1)),
   cd:  (scale: 1.0, dims: dim(luminosity: 1)),
+  rad: (scale: 1.0, dims: dim()),
+  sr:  (scale: 1.0, dims: dim()),
+  deg: (scale: calc.pi / 180, dims: dim()),
+  C:   (scale: 1.0, dims: dim(time: 1, current: 1)),
+  V:   (scale: 1.0, dims: dim(length: 2, mass: 1, time: -3, current: -1)),
+  F:   (scale: 1.0, dims: dim(length: -2, mass: -1, time: 4, current: 2)),
+  ohm: (scale: 1.0, dims: dim(length: 2, mass: 1, time: -3, current: -2)),
+  S:   (scale: 1.0, dims: dim(length: -2, mass: -1, time: 3, current: 2)),
+  Wb:  (scale: 1.0, dims: dim(length: 2, mass: 1, time: -2, current: -1)),
+  T:   (scale: 1.0, dims: dim(mass: 1, time: -2, current: -1)),
+  H:   (scale: 1.0, dims: dim(length: 2, mass: 1, time: -2, current: -2)),
+  lm:  (scale: 1.0, dims: dim(luminosity: 1)),
+  lx:  (scale: 1.0, dims: dim(length: -2, luminosity: 1)),
+  Bq:  (scale: 1.0, dims: dim(time: -1)),
+  Gy:  (scale: 1.0, dims: dim(length: 2, time: -2)),
+  Sv:  (scale: 1.0, dims: dim(length: 2, time: -2)),
+  kat: (scale: 1.0, dims: dim(time: -1, amount: 1)),
+  Wh:  (scale: 3600.0, dims: dim(length: 2, mass: 1, time: -2)),
+  bar: (scale: 100000.0, dims: dim(length: -1, mass: 1, time: -2)),
+  atm: (scale: 101325.0, dims: dim(length: -1, mass: 1, time: -2)),
+  eV:  (scale: 1.602176634e-19, dims: dim(length: 2, mass: 1, time: -2)),
+  cal: (scale: 4.184, dims: dim(length: 2, mass: 1, time: -2)),
+  day: (scale: 86400.0, dims: dim(time: 1)),
+  week: (scale: 604800.0, dims: dim(time: 1)),
+  ton: (scale: 1000.0, dims: dim(mass: 1)),
+  inch: (scale: 0.0254, dims: dim(length: 1)),
+  ft: (scale: 0.3048, dims: dim(length: 1)),
+  yd: (scale: 0.9144, dims: dim(length: 1)),
+  mi: (scale: 1609.344, dims: dim(length: 1)),
+  kn: (scale: 1852.0 / 3600, dims: dim(length: 1, time: -1)),
+  mph: (scale: 1609.344 / 3600, dims: dim(length: 1, time: -1)),
 )
+
+// Symbol and spelling aliases that cannot all be written as dictionary keys.
+units.insert("Ω", units.ohm)
+units.insert("°", units.deg)
+units.insert("l", units.L)
+units.insert("sec", units.s)
+units.insert("hr", units.h)
+
+let prefixes = (
+  ("da", 1e1),
+  ("Y", 1e24), ("Z", 1e21), ("E", 1e18), ("P", 1e15),
+  ("T", 1e12), ("G", 1e9), ("M", 1e6), ("k", 1e3), ("h", 1e2),
+  ("d", 1e-1), ("c", 1e-2), ("m", 1e-3),
+  ("µ", 1e-6), ("μ", 1e-6), ("u", 1e-6),
+  ("n", 1e-9), ("p", 1e-12), ("f", 1e-15), ("a", 1e-18),
+  ("z", 1e-21), ("y", 1e-24),
+)
+
+let prefixable = (
+  "m", "g", "s", "A", "K", "mol", "cd", "rad", "sr", "Hz", "N",
+  "Pa", "J", "W", "C", "V", "F", "ohm", "S", "Wb", "T", "H",
+  "lm", "lx", "Bq", "Gy", "Sv", "kat", "L", "l", "Wh", "eV", "Ω",
+)
+
+let resolve-unit(name) = {
+  if name in units { return units.at(name) }
+  for (prefix, factor) in prefixes {
+    if name.starts-with(prefix) {
+      let base = name.slice(prefix.len())
+      if base in prefixable {
+        let unit = units.at(base)
+        return (scale: factor * unit.scale, dims: unit.dims)
+      }
+    }
+  }
+  none
+}
 
 let quantity(si-value, dims: zero-dim, preferred: none) = (
   si-value: si-value,
@@ -220,7 +288,7 @@ let source-string(source) = if type(source) == str {
 }
 
 let tokenize(source) = {
-  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|[A-Za-z]+|[()+*/^+\\-]")
+  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|[A-Za-zµμΩ°]+|[=()+*/^+\\-]")
   let tokens = ()
   let cursor = 0
   for found in source.matches(pattern) {
@@ -238,7 +306,7 @@ let tokenize(source) = {
 }
 
 let is-number(token) = regex("^(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?$") in token
-let is-name(token) = regex("^[A-Za-z]+$") in token
+let is-name(token) = regex("^[A-Za-zµμΩ°]+$") in token
 let can-end(token) = is-number(token) or is-name(token) or token == ")"
 let can-start(token) = is-number(token) or is-name(token) or token == "("
 
@@ -354,8 +422,8 @@ let parse(tokens, scope: (:)) = {
       left = quantity(float(token))
       position += 1
     } else if is-name(token) {
-      if token in units {
-        let unit = units.at(token)
+      let unit = resolve-unit(token)
+      if unit != none {
         left = quantity(unit.scale, dims: unit.dims, preferred: token)
       } else if token in scope {
         left = scope.at(token)
@@ -390,8 +458,7 @@ let parse(tokens, scope: (:)) = {
 /// Evaluate a qalc-like expression containing numbers, units, variables, and
 /// the operators `+`, `-`, `*`, `/`, and `^`.
 ///
-/// Use `to` or the `unit` argument to request an output unit. For example,
-/// `10 m/s to km/t` and `qalc(`10 m/s`, unit: `km/t`)` are equivalent.
+/// Use `to`, `=`, or the `unit` argument to request an output unit.
 let qalc(source, digits: 4, scope: (:), unit: none, block: true) = {
   let source = source-string(source)
   let raw-tokens = tokenize(source)
@@ -400,15 +467,15 @@ let qalc(source, digits: 4, scope: (:), unit: none, block: true) = {
   for (index, token) in raw-tokens.enumerate() {
     if token == "(" { depth += 1 }
     if token == ")" { depth -= 1 }
-    if token == "to" and depth == 0 {
-      if conversion-index != none { panic("math-once qalc: only one `to` conversion is allowed") }
+    if token in ("to", "=") and depth == 0 {
+      if conversion-index != none { panic("math-once qalc: only one output-unit separator is allowed") }
       conversion-index = index
     }
   }
   if depth != 0 { panic("math-once qalc: unbalanced parentheses") }
 
   if conversion-index != none and unit != none {
-    panic("math-once qalc: use either `to` or `unit`, not both")
+    panic("math-once qalc: use only one of `to`, `=`, or `unit`")
   }
 
   let expression-tokens = if conversion-index == none { raw-tokens } else { raw-tokens.slice(0, conversion-index) }
@@ -419,8 +486,8 @@ let qalc(source, digits: 4, scope: (:), unit: none, block: true) = {
   } else {
     none
   }
-  if expression-tokens.len() == 0 { panic("math-once qalc: missing expression before `to`") }
-  if target-tokens != none and target-tokens.len() == 0 { panic("math-once qalc: missing unit after `to`") }
+  if expression-tokens.len() == 0 { panic("math-once qalc: missing expression before output conversion") }
+  if target-tokens != none and target-tokens.len() == 0 { panic("math-once qalc: missing output unit") }
 
   let result = parse(add-implicit-multiplication(expression-tokens), scope: scope)
   let output-unit = result.preferred
@@ -513,11 +580,12 @@ let qalc-builder(
 /// Evaluate a dimensional, qalc-style expression.
 ///
 /// - `source`: A trusted string or raw block containing numbers, units,
-///   variables, parentheses, `+`, `-`, `*`, `/`, `^`, and optionally `to`.
+///   variables, parentheses, `+`, `-`, `*`, `/`, `^`, and optionally `to` or
+///   `=` for output conversion.
 /// - `digits`: Decimal places used for the visible `value`. Default: `4`.
 /// - `scope`: Numbers or earlier qalc results available as variables.
 /// - `unit`: Optional requested output unit as a string or raw block. This is
-///   an alternative to `to` in `source`.
+///   an alternative to `to` or `=` in `source`.
 /// - `block`: Whether the rendered equation is centered. Default: `true`.
 ///
 /// Returns a dictionary with `display`, `value`, `exact`, `si-value`,
