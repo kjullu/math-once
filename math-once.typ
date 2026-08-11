@@ -156,8 +156,12 @@ let dim(..values) = {
 let units = (
   m:   (scale: 1.0, dims: dim(length: 1)),
   km:  (scale: 1000.0, dims: dim(length: 1)),
+  dm:  (scale: 0.1, dims: dim(length: 1)),
   cm:  (scale: 0.01, dims: dim(length: 1)),
   mm:  (scale: 0.001, dims: dim(length: 1)),
+  um:  (scale: 0.000001, dims: dim(length: 1)),
+  nm:  (scale: 0.000000001, dims: dim(length: 1)),
+  pm:  (scale: 0.000000000001, dims: dim(length: 1)),
   s:   (scale: 1.0, dims: dim(time: 1)),
   min: (scale: 60.0, dims: dim(time: 1)),
   h:   (scale: 3600.0, dims: dim(time: 1)),
@@ -168,6 +172,9 @@ let units = (
   mL:  (scale: 0.000001, dims: dim(length: 3)),
   Hz:  (scale: 1.0, dims: dim(time: -1)),
   N:   (scale: 1.0, dims: dim(length: 1, mass: 1, time: -2)),
+  Nm:  (scale: 1.0, dims: dim(length: 2, mass: 1, time: -2)),
+  Ncm: (scale: 0.01, dims: dim(length: 2, mass: 1, time: -2)),
+  Nmm: (scale: 0.001, dims: dim(length: 2, mass: 1, time: -2)),
   Pa:  (scale: 1.0, dims: dim(length: -1, mass: 1, time: -2)),
   J:   (scale: 1.0, dims: dim(length: 2, mass: 1, time: -2)),
   W:   (scale: 1.0, dims: dim(length: 2, mass: 1, time: -3)),
@@ -214,6 +221,8 @@ units.insert("°", units.deg)
 units.insert("degree", units.deg)
 units.insert("meter", units.m)
 units.insert("metre", units.m)
+units.insert("µm", units.um)
+units.insert("μm", units.um)
 units.insert("l", units.L)
 units.insert("sec", units.s)
 units.insert("hr", units.h)
@@ -229,7 +238,7 @@ let prefixes = (
 )
 
 let prefixable = (
-  "m", "g", "s", "A", "K", "mol", "cd", "rad", "sr", "Hz", "N",
+  "m", "g", "s", "A", "K", "mol", "cd", "rad", "sr", "Hz", "N", "Nm",
   "Pa", "J", "W", "C", "V", "F", "ohm", "S", "Wb", "T", "H",
   "lm", "lx", "Bq", "Gy", "Sv", "kat", "L", "l", "Wh", "eV", "Ω",
 )

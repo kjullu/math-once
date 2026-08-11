@@ -17,6 +17,16 @@
 #assert(calculate(`1 μm to nm`).value == 1000.0)
 #assert(calculate(`1 um to nm`).value == 1000.0)
 
+// Unit names are case-sensitive: nm is length, Nm is torque/energy, and mN
+// is a prefixed force unit.
+#assert(calculate(`1 nm to m`).exact == 1e-9)
+#assert(calculate(`1 Nm to J`).value == 1.0)
+#assert(calculate(`1 Ncm to Nm`).value == 0.01)
+#assert(calculate(`1 Nmm to Nm`).value == 0.001)
+#assert(calculate(`1 kNm to Nm`).value == 1000.0)
+#assert(calculate(`1 mN to N`).value == 0.001)
+#assert(calculate(`2 N * 3 m`, unit: `Nm`).value == 6.0)
+
 // Prefixes work on derived units too.
 #assert(calculate(`1 MHz to Hz`).value == 1000000.0)
 #assert(calculate(`1 kPa to Pa`).value == 1000.0)

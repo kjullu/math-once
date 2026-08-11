@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0
+
+- Added explicit common metric length units: `dm`, `µm`/`μm`/`um`, `nm`, and
+  `pm`.
+- Added newton-metre units `Nm`, `Ncm`, and `Nmm`; SI prefixes also produce
+  forms such as `kNm`.
+- Documented and tested case-sensitive unit symbols: `nm` is nanometres, `Nm`
+  is newton metres, and `mN` is millinewtons.
+
 ## 0.6.0
 
 - Added `sin`, `cos`, and `tan`; bare numeric angles use degrees, while explicit
