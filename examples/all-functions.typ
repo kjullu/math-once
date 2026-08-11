@@ -42,6 +42,9 @@
 // `to` is an alternative output-unit syntax.
 #qalc(`10 m/s to km/h`, digits: 2).display
 
+// `=` is another equivalent, qalc-like output-unit syntax.
+#qalc(`1 m/s + 1 m/s = km/s`).display
+
 // Both ordinary numbers and complete qalc results can be scope variables.
 #let distance = qalc(
   `factor * v * 2 s`,
@@ -87,4 +90,3 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
   assert(variables.d.unit == "m")
   [Stored distance: #variables.d.value #variables.d.unit]
 }
-
