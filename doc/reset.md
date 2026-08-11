@@ -79,3 +79,7 @@ Must match the `key` passed to the associated builder:
 An empty reset also removes values originally supplied through
 `initial-state`. A selective reset preserves initial and calculated variables
 whose names were not supplied.
+
+Reset also restores names temporarily made available as variables by
+[`unload`](unload.md). A selective reset restores the supplied names; an empty
+reset restores every unloaded unit.

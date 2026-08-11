@@ -388,3 +388,6 @@ Stored dimensioned variables include their unit in the visible substitution:
 
 Use [`reset`](reset.md) with the same state `key` to remove selected variables
 or clear the complete builder state.
+
+Use [`unload`](unload.md) before an assignment when a reserved unit spelling
+must temporarily be used as a variable name.

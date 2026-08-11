@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.0
+
+- Added `unload` for temporarily allowing known unit names to be assigned and
+  reused as calculation-builder variables.
+- `reset(name)` restores that individual unit, while `reset()` restores every
+  unloaded unit together with clearing the builder state.
+
 ## 0.11.0
 
 - Added `reset()` for clearing all variables stored by the default

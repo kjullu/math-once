@@ -1,4 +1,4 @@
-#import "../math-once.typ": evaluate-code, calculate, calculation-builder, reset, equation, equation-outline, number-labelled-equations
+#import "../math-once.typ": evaluate-code, calculate, calculation-builder, reset, unload, equation, equation-outline, number-labelled-equations
 
 #set text(lang: "en")
 
@@ -110,6 +110,18 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 // No names clears the entire matching state, including initial values.
 #reset(key: "all-functions-example")
 #context assert(run().len() == 0)
+
+= `unload`
+
+// Reserved unit names can temporarily become variables in the same state.
+#unload($a$, $b$, key: "all-functions-example")
+#run($a = 2$)
+#run($b = 3$)
+#run($x = a + b$)
+#context assert(run().x.value == 5.0)
+
+// Reset clears the variables and restores the unit meanings.
+#reset(key: "all-functions-example")
 
 = `number-labelled-equations`
 
