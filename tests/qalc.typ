@@ -19,6 +19,13 @@
 #assert(requested-unit.unit == "km/h")
 #assert(calc.abs(requested-unit.si-value - 3.0) < 0.000000000001)
 
+// `unit` assigns dimensions to a plain number and accepts Typst math content.
+#let labelled-number = qalc($902 / 3.6$, unit: $m/s$, digits: 2)
+#assert(labelled-number.value == 250.56)
+#assert(labelled-number.unit == "m/s")
+#assert(labelled-number.dimensions == speed.dimensions)
+#assert(calc.abs(labelled-number.si-value - 250.55555555555554) < 0.000000000001)
+
 // A prior result is a dimensioned variable, not just a displayed number.
 #let distance = qalc(`v * 2 s`, scope: (v: speed), digits: 3)
 #assert(calc.abs(distance.exact - 20.555555555555557) < 0.000000000001)
@@ -73,12 +80,17 @@
 #let eq = qalc-builder(key: "math-equation-runner", digits: 2)
 #eq($v = 902 / 3.6$)
 #eq($a = v * 2$)
+#eq($b = 902 / 3.6$, unit: $m/s$)
+#eq($c = b * 2$)
 #eq($u = 10 m/s + 1 "km"/h$)
 #eq($d = u * 2 s$, digits: 3)
 #context {
   let variables = eq()
   assert(variables.v.value == 250.56)
   assert(variables.a.value == 501.11)
+  assert(variables.b.unit == "m/s")
+  assert(variables.c.unit == "m/s")
+  assert(variables.c.value == 501.11)
   assert(variables.u.unit == "m/s")
   assert(variables.d.unit == "m")
   assert(calc.abs(variables.a.exact - 501.1111111111111) < 0.000000000001)
