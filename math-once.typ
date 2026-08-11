@@ -284,7 +284,50 @@ let source-string(source) = if type(source) == str {
 } else if type(source) == content and source.func() == raw {
   source.text.trim()
 } else {
-  panic("math-once qalc: expression must be a string or raw text")
+  panic("math-once qalc: expression must be a string, raw text, or math equation")
+}
+
+// Convert the subset of Typst math supported by qalc back into parser input.
+// This makes `$v = 902 / 3.6$` as useful as the raw form `` `v = 902 / 3.6` ``.
+let math-items(value) = if value.has("children") { value.children } else { (value,) }
+
+let math-source-part(value, parse) = {
+  if repr(value.func()) == "space" { return "" }
+  if value.func() == math.frac {
+    return "(" + parse(value.num) + ")/(" + parse(value.denom) + ")"
+  }
+  if value.func() == math.attach {
+    if value.has("b") {
+      panic("math-once qalc: subscripts in variable names are not supported")
+    }
+    let base = math-source-part(value.base, parse)
+    if value.has("t") {
+      return base + "^(" + parse(value.t) + ")"
+    }
+    return base
+  }
+  if value.func() == math.lr {
+    return "(" + parse(value.body) + ")"
+  }
+  if not value.has("text") {
+    panic("math-once qalc: unsupported Typst math element `" + repr(value.func()) + "`")
+  }
+
+  let token = value.text.trim()
+  if token in ("⋅", "∗", "×") { "*" }
+  else if token in ("÷",) { "/" }
+  else if token in ("−",) { "-" }
+  else { token }
+}
+
+let math-source-body(body) = math-items(body).map(item => {
+  if item == [#math.eq] { "=" } else { math-source-part(item, math-source-body) }
+}).filter(item => item != "").join(" ")
+
+let input-source(source) = if type(source) == content and source.func() == math.equation {
+  math-source-body(source.body).trim()
+} else {
+  source-string(source)
 }
 
 let tokenize(source) = {
@@ -332,6 +375,39 @@ let render-tokens(tokens) = {
     }
   }).join(" ")
   eval(source, mode: "math").body
+}
+
+let expression-tokens(source) = {
+  let tokens = tokenize(source)
+  let depth = 0
+  for (index, token) in tokens.enumerate() {
+    if token == "(" { depth += 1 }
+    if token == ")" { depth -= 1 }
+    if token in ("to", "=") and depth == 0 {
+      return tokens.slice(0, index)
+    }
+  }
+  tokens
+}
+
+let expand-variables(tokens, scope) = {
+  let expanded = ()
+  let changed = false
+  for token in tokens {
+    if is-name(token) and token in scope and resolve-unit(token) == none {
+      let item = scope.at(token)
+      if type(item) == dictionary and "value" in item {
+        expanded.push(str(item.value))
+        if item.unit != none { expanded += tokenize(item.unit) }
+      } else {
+        expanded.push(str(item))
+      }
+      changed = true
+    } else {
+      expanded.push(token)
+    }
+  }
+  (expanded, changed)
 }
 
 let normalize-scope(scope) = {
@@ -460,7 +536,7 @@ let parse(tokens, scope: (:)) = {
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
 let qalc(source, digits: 4, scope: (:), unit: none, block: true) = {
-  let source = source-string(source)
+  let source = input-source(source)
   let raw-tokens = tokenize(source)
   let depth = 0
   let conversion-index = none
@@ -547,7 +623,7 @@ let qalc-builder(
       return variables.get()
     }
 
-    let source = source-string(source)
+    let source = input-source(source)
     let assignment = source.match(regex("^\\s*([A-Za-z]+)\\s*=\\s*(.+)$"))
     let name = if assignment == none { none } else { assignment.captures.at(0) }
     let expression = if assignment == none { source } else { assignment.captures.at(1) }
@@ -557,7 +633,16 @@ let qalc-builder(
       let result = qalc(expression, digits: digits, scope: current, unit: unit, block: block)
 
       if name != none {
-        let labelled-body = render-tokens((name,)) + h(0.25em) + math.eq + h(0.25em) + result.display.body
+        let tokens = expression-tokens(expression)
+        let labelled-body = render-tokens((name,)) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens)
+        let (expanded, has-variables) = expand-variables(tokens, current)
+        if has-variables {
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded)
+        }
+        labelled-body += h(0.25em) + math.eq + h(0.25em) + str(result.value)
+        if result.unit != none {
+          labelled-body += h(0.2em) + render-tokens(tokenize(result.unit))
+        }
         result.insert("display", math.equation(labelled-body, block: block))
         result.insert("variable", name)
         variables.update(old => {
@@ -579,9 +664,9 @@ let qalc-builder(
 
 /// Evaluate a dimensional, qalc-style expression.
 ///
-/// - `source`: A trusted string or raw block containing numbers, units,
-///   variables, parentheses, `+`, `-`, `*`, `/`, `^`, and optionally `to` or
-///   `=` for output conversion.
+/// - `source`: A trusted string, raw block, or Typst math equation containing
+///   numbers, units, variables, parentheses, `+`, `-`, `*`, `/`, `^`, and
+///   optionally `to` or `=` for output conversion.
 /// - `digits`: Decimal places used for the visible `value`. Default: `4`.
 /// - `scope`: Numbers or earlier qalc results available as variables.
 /// - `unit`: Optional requested output unit as a string or raw block. This is
@@ -605,10 +690,12 @@ let qalc-builder(
 /// - `digits`: Default decimal places for runner calls. Default: `4`.
 /// - `block`: Whether runner equations are centered. Default: `true`.
 ///
-/// The returned runner accepts zero or one expression plus the named
-/// `digits`, `unit`, and `block` overrides. An assignment like
-/// `v = 10 m/s` stores `v`; calling the runner without an expression returns
-/// its result dictionary and must happen in a `context` block.
+/// The returned runner accepts zero or one string, raw block, or Typst math
+/// equation plus the named `digits`, `unit`, and `block` overrides. An
+/// assignment like `$v = 10 m/s$` stores `v`. Later equations show an extra
+/// step with stored variable values substituted. Calling the runner without
+/// an expression returns its result dictionary and must happen in a `context`
+/// block.
 #let qalc-builder(
   initial-state: (:),
   key: "math-once-qalc",
