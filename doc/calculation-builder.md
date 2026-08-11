@@ -153,9 +153,7 @@ Overrides the builder's `block` value for this call.
 `label` or `none` — optional, named — default: `none`
 
 Attaches a Typst label directly to the generated equation so it can be
-referenced. This parameter is needed because `calculation-builder` uses contextual
-state; writing a label after the function call would attach it to the context
-wrapper instead of the equation.
+referenced. It is an alternative to the more natural postfix syntax.
 
 ```typ
 #import "math-once.typ": calculation-builder, number-labelled-equations
@@ -163,10 +161,17 @@ wrapper instead of the equation.
 #show: number-labelled-equations.with(supplement: [Ligning])
 #let eq = calculation-builder(key: "label-example")
 
-#eq($v = 10 m/s$, label: <speed>)
+#eq($v = 10 m/s$) <speed>
+
+// Equivalent:
+#eq($u = 20 m/s$, label: <other-speed>)
 
 Se @speed.
 ```
+
+Captions for both builder output and native equations are configured through
+the [`captions` parameter](number-labelled-equations.md#captions) of
+`number-labelled-equations`.
 
 ## Reading stored variables
 

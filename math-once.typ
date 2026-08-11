@@ -660,31 +660,35 @@ let calculation-builder(
     let name = if assignment == none { none } else { assignment.captures.at(0) }
     let expression = if assignment == none { source } else { assignment.captures.at(1) }
 
-    context {
-      let current = variables.get()
-      let result = calculate(expression, digits: digits, scope: current, unit: unit, block: block)
+    let output = math.equation(
+      context {
+        let current = variables.get()
+        let result = calculate(expression, digits: digits, scope: current, unit: unit, block: block)
 
-      if name != none {
-        let tokens = expression-tokens(expression)
-        let labelled-body = render-tokens((name,)) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens)
-        let (expanded, has-variables) = expand-variables(tokens, current)
-        if has-variables {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded)
+        if name != none {
+          let tokens = expression-tokens(expression)
+          let labelled-body = render-tokens((name,)) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens)
+          let (expanded, has-variables) = expand-variables(tokens, current)
+          if has-variables {
+            labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded)
+          }
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + str(result.value)
+          if result.unit != none {
+            labelled-body += h(0.2em) + render-tokens(tokenize(result.unit))
+          }
+          result.insert("display", math.equation(labelled-body, block: block))
+          result.insert("variable", name)
+          variables.update(old => {
+            old.insert(name, result)
+            old
+          })
         }
-        labelled-body += h(0.25em) + math.eq + h(0.25em) + str(result.value)
-        if result.unit != none {
-          labelled-body += h(0.2em) + render-tokens(tokenize(result.unit))
-        }
-        result.insert("display", math.equation(labelled-body, block: block))
-        result.insert("variable", name)
-        variables.update(old => {
-          old.insert(name, result)
-          old
-        })
-      }
 
-      if label == none { result.display } else { [#result.display #label] }
-    }
+        result.display.body
+      },
+      block: block,
+    )
+    if label == none { output } else { [#output #label] }
   }
 }
 
@@ -725,10 +729,10 @@ let calculation-builder(
 /// The returned runner accepts zero or one string, raw block, or Typst math
 /// equation plus the named `digits`, `unit`, `block`, and `label` overrides.
 /// An assignment like `$v = 10 m/s$` stores `v`. Later equations show an extra
-/// step with stored variable values substituted. `label: <name>` attaches a
-/// referenceable label directly to the generated equation. Calling the runner
-/// without an expression returns its result dictionary and must happen in a
-/// `context` block.
+/// step with stored variable values substituted. A label can be written after
+/// the call as `#runner(...) <name>` or passed with `label: <name>`. Calling
+/// the runner without an expression returns its result dictionary and must
+/// happen in a `context` block.
 #let calculation-builder(
   initial-state: (:),
   key: "math-once-calculation",
@@ -750,11 +754,17 @@ let calculation-builder(
 /// - `numbering`: Numbering pattern or function for labelled equations.
 ///   Default: `"(1)"`.
 /// - `supplement`: Name placed before equation references. Default: `auto`.
+/// - `captions`: Dictionary mapping label names to caption content.
+///   Default: empty.
 #let number-labelled-equations(
   body,
   numbering: "(1)",
   supplement: auto,
+  captions: (:),
 ) = {
+  if type(captions) != dictionary {
+    panic("math-once number-labelled-equations: captions must be a dictionary")
+  }
   set math.equation(numbering: numbering, supplement: supplement)
   show math.equation: equation => {
     if equation.block and not equation.has("label") and equation.numbering != none {
@@ -767,6 +777,12 @@ let calculation-builder(
         supplement: equation.supplement,
         alt: equation.alt,
       )
+    } else if equation.block and equation.has("label") and str(equation.label) in captions {
+      let caption = captions.at(str(equation.label))
+      [
+        #equation
+        #align(center, text(size: 0.9em)[#ref(equation.label): #caption])
+      ]
     } else {
       equation
     }
