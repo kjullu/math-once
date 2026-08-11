@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculate, calculation-builder, reset, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "../math-once.typ": calculate, calculation-builder, reset, unload, equation, equation-outline, evaluate-code, number-labelled-equations
 
 // calculate documentation examples.
 #calculate(`1 m + 25 cm`).display
@@ -72,6 +72,14 @@ Inline: #inline(`x = 2 + 2`).
 #context assert("height" not in resettable() and "width" in resettable())
 #reset(key: "docs-reset")
 #context assert(resettable().len() == 0)
+
+// unload documentation examples.
+#unload($a$, $b$, key: "docs-reset")
+#resettable($a = 2$)
+#resettable($b = 3$)
+#resettable($x = a + b$)
+#context assert(resettable().x.value == 5.0)
+#reset(key: "docs-reset")
 
 // Per-equation caption examples.
 #show: number-labelled-equations

@@ -22,13 +22,13 @@ Copy [`math-once.typ`](math-once.typ) into your project and import the
 functions you need:
 
 ```typ
-#import "math-once.typ": calculate, calculation-builder, reset, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "math-once.typ": calculate, calculation-builder, reset, unload, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.11.0": calculate, calculation-builder, reset, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.12.0": calculate, calculation-builder, reset, unload, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst and has no runtime dependencies.
@@ -39,6 +39,7 @@ The package is implemented entirely in Typst and has no runtime dependencies.
 - [`calculate`](doc/calculate.md) — evaluate one unit-aware expression
 - [`calculation-builder`](doc/calculation-builder.md) — store and reuse equation variables
 - [`reset`](doc/reset.md) — clear all or selected stored variables
+- [`unload`](doc/unload.md) — temporarily use unit names as variables
 - [`equation`](doc/equation.md) — add a caption directly to an equation
 - [`equation-outline`](doc/equation-outline.md) — list captioned equations with page numbers
 - [`evaluate-code`](doc/evaluate-code.md) — evaluate trusted Typst code

@@ -1,4 +1,4 @@
-// math-once v0.11.0
+// math-once v0.12.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -964,10 +964,14 @@ let expand-variables(tokens, scope) = {
   (expanded, changed)
 }
 
+let is-unloaded(item) = type(item) == dictionary and item.at("unloaded", default: false) == true
+let is-unloaded-marker(item) = is-unloaded(item) and "si-value" not in item
+
 let normalize-scope(scope) = {
   let normalized = (:)
   for (name, item) in scope {
-    if resolve-unit(name) != none {
+    if is-unloaded-marker(item) { continue }
+    if resolve-unit(name) != none and not is-unloaded(item) {
       panic(
         "math-once calculate: `" + name
         + "` is a unit name and cannot be used as a variable",
@@ -1082,7 +1086,7 @@ let apply-function(name, argument) = {
   )
 }
 
-let parse(tokens, scope: (:)) = {
+let parse(tokens, scope: (:), unloaded: ()) = {
   let scope = normalize-scope(scope)
   let precedence = ("+": 1, "-": 1, "*": 2, "/": 2, "^": 3)
 
@@ -1124,6 +1128,8 @@ let parse(tokens, scope: (:)) = {
     } else if is-name(token) {
       if token in scope {
         left = scope.at(token)
+      } else if token in unloaded {
+        panic("math-once calculate: unloaded unit `" + token + "` has not been assigned a variable value")
       } else {
         let unit = resolve-unit(token)
         if unit != none {
@@ -1189,7 +1195,7 @@ let normalize-size(size) = {
 /// `sin`, `cos`, `tan`, and the operators `+`, `-`, `*`, `/`, and `^`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
-let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true) = {
+let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: ()) = {
   let size = normalize-size(size)
   let source = input-source(source)
   let raw-tokens = tokenize(source)
@@ -1223,7 +1229,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   if expression-tokens.len() == 0 { panic("math-once calculate: missing expression before output conversion") }
   if target-tokens != none and target-tokens.len() == 0 { panic("math-once calculate: missing output unit") }
 
-  let result = parse(add-implicit-multiplication(expression-tokens), scope: scope)
+  let result = parse(add-implicit-multiplication(expression-tokens), scope: scope, unloaded: unloaded)
   let output-unit = result.preferred
   let output-scale = 1.0
   let output-offset = 0.0
@@ -1330,21 +1336,17 @@ let calculation-builder(
     }
     let source = args.pos().at(0, default: none)
     if source == none {
-      return variables.get()
+      let visible = (:)
+      for (name, value) in variables.get() {
+        if not is-unloaded-marker(value) { visible.insert(name, value) }
+      }
+      return visible
     }
 
     let source = input-source(source)
     let assignment = source.match(regex("^\\s*([A-Za-z]+(?:_[A-Za-z0-9]+)*)\\s*=\\s*(.+)$"))
     let name = if assignment == none { none } else { assignment.captures.at(0) }
     let expression = if assignment == none { source } else { assignment.captures.at(1) }
-
-    if name != none and resolve-unit(name) != none {
-      let message = text(
-        fill: red,
-        [math-once: #raw(name) is a unit name and cannot be used as a variable.],
-      )
-      return if block { align(center, message) } else { message }
-    }
 
     if caption != none and not block {
       panic("math-once calculation-builder: captions require block: true")
@@ -1355,16 +1357,30 @@ let calculation-builder(
 
     let equation-body = context {
       let current = variables.get()
-      let result = calculate(
-        expression,
-        digits: digits,
-        scope: current,
-        unit: unit,
-        size: size,
-        block: block,
-      )
+      let unloaded = ()
+      for (stored-name, item) in current {
+        if is-unloaded(item) { unloaded.push(stored-name) }
+      }
+      let assignment-is-unloaded = name != none and name in unloaded
+      let illegal-assignment = name != none and resolve-unit(name) != none and not assignment-is-unloaded
+      let result = if illegal-assignment { none } else {
+        calculate(
+          expression,
+          digits: digits,
+          scope: current,
+          unit: unit,
+          size: size,
+          block: block,
+          unloaded: unloaded,
+        )
+      }
 
-      if name != none {
+      if illegal-assignment {
+        text(
+          fill: red,
+          [math-once: #raw(name) is a unit name and cannot be used as a variable.],
+        )
+      } else if name != none {
         let tokens = expression-tokens(expression)
         let name-scope = current
         name-scope.insert(name, 0)
@@ -1382,13 +1398,15 @@ let calculation-builder(
         }
         result.insert("display", math.equation(labelled-body, block: block))
         result.insert("variable", name)
+        if assignment-is-unloaded { result.insert("unloaded", true) }
         variables.update(old => {
           old.insert(name, result)
           old
         })
+        result.display.body
+      } else {
+        result.display.body
       }
-
-      result.display.body
     }
     let output = _make-equation(
       _captioned-body(equation-body, caption, gap),
@@ -1399,17 +1417,21 @@ let calculation-builder(
   }
 }
 
+// Normalize a reset or unload argument to a builder state name.
+let state-name(value, action) = {
+  let name = input-source(value).trim()
+  if regex("^[A-Za-z]+(?:_[A-Za-z0-9]+)*$") not in name {
+    panic(
+      "math-once " + action
+      + ": names must contain letters and optional letter or number subscripts",
+    )
+  }
+  name
+}
+
 /// Clear all or selected variables from a calculation-builder state.
 let reset(..names, key: "math-once-calculation") = {
-  let selected = names.pos().map(value => {
-    let name = input-source(value).trim()
-    if regex("^[A-Za-z]+(?:_[A-Za-z0-9]+)*$") not in name {
-      panic(
-        "math-once reset: variable names must contain letters and optional letter or number subscripts",
-      )
-    }
-    name
-  })
+  let selected = names.pos().map(value => state-name(value, "reset"))
   let variables = state(key, (:))
   variables.update(old => {
     if selected.len() == 0 { return (:) }
@@ -1421,10 +1443,34 @@ let reset(..names, key: "math-once-calculation") = {
   })
 }
 
+/// Temporarily make unit names available as builder variable names.
+let unload(..names, key: "math-once-calculation") = {
+  let selected = names.pos().map(value => state-name(value, "unload"))
+  if selected.len() == 0 {
+    panic("math-once unload: pass at least one unit name")
+  }
+  let variables = state(key, (:))
+  variables.update(old => {
+    for name in selected {
+      if resolve-unit(name) == none {
+        continue
+      } else if name in old and type(old.at(name)) == dictionary and "si-value" in old.at(name) {
+        let value = old.at(name)
+        value.insert("unloaded", true)
+        old.insert(name, value)
+      } else {
+        old.insert(name, (unloaded: true))
+      }
+    }
+    old
+  })
+}
+
 (
   calculate: calculate,
   calculation-builder: calculation-builder,
   reset: reset,
+  unload: unload,
 )
 }
 
@@ -1497,6 +1543,19 @@ let reset(..names, key: "math-once-calculation") = {
 /// Use `reset("height", "width")` to clear selected variables or `reset()`
 /// to clear the entire default builder state. The function renders no output.
 #let reset(..names, key: "math-once-calculation") = (_engine.reset)(
+  ..names,
+  key: key,
+)
+
+/// Temporarily make unit names available as calculation-builder variables.
+///
+/// - `names`: One or more known unit names as strings, raw text, or Typst math.
+/// - `key`: The state key of the matching calculation builder. Default:
+///   `"math-once-calculation"`.
+///
+/// The unload lasts until that name is removed with `reset(name)` or the
+/// complete state is cleared with `reset()`.
+#let unload(..names, key: "math-once-calculation") = (_engine.unload)(
   ..names,
   key: key,
 )
