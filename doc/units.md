@@ -1,13 +1,13 @@
 # Units and prefixes
 
-`qalc` and `qalc-builder` track the seven SI base dimensions. Compatible units
+`calculate` and `calculation-builder` track the seven SI base dimensions. Compatible units
 are converted before addition or subtraction, while multiplication, division,
 and integer powers combine dimensions.
 
 ```typ
-#qalc(`10 m/s + 1 km/h`).display
-#qalc(`2 N * 3 m`).display
-#qalc(`(2 m + 30 cm)^2`).display
+#calculate(`10 m/s + 1 km/h`).display
+#calculate(`2 N * 3 m`).display
+#calculate(`(2 m + 30 cm)^2`).display
 ```
 
 ## Output conversion
@@ -15,9 +15,9 @@ and integer powers combine dimensions.
 Select an output unit with `to`, `=`, or the `unit` parameter:
 
 ```typ
-#qalc(`10 m/s to km/h`).display
-#qalc(`10 m/s = km/h`).display
-#qalc(`10 m/s`, unit: `km/h`).display
+#calculate(`10 m/s to km/h`).display
+#calculate(`10 m/s = km/h`).display
+#calculate(`10 m/s`, unit: `km/h`).display
 ```
 
 Use only one conversion form in each call. The target must have the same
@@ -25,7 +25,7 @@ dimensions as the result. On a plain number, `unit` assigns the requested
 physical unit:
 
 ```typ
-#qalc($902 / 3.6$, unit: $m/s$, digits: 2).display
+#calculate($902 / 3.6$, unit: $m/s$, digits: 2).display
 // 902/3.6 = 250.56 m/s
 ```
 
@@ -43,9 +43,9 @@ Prefixes are resolved generically for supported SI units. Micro accepts `µ`,
 | centi through yocto | `c`, `m`, `µ`/`μ`/`u`, `n`, `p`, `f`, `a`, `z`, `y` |
 
 ```typ
-#qalc(`1 µm to nm`).display
-#qalc(`1 MHz to Hz`).display
-#qalc(`1 mV * 1 A`, unit: `mW`).display
+#calculate(`1 µm to nm`).display
+#calculate(`1 MHz to Hz`).display
+#calculate(`1 mV * 1 A`, unit: `mW`).display
 ```
 
 ## Supported units
@@ -66,9 +66,9 @@ Prefixes are resolved generically for supported SI units. Micro accepts `µ`,
 quotients, and integer powers can be built from supported units.
 
 ```typ
-#qalc(`1 MJ to kWh`).display
-#qalc(`1 mph to km/h`).display
-#qalc(`1 s^-1 to Hz`).display
+#calculate(`1 MJ to kWh`).display
+#calculate(`1 mph to km/h`).display
+#calculate(`1 s^-1 to Hz`).display
 ```
 
 ## Limitations

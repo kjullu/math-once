@@ -25,13 +25,13 @@ The function styles the original equation elements instead of replacing them.
 This is important because replacing a labelled equation in a show rule can
 break Typst's reference target.
 
-It also works with equations returned by `qalc` and `qalc-builder`:
+It also works with equations returned by `calculate` and `calculation-builder`:
 
 ```typ
-#import "math-once.typ": qalc-builder, number-labelled-equations
+#import "math-once.typ": calculation-builder, number-labelled-equations
 
 #show: number-labelled-equations.with(supplement: [Ligning])
-#let eq = qalc-builder(digits: 2)
+#let eq = calculation-builder(digits: 2)
 
 #eq($v = 902 / 3.6$, unit: $m/s$, label: <speed>)
 #eq($a = v * 2$)
@@ -40,7 +40,7 @@ Hastigheden er beregnet i @speed.
 ```
 
 Only the first equation is numbered because only it has a label. Use the
-runner's `label:` parameter for `qalc-builder`: placing `<speed>` after the
+runner's `label:` parameter for `calculation-builder`: placing `<speed>` after the
 function call would label Typst's contextual state wrapper rather than the
 equation inside it.
 

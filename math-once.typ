@@ -1,18 +1,18 @@
-// math-once: reusable calculations and a qalc-inspired unit evaluator.
+// math-once: reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
 /// return both the rounded and exact values.
 ///
 /// - `source`: A trusted Typst code expression as a string or raw block.
 /// - `digits`: Decimal places used for the visible `value`. Default: `0`.
-/// - `scope`: Values made available to the expression. Earlier `calculate`
+/// - `scope`: Values made available to the expression. Earlier `evaluate-code`
 ///   results are automatically unwrapped to their exact value.
 /// - `unit`: Optional display label as a string, raw block, math, or content.
 /// - `block`: Whether the rendered equation is centered. Default: `false`.
 ///
 /// Returns a dictionary with `display`, `value`, `exact`, `source`, and `unit`.
 /// Only pass expressions you trust: this function uses unrestricted `eval`.
-#let calculate(source, digits: 0, scope: (:), unit: none, block: false) = {
+#let evaluate-code(source, digits: 0, scope: (:), unit: none, block: false) = {
   let source = if type(source) == str {
     source
   } else if type(source) == content and source.func() == raw {
@@ -284,10 +284,10 @@ let source-string(source) = if type(source) == str {
 } else if type(source) == content and source.func() == raw {
   source.text.trim()
 } else {
-  panic("math-once qalc: expression must be a string, raw text, or math equation")
+  panic("math-once calculate: expression must be a string, raw text, or math equation")
 }
 
-// Convert the subset of Typst math supported by qalc back into parser input.
+// Convert the subset of Typst math supported by calculate back into parser input.
 // This makes `$v = 902 / 3.6$` as useful as the raw form `` `v = 902 / 3.6` ``.
 let math-items(value) = if value.has("children") { value.children } else { (value,) }
 
@@ -298,7 +298,7 @@ let math-source-part(value, parse) = {
   }
   if value.func() == math.attach {
     if value.has("b") {
-      panic("math-once qalc: subscripts in variable names are not supported")
+      panic("math-once calculate: subscripts in variable names are not supported")
     }
     let base = math-source-part(value.base, parse)
     if value.has("t") {
@@ -310,7 +310,7 @@ let math-source-part(value, parse) = {
     return "(" + parse(value.body) + ")"
   }
   if not value.has("text") {
-    panic("math-once qalc: unsupported Typst math element `" + repr(value.func()) + "`")
+    panic("math-once calculate: unsupported Typst math element `" + repr(value.func()) + "`")
   }
 
   let token = value.text.trim()
@@ -336,15 +336,15 @@ let tokenize(source) = {
   let cursor = 0
   for found in source.matches(pattern) {
     if source.slice(cursor, found.start).trim() != "" {
-      panic("math-once qalc: unsupported syntax near `" + source.slice(cursor, found.start) + "`")
+      panic("math-once calculate: unsupported syntax near `" + source.slice(cursor, found.start) + "`")
     }
     tokens.push(found.text)
     cursor = found.end
   }
   if source.slice(cursor).trim() != "" {
-    panic("math-once qalc: unsupported syntax near `" + source.slice(cursor) + "`")
+    panic("math-once calculate: unsupported syntax near `" + source.slice(cursor) + "`")
   }
-  if tokens.len() == 0 { panic("math-once qalc: expression must not be empty") }
+  if tokens.len() == 0 { panic("math-once calculate: expression must not be empty") }
   tokens
 }
 
@@ -440,7 +440,7 @@ let normalize-scope(scope) = {
     } else if type(item) in (int, float, decimal) {
       normalized.insert(name, quantity(float(item)))
     } else {
-      panic("math-once qalc: scope `" + name + "` must be a number or qalc result")
+      panic("math-once calculate: scope `" + name + "` must be a number or calculate result")
     }
   }
   normalized
@@ -450,7 +450,7 @@ let apply-op(op, left, right) = {
   if op == "+" or op == "-" {
     if left.dims != right.dims {
       panic(
-        "math-once qalc: cannot " + if op == "+" { "add " } else { "subtract " }
+        "math-once calculate: cannot " + if op == "+" { "add " } else { "subtract " }
         + dimensions-name(left.dims) + " and " + dimensions-name(right.dims),
       )
     }
@@ -476,18 +476,18 @@ let apply-op(op, left, right) = {
   }
   if op == "^" {
     if not is-dimensionless(right) {
-      panic("math-once qalc: exponent must be dimensionless")
+      panic("math-once calculate: exponent must be dimensionless")
     }
     let exponent = right.si-value
     if not is-dimensionless(left) and exponent != calc.round(exponent) {
-      panic("math-once qalc: a unit may only be raised to an integer power")
+      panic("math-once calculate: a unit may only be raised to an integer power")
     }
     return quantity(
       calc.pow(left.si-value, exponent),
       dims: dims-scale(left.dims, exponent),
     )
   }
-  panic("math-once qalc: unsupported operator `" + op + "`")
+  panic("math-once calculate: unsupported operator `" + op + "`")
 }
 
 let parse(tokens, scope: (:)) = {
@@ -496,7 +496,7 @@ let parse(tokens, scope: (:)) = {
 
   let parse-expression(tokens, position, minimum: 0) = {
     if position >= tokens.len() {
-      panic("math-once qalc: expected a number, variable, unit, or parenthesis")
+      panic("math-once calculate: expected a number, variable, unit, or parenthesis")
     }
 
     let token = tokens.at(position)
@@ -512,7 +512,7 @@ let parse(tokens, scope: (:)) = {
     } else if token == "(" {
       let (inside, next) = parse-expression(tokens, position + 1)
       if next >= tokens.len() or tokens.at(next) != ")" {
-        panic("math-once qalc: missing closing parenthesis")
+        panic("math-once calculate: missing closing parenthesis")
       }
       left = inside
       position = next + 1
@@ -526,11 +526,11 @@ let parse(tokens, scope: (:)) = {
       } else if token in scope {
         left = scope.at(token)
       } else {
-        panic("math-once qalc: unknown variable or unit `" + token + "`")
+        panic("math-once calculate: unknown variable or unit `" + token + "`")
       }
       position += 1
     } else {
-      panic("math-once qalc: unexpected token `" + token + "`")
+      panic("math-once calculate: unexpected token `" + token + "`")
     }
 
     while position < tokens.len() {
@@ -548,16 +548,16 @@ let parse(tokens, scope: (:)) = {
 
   let (result, position) = parse-expression(tokens, 0)
   if position != tokens.len() {
-    panic("math-once qalc: unexpected token `" + tokens.at(position) + "`")
+    panic("math-once calculate: unexpected token `" + tokens.at(position) + "`")
   }
   result
 }
 
-/// Evaluate a qalc-like expression containing numbers, units, variables, and
+/// Evaluate a unit-aware expression containing numbers, units, variables, and
 /// the operators `+`, `-`, `*`, `/`, and `^`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
-let qalc(source, digits: 4, scope: (:), unit: none, block: true) = {
+let calculate(source, digits: 4, scope: (:), unit: none, block: true) = {
   let source = input-source(source)
   let raw-tokens = tokenize(source)
   let depth = 0
@@ -566,14 +566,14 @@ let qalc(source, digits: 4, scope: (:), unit: none, block: true) = {
     if token == "(" { depth += 1 }
     if token == ")" { depth -= 1 }
     if token in ("to", "=") and depth == 0 {
-      if conversion-index != none { panic("math-once qalc: only one output-unit separator is allowed") }
+      if conversion-index != none { panic("math-once calculate: only one output-unit separator is allowed") }
       conversion-index = index
     }
   }
-  if depth != 0 { panic("math-once qalc: unbalanced parentheses") }
+  if depth != 0 { panic("math-once calculate: unbalanced parentheses") }
 
   if conversion-index != none and unit != none {
-    panic("math-once qalc: use only one of `to`, `=`, or `unit`")
+    panic("math-once calculate: use only one of `to`, `=`, or `unit`")
   }
 
   let expression-tokens = if conversion-index == none { raw-tokens } else { raw-tokens.slice(0, conversion-index) }
@@ -584,8 +584,8 @@ let qalc(source, digits: 4, scope: (:), unit: none, block: true) = {
   } else {
     none
   }
-  if expression-tokens.len() == 0 { panic("math-once qalc: missing expression before output conversion") }
-  if target-tokens != none and target-tokens.len() == 0 { panic("math-once qalc: missing output unit") }
+  if expression-tokens.len() == 0 { panic("math-once calculate: missing expression before output conversion") }
+  if target-tokens != none and target-tokens.len() == 0 { panic("math-once calculate: missing output unit") }
 
   let result = parse(add-implicit-multiplication(expression-tokens), scope: scope)
   let output-unit = result.preferred
@@ -602,7 +602,7 @@ let qalc(source, digits: 4, scope: (:), unit: none, block: true) = {
           preferred: target-tokens.join(""),
         )
       } else {
-        panic("math-once qalc: cannot convert " + dimensions-name(result.dims) + " to " + dimensions-name(target.dims))
+        panic("math-once calculate: cannot convert " + dimensions-name(result.dims) + " to " + dimensions-name(target.dims))
       }
     }
     output-unit = target-tokens.join("")
@@ -633,14 +633,14 @@ let qalc(source, digits: 4, scope: (:), unit: none, block: true) = {
   )
 }
 
-/// Create a stateful equation runner similar to eqrun.
+/// Create a stateful equation runner with reusable variables.
 ///
 /// Named expressions such as `v = 10 m/s` are stored and automatically made
 /// available to later calls. Call the runner without an expression inside a
 /// context block to retrieve its dictionary of results.
-let qalc-builder(
+let calculation-builder(
   initial-state: (:),
-  key: "math-once-qalc",
+  key: "math-once-calculation",
   digits: 4,
   block: true,
 ) = {
@@ -648,7 +648,7 @@ let qalc-builder(
 
   (..args, digits: digits, unit: none, block: block, label: none) => {
     if args.pos().len() > 1 {
-      panic("math-once qalc: the runner accepts at most one expression")
+      panic("math-once calculate: the runner accepts at most one expression")
     }
     let source = args.pos().at(0, default: none)
     if source == none {
@@ -662,7 +662,7 @@ let qalc-builder(
 
     context {
       let current = variables.get()
-      let result = qalc(expression, digits: digits, scope: current, unit: unit, block: block)
+      let result = calculate(expression, digits: digits, scope: current, unit: unit, block: block)
 
       if name != none {
         let tokens = expression-tokens(expression)
@@ -689,25 +689,25 @@ let qalc-builder(
 }
 
 (
-  qalc: qalc,
-  qalc-builder: qalc-builder,
+  calculate: calculate,
+  calculation-builder: calculation-builder,
 )
 }
 
-/// Evaluate a dimensional, qalc-style expression.
+/// Evaluate a dimensional, unit-aware expression.
 ///
 /// - `source`: A trusted string, raw block, or Typst math equation containing
 ///   numbers, units, variables, parentheses, `+`, `-`, `*`, `/`, `^`, and
 ///   optionally `to` or `=` for output conversion.
 /// - `digits`: Decimal places used for the visible `value`. Default: `4`.
-/// - `scope`: Numbers or earlier qalc results available as variables.
-/// - `unit`: Optional requested output unit as a string or raw block. This is
-///   an alternative to `to` or `=` in `source`.
+/// - `scope`: Numbers or earlier calculate results available as variables.
+/// - `unit`: Optional requested output unit as a string, raw block, or Typst
+///   math equation. This is an alternative to `to` or `=` in `source`.
 /// - `block`: Whether the rendered equation is centered. Default: `true`.
 ///
 /// Returns a dictionary with `display`, `value`, `exact`, `si-value`,
 /// `dimensions`, `unit`, and `source`.
-#let qalc(source, digits: 4, scope: (:), unit: none, block: true) = (_engine.qalc)(
+#let calculate(source, digits: 4, scope: (:), unit: none, block: true) = (_engine.calculate)(
   source,
   digits: digits,
   scope: scope,
@@ -715,9 +715,9 @@ let qalc-builder(
   block: block,
 )
 
-/// Create an eqrun-style stateful calculator.
+/// Create a stateful calculator for sequences of equations.
 ///
-/// - `initial-state`: Initial numeric values or qalc results. Default: empty.
+/// - `initial-state`: Initial numeric values or calculate results. Default: empty.
 /// - `key`: Typst state key. Give independent runners different keys.
 /// - `digits`: Default decimal places for runner calls. Default: `4`.
 /// - `block`: Whether runner equations are centered. Default: `true`.
@@ -729,12 +729,12 @@ let qalc-builder(
 /// referenceable label directly to the generated equation. Calling the runner
 /// without an expression returns its result dictionary and must happen in a
 /// `context` block.
-#let qalc-builder(
+#let calculation-builder(
   initial-state: (:),
-  key: "math-once-qalc",
+  key: "math-once-calculation",
   digits: 4,
   block: true,
-) = (_engine.qalc-builder)(
+) = (_engine.calculation-builder)(
   initial-state: initial-state,
   key: key,
   digits: digits,

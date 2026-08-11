@@ -1,14 +1,14 @@
-# `qalc-builder`
+# `calculation-builder`
 
-Creates a stateful, eqrun-style calculator. Assignments store their complete
+Creates a stateful equation calculator. Assignments store their complete
 unit-aware results, and later equations visibly substitute stored values.
 
 ## Example
 
 ```typ
-#import "math-once.typ": qalc-builder
+#import "math-once.typ": calculation-builder
 
-#let eq = qalc-builder(digits: 2)
+#let eq = calculation-builder(digits: 2)
 
 #eq($v = 902 / 3.6$)
 // v = 902/3.6 = 250.56
@@ -23,9 +23,9 @@ errors even though the substituted step shows the rounded value.
 ## Signature
 
 ```typ
-qalc-builder(
+calculation-builder(
   initial-state: (:),
-  key: "math-once-qalc",
+  key: "math-once-calculation",
   digits: 4,
   block: true,
 ) -> function
@@ -37,10 +37,10 @@ qalc-builder(
 
 `dictionary` — optional, named — default: `(:)`
 
-Numbers or existing `qalc` results available before the first equation.
+Numbers or existing `calculate` results available before the first equation.
 
 ```typ
-#let eq = qalc-builder(
+#let eq = calculation-builder(
   initial-state: (factor: 2),
   key: "initial-state-example",
 )
@@ -49,13 +49,13 @@ Numbers or existing `qalc` results available before the first equation.
 
 ### `key`
 
-`str` — optional, named — default: `"math-once-qalc"`
+`str` — optional, named — default: `"math-once-calculation"`
 
 The key used for Typst state. Give each independent runner a unique key.
 
 ```typ
-#let first = qalc-builder(key: "first-calculator")
-#let second = qalc-builder(key: "second-calculator")
+#let first = calculation-builder(key: "first-calculator")
+#let second = calculation-builder(key: "second-calculator")
 ```
 
 ### `digits`
@@ -66,7 +66,7 @@ The default number of displayed decimal places for runner calls. A call can
 override it.
 
 ```typ
-#let eq = qalc-builder(key: "rounding-example", digits: 2)
+#let eq = calculation-builder(key: "rounding-example", digits: 2)
 #eq(`x = 1 / 3`)
 #eq(`y = x * 2`, digits: 4)
 ```
@@ -79,13 +79,13 @@ Whether runner output is a centered block equation by default. A call can
 override it with `block: false`.
 
 ```typ
-#let eq = qalc-builder(key: "inline-example", block: false)
+#let eq = calculation-builder(key: "inline-example", block: false)
 Inline: #eq(`x = 2 + 2`).
 ```
 
 ## Returned runner
 
-`qalc-builder` returns a function with this interface:
+`calculation-builder` returns a function with this interface:
 
 ```typ
 runner(
@@ -106,7 +106,7 @@ result under `name`. A call without an assignment calculates and displays a
 result without storing a new variable.
 
 ```typ
-#let eq = qalc-builder(key: "source-example")
+#let eq = calculation-builder(key: "source-example")
 #eq($v = 10 m/s$)
 #eq($d = v * 2 s$)
 #eq(`1 m/s to km/h`)
@@ -131,10 +131,10 @@ Overrides the builder's `digits` value for this call.
 `str` or `raw` or math `content` or `none` — optional, named — default: `none`
 
 Requests an output unit for this call. It behaves like the `unit` parameter of
-[`qalc`](qalc.md#unit).
+[`calculate`](calculate.md#unit).
 
 ```typ
-#let eq = qalc-builder(key: "unit-example")
+#let eq = calculation-builder(key: "unit-example")
 #eq(`v = 10 m/s`, unit: `km/h`, digits: 1)
 // v = 10 m/s = 36 km/h
 
@@ -153,15 +153,15 @@ Overrides the builder's `block` value for this call.
 `label` or `none` — optional, named — default: `none`
 
 Attaches a Typst label directly to the generated equation so it can be
-referenced. This parameter is needed because `qalc-builder` uses contextual
+referenced. This parameter is needed because `calculation-builder` uses contextual
 state; writing a label after the function call would attach it to the context
 wrapper instead of the equation.
 
 ```typ
-#import "math-once.typ": qalc-builder, number-labelled-equations
+#import "math-once.typ": calculation-builder, number-labelled-equations
 
 #show: number-labelled-equations.with(supplement: [Ligning])
-#let eq = qalc-builder(key: "label-example")
+#let eq = calculation-builder(key: "label-example")
 
 #eq($v = 10 m/s$, label: <speed>)
 
@@ -171,11 +171,11 @@ Se @speed.
 ## Reading stored variables
 
 Call the runner without `source` inside a `context` block to retrieve the
-state dictionary. Each assigned value is a complete [`qalc`](qalc.md) result
+state dictionary. Each assigned value is a complete [`calculate`](calculate.md) result
 with an additional `variable` field.
 
 ```typ
-#let eq = qalc-builder(key: "state-example", digits: 2)
+#let eq = calculation-builder(key: "state-example", digits: 2)
 #eq($v = 902 / 3.6$)
 
 #context {
@@ -188,7 +188,7 @@ with an additional `variable` field.
 Stored dimensioned variables include their unit in the visible substitution:
 
 ```typ
-#let eq = qalc-builder(key: "dimensioned-example", digits: 2)
+#let eq = calculation-builder(key: "dimensioned-example", digits: 2)
 #eq($v = 10 m/s + 1 "km"/h$)
 #eq($d = v * 2 s$, digits: 3)
 // d = v ⋅ 2 s = 10.28 m/s ⋅ 2 s = 20.556 m
