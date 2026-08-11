@@ -212,6 +212,8 @@ let units = (
 units.insert("Ω", units.ohm)
 units.insert("°", units.deg)
 units.insert("degree", units.deg)
+units.insert("meter", units.m)
+units.insert("metre", units.m)
 units.insert("l", units.L)
 units.insert("sec", units.s)
 units.insert("hr", units.h)
@@ -335,6 +337,31 @@ let canonical-unit(dims) = {
   numerator.join(" ") + if denominator.len() == 0 { "" } else { "/" + denominator.join(" ") }
 }
 
+let engineering-length-units = (
+  ("Ym", 1e24), ("Zm", 1e21), ("Em", 1e18), ("Pm", 1e15),
+  ("Tm", 1e12), ("Gm", 1e9), ("Mm", 1e6), ("km", 1e3),
+  ("m", 1.0), ("mm", 1e-3), ("µm", 1e-6), ("nm", 1e-9),
+  ("pm", 1e-12), ("fm", 1e-15), ("am", 1e-18), ("zm", 1e-21),
+  ("ym", 1e-24),
+)
+
+let auto-length-unit(si-value, current-unit) = {
+  let si-spellings = engineering-length-units.map(pair => pair.first()) + (
+    "cm", "dm", "dam", "hm", "um", "μm",
+  )
+  if current-unit not in si-spellings or si-value == 0 { return current-unit }
+  let magnitude = calc.abs(si-value)
+  // Automatically improve microscopic SI lengths without rewriting ordinary
+  // metre-scale results that existing documents deliberately express in m.
+  if magnitude >= 1 { return current-unit }
+  for (unit, scale) in engineering-length-units {
+    if magnitude >= scale and magnitude < scale * 1000 {
+      return unit
+    }
+  }
+  current-unit
+}
+
 let source-string(source) = if type(source) == str {
   source.trim()
 } else if type(source) == content and source.func() == raw {
@@ -391,6 +418,8 @@ let variable-symbol-name(symbol) = {
   none
 }
 
+let math-functions = ("sin", "cos", "tan")
+
 // Convert the subset of Typst math supported by calculate back into parser input.
 // This makes `$v = 902 / 3.6$` as useful as the raw form `` `v = 902 / 3.6` ``.
 let math-items(value) = if value.has("children") { value.children } else { (value,) }
@@ -415,7 +444,10 @@ let math-source-part(value, parse) = {
     return base
   }
   if value.func() == math.lr {
-    return "(" + parse(value.body) + ")"
+    return parse(value.body)
+  }
+  if value.func() == math.op {
+    return parse(value.text)
   }
   if not value.has("text") {
     panic("math-once calculate: unsupported Typst math element `" + repr(value.func()) + "`")
@@ -466,7 +498,10 @@ let can-start(token) = is-number(token) or is-name(token) or token == "("
 let add-implicit-multiplication(tokens) = {
   let result = ()
   for (index, token) in tokens.enumerate() {
-    if index > 0 and can-end(tokens.at(index - 1)) and can-start(token) {
+    if (index > 0
+      and can-end(tokens.at(index - 1))
+      and can-start(token)
+      and not (tokens.at(index - 1) in math-functions and token == "(")) {
       result.push("*")
     }
     result.push(token)
@@ -474,27 +509,37 @@ let add-implicit-multiplication(tokens) = {
   result
 }
 
-let render-tokens(tokens) = {
+let render-tokens(tokens, scope: (:)) = {
+  let render-variable(token) = if "_" in token {
+    let parts = token.split("_")
+    let render-part(part) = if part in variable-symbols {
+      part
+    } else if part.len() == 1 or is-number(part) {
+      part
+    } else {
+      "\"" + part + "\""
+    }
+    render-part(parts.first()) + parts.slice(1).map(part => "_" + render-part(part)).join("")
+  } else if token in variable-symbols {
+    token
+  } else {
+    "\"" + token + "\""
+  }
+
   let source = tokens.map(token => {
     if is-name(token) {
-      if token == "degree" {
+      if token in math-functions {
+        token
+      } else if token in scope {
+        render-variable(token)
+      } else if token == "degree" {
         "degree"
+      } else if token in ("meter", "metre") {
+        "upright(\"m\")"
       } else if resolve-unit(token) != none {
         "upright(\"" + token + "\")"
-      } else if "_" in token {
-        let parts = token.split("_")
-        let render-part(part, base: false) = if part in variable-symbols {
-          part
-        } else if part.len() == 1 or is-number(part) {
-          part
-        } else {
-          "\"" + part + "\""
-        }
-        render-part(parts.first(), base: true) + parts.slice(1).map(part => "_" + render-part(part)).join("")
-      } else if token in variable-symbols {
-        token
       } else {
-        "\"" + token + "\""
+        render-variable(token)
       }
     } else if token == "*" {
       "dot"
@@ -560,7 +605,7 @@ let expand-variables(tokens, scope) = {
   let expanded = ()
   let changed = false
   for (index, token) in tokens.enumerate() {
-    if is-name(token) and token in scope and resolve-unit(token) == none {
+    if is-name(token) and token in scope {
       if index > 0 and can-end(tokens.at(index - 1)) {
         expanded.push("*")
       }
@@ -656,6 +701,23 @@ let apply-op(op, left, right) = {
   panic("math-once calculate: unsupported operator `" + op + "`")
 }
 
+let apply-function(name, argument) = {
+  if not is-dimensionless(argument) {
+    panic("math-once calculate: `" + name + "` requires a dimensionless angle")
+  }
+  let angle = if argument.preferred == none {
+    argument.si-value * calc.pi / 180
+  } else {
+    argument.si-value
+  }
+  quantity(
+    if name == "sin" { calc.sin(angle) }
+    else if name == "cos" { calc.cos(angle) }
+    else if name == "tan" { calc.tan(angle) }
+    else { panic("math-once calculate: unsupported function `" + name + "`") },
+  )
+}
+
 let parse(tokens, scope: (:)) = {
   let scope = normalize-scope(scope)
   let precedence = ("+": 1, "-": 1, "*": 2, "/": 2, "^": 3)
@@ -667,7 +729,17 @@ let parse(tokens, scope: (:)) = {
 
     let token = tokens.at(position)
     let left = none
-    if token == "+" or token == "-" {
+    if token in math-functions {
+      if position + 1 >= tokens.len() or tokens.at(position + 1) != "(" {
+        panic("math-once calculate: `" + token + "` must be followed by parentheses")
+      }
+      let (argument, next) = parse-expression(tokens, position + 2)
+      if next >= tokens.len() or tokens.at(next) != ")" {
+        panic("math-once calculate: missing closing parenthesis after `" + token + "`")
+      }
+      left = apply-function(token, argument)
+      position = next + 1
+    } else if token == "+" or token == "-" {
       let (operand, next) = parse-expression(tokens, position + 1, minimum: 3)
       left = if token == "-" {
         quantity(-operand.si-value, dims: operand.dims, preferred: operand.preferred)
@@ -686,13 +758,15 @@ let parse(tokens, scope: (:)) = {
       left = quantity(float(token))
       position += 1
     } else if is-name(token) {
-      let unit = resolve-unit(token)
-      if unit != none {
-        left = quantity(unit.scale, dims: unit.dims, preferred: token)
-      } else if token in scope {
+      if token in scope {
         left = scope.at(token)
       } else {
-        panic("math-once calculate: unknown variable or unit `" + token + "`")
+        let unit = resolve-unit(token)
+        if unit != none {
+          left = quantity(unit.scale, dims: unit.dims, preferred: token)
+        } else {
+          panic("math-once calculate: unknown variable or unit `" + token + "`")
+        }
       }
       position += 1
     } else {
@@ -719,8 +793,8 @@ let parse(tokens, scope: (:)) = {
   result
 }
 
-/// Evaluate a unit-aware expression containing numbers, units, variables, and
-/// the operators `+`, `-`, `*`, `/`, and `^`.
+/// Evaluate a unit-aware expression containing numbers, units, variables,
+/// `sin`, `cos`, `tan`, and the operators `+`, `-`, `*`, `/`, and `^`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
 let calculate(source, digits: 4, scope: (:), unit: none, block: true) = {
@@ -780,9 +854,17 @@ let calculate(source, digits: 4, scope: (:), unit: none, block: true) = {
     output-scale = preferred.si-value
   }
 
+  if target-tokens == none and result.dims == dim(length: 1) {
+    let scaled-unit = auto-length-unit(result.si-value, output-unit)
+    if scaled-unit != output-unit {
+      output-unit = scaled-unit
+      output-scale = resolve-unit(output-unit).scale
+    }
+  }
+
   let exact = result.si-value / output-scale
   let value = calc.round(exact, digits: digits)
-  let display-body = render-tokens(expression-tokens) + h(0.25em) + math.eq + h(0.25em) + str(value)
+  let display-body = render-tokens(expression-tokens, scope: scope) + h(0.25em) + math.eq + h(0.25em) + str(value)
   if output-unit != none {
     let output-tokens = if target-tokens != none { target-tokens } else { tokenize(output-unit) }
     display-body += h(0.2em) + render-tokens(output-tokens)
@@ -849,7 +931,9 @@ let calculation-builder(
 
       if name != none {
         let tokens = expression-tokens(expression)
-        let labelled-body = render-tokens((name,)) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens)
+        let name-scope = current
+        name-scope.insert(name, 0)
+        let labelled-body = render-tokens((name,), scope: name-scope) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current)
         let (expanded, has-variables) = expand-variables(tokens, current)
         if has-variables {
           labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded)
@@ -889,8 +973,8 @@ let calculation-builder(
 /// Evaluate a dimensional, unit-aware expression.
 ///
 /// - `source`: A trusted string, raw block, or Typst math equation containing
-///   numbers, units, variables, parentheses, `+`, `-`, `*`, `/`, `^`, and
-///   optionally `to` or `=` for output conversion.
+///   numbers, units, variables, parentheses, `sin`, `cos`, `tan`, `+`, `-`,
+///   `*`, `/`, `^`, and optionally `to` or `=` for output conversion.
 /// - `digits`: Decimal places used for the visible `value`. Default: `4`.
 /// - `scope`: Numbers or earlier calculate results available as variables.
 /// - `unit`: Optional requested output unit as a string, raw block, or Typst

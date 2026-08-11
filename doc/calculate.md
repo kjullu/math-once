@@ -107,6 +107,22 @@ the three forms in a call.
 #calculate(`3 m/s = km/h`, digits: 1).display
 ```
 
+### Trigonometric functions
+
+`sin`, `cos`, and `tan` accept a parenthesized angle. A bare number is treated
+as degrees. Add `rad`, `deg`, `degree`, or `°` to select an explicit angle unit.
+
+```typ
+#calculate(`sin(30)`).display
+// sin(30) = 0.5
+
+#calculate(`cos(60 degree)`).display
+// cos(60°) = 0.5
+
+#calculate(`tan(0.7853981634 rad)`, digits: 6).display
+// approximately 1
+```
+
 ### `block`
 
 `bool` — optional, named — default: `true`

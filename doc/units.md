@@ -52,7 +52,7 @@ Prefixes are resolved generically for supported SI units. Micro accepts `µ`,
 
 | Dimension or group | Units |
 | --- | --- |
-| SI bases | `m`, `g`/`kg`, `s`, `A`, `K`, `mol`, `cd` |
+| SI bases | `m`/`meter`/`metre`, `g`/`kg`, `s`, `A`, `K`, `mol`, `cd` |
 | Time | `s`/`sec`, `min`, `h`/`hr`, `t`, `day`, `week` |
 | Volume | `L`/`l` and derived `m^3` |
 | Angles | `rad`, `sr`, `deg`, `degree`, `°` |

@@ -207,6 +207,33 @@ math:
 // d = θ_m ⋅ 2 = 15° ⋅ 2 = 30°
 ```
 
+Stored variables take precedence over unit names. This permits conventional
+variables such as `m` in a formula. If a builder contains a variable named
+`m`, write `meter` or `metre` when the unit metre is needed in the expression.
+
+## Trigonometric calculations
+
+`sin`, `cos`, and `tan` accept parenthesized angles. Bare numbers are treated
+as degrees, matching the common calculator convention. Explicit `deg`, `°`,
+`degree`, and `rad` units are also supported.
+
+```typ
+#let eq = calculation-builder(key: "diffraction", digits: 9)
+
+#eq($l = 530 "nm"$)
+#eq($m = 1$)
+#eq($o = 15.0$)
+#eq($d = (m * l) / (sin(o))$)
+// d = (m ⋅ l) / sin(o) = (1 ⋅ 530 nm) / sin(15)
+//   = 2.047762752 µm
+```
+
+Typst math requires quotes around multi-letter units such as `"nm"`. Raw input
+can instead be written without quotes: `` `l = 530 nm` ``.
+
+Microscopic SI lengths automatically select a readable engineering prefix, so
+a result of roughly `2047.76 nm` is displayed as roughly `2.04776 µm`.
+
 ### `digits`
 
 `int` — optional, named
