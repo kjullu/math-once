@@ -3,10 +3,15 @@
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
 /// return both the rounded and exact values.
 ///
-/// `source` must be either a string or raw text, for example `902 / 3.6`.
-/// Names used by the expression can be supplied through `scope`.
+/// - `source`: A trusted Typst code expression as a string or raw block.
+/// - `digits`: Decimal places used for the visible `value`. Default: `0`.
+/// - `scope`: Values made available to the expression. Earlier `calculate`
+///   results are automatically unwrapped to their exact value.
+/// - `unit`: Optional display label as a string, raw block, math, or content.
+/// - `block`: Whether the rendered equation is centered. Default: `false`.
 ///
-/// Only pass expressions you trust: this function evaluates Typst code.
+/// Returns a dictionary with `display`, `value`, `exact`, `source`, and `unit`.
+/// Only pass expressions you trust: this function uses unrestricted `eval`.
 #let calculate(source, digits: 0, scope: (:), unit: none, block: false) = {
   let source = if type(source) == str {
     source
@@ -71,7 +76,11 @@
   )
 }
 
-#let zero-dim = (
+// Everything in this dictionary is an implementation detail. Keeping the
+// parser in one value leaves only the documented wrappers below as public API.
+#let _engine = {
+
+let zero-dim = (
   length: 0,
   mass: 0,
   time: 0,
@@ -81,7 +90,7 @@
   luminosity: 0,
 )
 
-#let dim(..values) = {
+let dim(..values) = {
   let result = zero-dim
   for (name, value) in values.named() {
     result.insert(name, value)
@@ -89,7 +98,7 @@
   result
 }
 
-#let units = (
+let units = (
   m:   (scale: 1.0, dims: dim(length: 1)),
   km:  (scale: 1000.0, dims: dim(length: 1)),
   cm:  (scale: 0.01, dims: dim(length: 1)),
@@ -113,13 +122,13 @@
   cd:  (scale: 1.0, dims: dim(luminosity: 1)),
 )
 
-#let quantity(si-value, dims: zero-dim, preferred: none) = (
+let quantity(si-value, dims: zero-dim, preferred: none) = (
   si-value: si-value,
   dims: dims,
   preferred: preferred,
 )
 
-#let dims-add(a, b, factor: 1) = {
+let dims-add(a, b, factor: 1) = {
   let result = zero-dim
   for (name, value) in a {
     result.insert(name, value + factor * b.at(name))
@@ -127,7 +136,7 @@
   result
 }
 
-#let dims-scale(a, factor) = {
+let dims-scale(a, factor) = {
   let result = zero-dim
   for (name, value) in a {
     result.insert(name, value * factor)
@@ -135,9 +144,9 @@
   result
 }
 
-#let is-dimensionless(q) = q.dims == zero-dim
+let is-dimensionless(q) = q.dims == zero-dim
 
-#let dimensions-name(dims) = {
+let dimensions-name(dims) = {
   let known = (
     (dim(length: 1), "length"),
     (dim(mass: 1), "mass"),
@@ -157,7 +166,7 @@
   "incompatible dimensions"
 }
 
-#let canonical-unit(dims) = {
+let canonical-unit(dims) = {
   let known = (
     (dim(length: 1), "m"),
     (dim(mass: 1), "kg"),
@@ -202,7 +211,7 @@
   numerator.join(" ") + if denominator.len() == 0 { "" } else { "/" + denominator.join(" ") }
 }
 
-#let source-string(source) = if type(source) == str {
+let source-string(source) = if type(source) == str {
   source.trim()
 } else if type(source) == content and source.func() == raw {
   source.text.trim()
@@ -210,7 +219,7 @@
   panic("math-once qalc: expression must be a string or raw text")
 }
 
-#let tokenize(source) = {
+let tokenize(source) = {
   let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|[A-Za-z]+|[()+*/^+\\-]")
   let tokens = ()
   let cursor = 0
@@ -228,12 +237,12 @@
   tokens
 }
 
-#let is-number(token) = regex("^(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?$") in token
-#let is-name(token) = regex("^[A-Za-z]+$") in token
-#let can-end(token) = is-number(token) or is-name(token) or token == ")"
-#let can-start(token) = is-number(token) or is-name(token) or token == "("
+let is-number(token) = regex("^(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?$") in token
+let is-name(token) = regex("^[A-Za-z]+$") in token
+let can-end(token) = is-number(token) or is-name(token) or token == ")"
+let can-start(token) = is-number(token) or is-name(token) or token == "("
 
-#let add-implicit-multiplication(tokens) = {
+let add-implicit-multiplication(tokens) = {
   let result = ()
   for (index, token) in tokens.enumerate() {
     if index > 0 and can-end(tokens.at(index - 1)) and can-start(token) {
@@ -244,7 +253,7 @@
   result
 }
 
-#let render-tokens(tokens) = {
+let render-tokens(tokens) = {
   let source = tokens.map(token => {
     if is-name(token) {
       "\"" + token + "\""
@@ -257,7 +266,7 @@
   eval(source, mode: "math").body
 }
 
-#let normalize-scope(scope) = {
+let normalize-scope(scope) = {
   let normalized = (:)
   for (name, item) in scope {
     if type(item) == dictionary and "si-value" in item and "dimensions" in item {
@@ -271,7 +280,7 @@
   normalized
 }
 
-#let apply-op(op, left, right) = {
+let apply-op(op, left, right) = {
   if op == "+" or op == "-" {
     if left.dims != right.dims {
       panic(
@@ -315,7 +324,7 @@
   panic("math-once qalc: unsupported operator `" + op + "`")
 }
 
-#let parse(tokens, scope: (:)) = {
+let parse(tokens, scope: (:)) = {
   let scope = normalize-scope(scope)
   let precedence = ("+": 1, "-": 1, "*": 2, "/": 2, "^": 3)
 
@@ -383,7 +392,7 @@
 ///
 /// Use `to` or the `unit` argument to request an output unit. For example,
 /// `10 m/s to km/t` and `qalc(`10 m/s`, unit: `km/t`)` are equivalent.
-#let qalc(source, digits: 4, scope: (:), unit: none, block: true) = {
+let qalc(source, digits: 4, scope: (:), unit: none, block: true) = {
   let source = source-string(source)
   let raw-tokens = tokenize(source)
   let depth = 0
@@ -454,7 +463,7 @@
 /// Named expressions such as `v = 10 m/s` are stored and automatically made
 /// available to later calls. Call the runner without an expression inside a
 /// context block to retrieve its dictionary of results.
-#let qalc-builder(
+let qalc-builder(
   initial-state: (:),
   key: "math-once-qalc",
   digits: 4,
@@ -494,3 +503,52 @@
     }
   }
 }
+
+(
+  qalc: qalc,
+  qalc-builder: qalc-builder,
+)
+}
+
+/// Evaluate a dimensional, qalc-style expression.
+///
+/// - `source`: A trusted string or raw block containing numbers, units,
+///   variables, parentheses, `+`, `-`, `*`, `/`, `^`, and optionally `to`.
+/// - `digits`: Decimal places used for the visible `value`. Default: `4`.
+/// - `scope`: Numbers or earlier qalc results available as variables.
+/// - `unit`: Optional requested output unit as a string or raw block. This is
+///   an alternative to `to` in `source`.
+/// - `block`: Whether the rendered equation is centered. Default: `true`.
+///
+/// Returns a dictionary with `display`, `value`, `exact`, `si-value`,
+/// `dimensions`, `unit`, and `source`.
+#let qalc(source, digits: 4, scope: (:), unit: none, block: true) = (_engine.qalc)(
+  source,
+  digits: digits,
+  scope: scope,
+  unit: unit,
+  block: block,
+)
+
+/// Create an eqrun-style stateful calculator.
+///
+/// - `initial-state`: Initial numeric values or qalc results. Default: empty.
+/// - `key`: Typst state key. Give independent runners different keys.
+/// - `digits`: Default decimal places for runner calls. Default: `4`.
+/// - `block`: Whether runner equations are centered. Default: `true`.
+///
+/// The returned runner accepts zero or one expression plus the named
+/// `digits`, `unit`, and `block` overrides. An assignment like
+/// `v = 10 m/s` stores `v`; calling the runner without an expression returns
+/// its result dictionary and must happen in a `context` block.
+#let qalc-builder(
+  initial-state: (:),
+  key: "math-once-qalc",
+  digits: 4,
+  block: true,
+) = (_engine.qalc-builder)(
+  initial-state: initial-state,
+  key: key,
+  digits: digits,
+  block: block,
+)
