@@ -13,6 +13,7 @@
 ).display
 #calculate(`3 m/s`, unit: `km/h`, digits: 1).display
 #calculate($902 / 3.6$, unit: $m/s$, digits: 2).display
+#calculate(`2047.762752 nm`, size: $10^(-6)$, digits: 9).display
 #calculate(`3 m/s to km/h`, digits: 1).display
 #calculate(`3 m/s = km/h`, digits: 1).display
 Inline: #calculate(`100 cm to m`, block: false).display.
@@ -45,6 +46,12 @@ Inline: #inline(`x = 2 + 2`).
 #let converted = calculation-builder(key: "docs-unit")
 #converted(`v = 10 m/s`, unit: `km/h`, digits: 1)
 #converted($u = 902 / 3.6$, unit: $m/s$, digits: 2)
+
+#let sized = calculation-builder(key: "docs-size", digits: 9)
+#sized($lambda = 530 "nm"$)
+#sized($n = 1$)
+#sized($theta_1 = 15 degree$)
+#sized($d = (n * lambda) / sin(theta_1)$, size: $10^(-6)$)
 
 #let stored = calculation-builder(key: "docs-state", digits: 2)
 #stored($v = 902 / 3.6$)

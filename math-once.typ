@@ -1,4 +1,4 @@
-// math-once v0.8.0
+// math-once v0.9.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -370,6 +370,15 @@ let auto-length-unit(si-value, current-unit) = {
     }
   }
   current-unit
+}
+
+let sized-output-unit(dims, size) = {
+  if dims == dim(length: 1) {
+    for (unit, scale) in engineering-length-units {
+      if scale == size { return unit }
+    }
+  }
+  "(" + str(size) + ") " + canonical-unit(dims)
 }
 
 let source-string(source) = if type(source) == str {
@@ -809,11 +818,31 @@ let parse(tokens, scope: (:)) = {
   result
 }
 
+let normalize-size(size) = {
+  if size == none { return none }
+  let value = if type(size) in (int, float, decimal) {
+    float(size)
+  } else if type(size) in (str, content) {
+    let parsed = parse(add-implicit-multiplication(tokenize(input-source(size))))
+    if not is-dimensionless(parsed) {
+      panic("math-once calculate: size must not contain a physical unit")
+    }
+    parsed.si-value
+  } else {
+    panic("math-once calculate: size must be a positive number or math expression")
+  }
+  if value <= 0 {
+    panic("math-once calculate: size must be greater than zero")
+  }
+  value
+}
+
 /// Evaluate a unit-aware expression containing numbers, units, variables,
 /// `sin`, `cos`, `tan`, and the operators `+`, `-`, `*`, `/`, and `^`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
-let calculate(source, digits: 4, scope: (:), unit: none, block: true) = {
+let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true) = {
+  let size = normalize-size(size)
   let source = input-source(source)
   let raw-tokens = tokenize(source)
   let depth = 0
@@ -830,6 +859,9 @@ let calculate(source, digits: 4, scope: (:), unit: none, block: true) = {
 
   if conversion-index != none and unit != none {
     panic("math-once calculate: use only one of `to`, `=`, or `unit`")
+  }
+  if size != none and (conversion-index != none or unit != none) {
+    panic("math-once calculate: use `size` or an output unit, not both")
   }
 
   let expression-tokens = if conversion-index == none { raw-tokens } else { raw-tokens.slice(0, conversion-index) }
@@ -870,7 +902,13 @@ let calculate(source, digits: 4, scope: (:), unit: none, block: true) = {
     output-scale = preferred.si-value
   }
 
-  if target-tokens == none and result.dims == dim(length: 1) {
+  if size != none {
+    if is-dimensionless(result) {
+      panic("math-once calculate: size requires a result with a physical unit")
+    }
+    output-unit = sized-output-unit(result.dims, size)
+    output-scale = size
+  } else if target-tokens == none and result.dims == dim(length: 1) {
     let scaled-unit = auto-length-unit(result.si-value, output-unit)
     if scaled-unit != output-unit {
       output-unit = scaled-unit
@@ -892,6 +930,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, block: true) = {
     si-value: result.si-value,
     dimensions: result.dims,
     unit: output-unit,
+    size: size,
     source: source,
     display: math.equation(display-body, block: block),
   )
@@ -923,6 +962,7 @@ let calculation-builder(
     ..args,
     digits: digits,
     unit: none,
+    size: none,
     block: block,
     label: none,
     caption: none,
@@ -959,7 +999,14 @@ let calculation-builder(
 
     let equation-body = context {
       let current = variables.get()
-      let result = calculate(expression, digits: digits, scope: current, unit: unit, block: block)
+      let result = calculate(
+        expression,
+        digits: digits,
+        scope: current,
+        unit: unit,
+        size: size,
+        block: block,
+      )
 
       if name != none {
         let tokens = expression-tokens(expression)
@@ -1012,15 +1059,19 @@ let calculation-builder(
 ///   Unit names are reserved and cannot be used as variable names.
 /// - `unit`: Optional requested output unit as a string, raw block, or Typst
 ///   math equation. This is an alternative to `to` or `=` in `source`.
+/// - `size`: Optional positive SI scale for the displayed result. For example,
+///   `$10^(-6)$` displays a length in micrometres. Cannot be combined with an
+///   output unit.
 /// - `block`: Whether the rendered equation is centered. Default: `true`.
 ///
 /// Returns a dictionary with `display`, `value`, `exact`, `si-value`,
-/// `dimensions`, `unit`, and `source`.
-#let calculate(source, digits: 4, scope: (:), unit: none, block: true) = (_engine.calculate)(
+/// `dimensions`, `unit`, `size`, and `source`.
+#let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true) = (_engine.calculate)(
   source,
   digits: digits,
   scope: scope,
   unit: unit,
+  size: size,
   block: block,
 )
 
@@ -1034,8 +1085,8 @@ let calculation-builder(
 /// - `supplement`: Optional reference and caption name. Default: `auto`.
 ///
 /// The returned runner accepts zero or one string, raw block, or Typst math
-/// equation plus the named `digits`, `unit`, `block`, `label`, `caption`, and
-/// `gap`, and `supplement` overrides.
+/// equation plus the named `digits`, `unit`, `size`, `block`, `label`,
+/// `caption`, and `gap`, and `supplement` overrides.
 /// An assignment like `$v = 10 m/s$` stores `v`. Later equations show an extra
 /// step with stored variable values substituted. A label can be written after
 /// the call as `#runner(...) <name>` or passed with `label: <name>`. Calling

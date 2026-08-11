@@ -123,6 +123,7 @@ runner(
   [source],
   digits: builder-digits,
   unit: none,
+  size: none,
   block: builder-block,
   label: none,
   caption: none,
@@ -257,6 +258,29 @@ Requests an output unit for this call. It behaves like the `unit` parameter of
 #eq($u = 902 / 3.6$, unit: $m/s$, digits: 2)
 // u = 902/3.6 = 250.56 m/s
 ```
+
+### `size`
+
+`int` or `float` or `decimal` or string/raw/math `content` or `none` — optional,
+named — default: `none`
+
+Selects the SI scale used for the displayed result. Wrap exponent notation in
+Typst math, so `$10^(-6)$` requests millionths of the SI unit. For lengths,
+familiar scales use their normal prefix.
+
+```typ
+#let eq = calculation-builder(key: "size-example", digits: 9)
+#eq($lambda = 530 "nm"$)
+#eq($n = 1$)
+#eq($theta_1 = 15 degree$)
+#eq($d = (n * lambda) / sin(theta_1)$, size: $10^(-6)$)
+// d = ... = 2.047762752 µm
+```
+
+The exact `si-value` is unchanged and is used by later calculations. `size`
+must be positive and cannot be combined with `unit`, `to`, or an output `=`.
+Bare `10^(-6)` is not valid in Typst code; use `$10^(-6)$`, `` `10^(-6)` ``,
+`"10^(-6)"`, or `calc.pow(10, -6)`.
 
 ### `block`
 
