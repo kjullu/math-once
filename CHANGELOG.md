@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+- Added `sin`, `cos`, and `tan`; bare numeric angles use degrees, while explicit
+  degree and radian units remain supported.
+- Stored variables now take precedence over colliding unit symbols, allowing
+  conventional variables such as `m`; `meter` and `metre` disambiguate the unit.
+- Microscopic SI length results automatically choose a readable engineering
+  prefix, such as converting `2047.762752 nm` to `2.047762752 µm`.
+- Typst math operators and parenthesized expressions are parsed without adding
+  duplicate parentheses.
+
 ## 0.5.0
 
 - Variable names can contain letter or number subscripts, so equations such as
