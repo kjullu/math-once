@@ -52,6 +52,21 @@
 #assert(calculate(`1 C / (1 s)`, unit: `A`).value == 1.0)
 #assert(calculate(`1 W * 1 h`, unit: `Wh`).value == 1.0)
 
+// Qalculate-compatible affine temperatures and newly added prefix families.
+#assert(calculate(`0 celsius to K`, digits: 2).value == 273.15)
+#assert(calculate(`32 fahrenheit to celsius`, digits: 8).value == 0.0)
+#assert(calculate(`273.15 K to °C`, digits: 8).value == 0.0)
+#assert(calculate(`1 KiB to bit`).value == 8192.0)
+#assert(calculate(`1 QB to B`).exact == 1e30)
+#assert(calculate(`1 qg to kg`).exact == 1e-33)
+
+// Representative qalc catalog groups compose with the ordinary parser.
+#assert(calculate(`1 acre to m^2`, digits: 6).value == 4046.856422)
+#assert(calculate(`1 hp to W`, digits: 6).value == 745.699987)
+#assert(calculate(`1 lb to kg`, digits: 8).value == 0.45359237)
+#assert(calculate(`1 au to km`, digits: 1).value == 149597870.7)
+#assert(calc.abs(calculate(`1 pc to ly`).exact - 3.261563777) < 0.00000001)
+
 #calculate(`1 m/s + 1 m/s = km/s`).display
 #calculate(`1 mV * 1 A`, unit: `mW`).display
 #calculate(`1 mi to km`).display

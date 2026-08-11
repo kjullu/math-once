@@ -29,7 +29,7 @@ dimensions and reject incompatible operations such as `10 m + 2 s`.
 
 #let eq = calculation-builder(digits: 2)
 #eq($v = 902 / 3.6$)
-#eq($a = v * 2$)
+#eq($x = v * 2$)
 ```
 
 ## Input forms

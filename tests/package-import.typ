@@ -1,4 +1,4 @@
-#import "@local/math-once:0.9.0": evaluate-code, calculate, calculation-builder, equation, equation-outline
+#import "@local/math-once:0.10.0": evaluate-code, calculate, calculation-builder, equation, equation-outline
 
 #let result = evaluate-code(`6 * 7`, unit: `kg`)
 #assert(result.value == 42)
@@ -14,9 +14,9 @@
 #assert(type(equation) == function)
 #assert(type(equation-outline) == function)
 #run(`v = 10 m/s`)
-#run(`d = v * 2 s`)
+#run(`x = v * 2 s`)
 #context {
   let variables = run()
-  assert(variables.d.value == 20.0)
-  assert(variables.d.unit == "m")
+  assert(variables.x.value == 20.0)
+  assert(variables.x.unit == "m")
 }

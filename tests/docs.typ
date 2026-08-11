@@ -27,7 +27,7 @@ Inline: #calculate(`100 cm to m`, block: false).display.
   initial-state: (factor: 2),
   key: "docs-initial-state",
 )
-#initial(`a = factor * 3`)
+#initial(`x = factor * 3`)
 
 #let rounding = calculation-builder(key: "docs-rounding", digits: 2)
 #rounding(`x = 1 / 3`)
@@ -38,20 +38,20 @@ Inline: #inline(`x = 2 + 2`).
 
 #let source = calculation-builder(key: "docs-source")
 #source($v = 10 m/s$)
-#source($d = v * 2 s$)
+#source($x = v * 2 s$)
 #source(`1 m/s to km/h`)
 #source(`speed = 10 m/s`)
 #source($"other" = 10 m/s$)
 
 #let converted = calculation-builder(key: "docs-unit")
 #converted(`v = 10 m/s`, unit: `km/h`, digits: 1)
-#converted($u = 902 / 3.6$, unit: $m/s$, digits: 2)
+#converted($x = 902 / 3.6$, unit: $m/s$, digits: 2)
 
 #let sized = calculation-builder(key: "docs-size", digits: 9)
 #sized($lambda = 530 "nm"$)
 #sized($n = 1$)
 #sized($theta_1 = 15 degree$)
-#sized($d = (n * lambda) / sin(theta_1)$, size: $10^(-6)$)
+#sized($x = (n * lambda) / sin(theta_1)$, size: $10^(-6)$)
 
 #let stored = calculation-builder(key: "docs-state", digits: 2)
 #stored($v = 902 / 3.6$)
@@ -62,7 +62,7 @@ Inline: #inline(`x = 2 + 2`).
 
 #let dimensioned = calculation-builder(key: "docs-dimensioned", digits: 2)
 #dimensioned($v = 10 m/s + 1 "km"/h$)
-#dimensioned($d = v * 2 s$, digits: 3)
+#dimensioned($x = v * 2 s$, digits: 3)
 
 // Per-equation caption examples.
 #show: number-labelled-equations

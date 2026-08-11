@@ -43,7 +43,7 @@ It also works with equations returned by `calculate` and `calculation-builder`:
   unit: $m/s$,
   caption: [Den beregnede hastighed],
 ) <speed>
-#eq($a = v * 2$)
+#eq($x = v * 2$)
 
 Hastigheden er beregnet i @speed.
 ```

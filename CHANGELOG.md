@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.0
+
+- Expanded the static unit catalog to 244 of Qalculate 5.10's 246 named unit
+  groups, including aliases, affine temperature scales, information units,
+  astronomical and Planck units, CGS, Imperial/US, photometric, typographic,
+  historical, and scientific units.
+- Added the 2022 SI prefixes (`Q`, `R`, `r`, `q`) and binary prefixes from
+  `Ki` through `Qi` for bits and bytes.
+- Added a generated smoke test for every accepted qalc spelling and a local
+  audit helper. `dBW` and `dBm` remain excluded because their conversion is
+  logarithmic rather than linear or affine.
+
 ## 0.9.0
 
 - Added `size` to `calculate` and calculation-builder calls. It accepts a
