@@ -22,13 +22,13 @@ Copy [`math-once.typ`](math-once.typ) into your project and import the
 functions you need:
 
 ```typ
-#import "math-once.typ": qalc, qalc-builder, calculate
+#import "math-once.typ": qalc, qalc-builder, calculate, number-labelled-equations
 ```
 
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.1.0": qalc, qalc-builder, calculate
+#import "@local/math-once:0.1.0": qalc, qalc-builder, calculate, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst and has no runtime dependencies.
@@ -39,6 +39,7 @@ The package is implemented entirely in Typst and has no runtime dependencies.
 - [`qalc`](doc/qalc.md) — evaluate one unit-aware expression
 - [`qalc-builder`](doc/qalc-builder.md) — store and reuse equation variables
 - [`calculate`](doc/calculate.md) — evaluate trusted Typst code
+- [`number-labelled-equations`](doc/number-labelled-equations.md) — number and reference only labelled equations
 - [Units and prefixes](doc/units.md)
 
 A compilable example covering the complete public API is available in

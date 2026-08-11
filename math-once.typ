@@ -646,7 +646,7 @@ let qalc-builder(
 ) = {
   let variables = state(key, initial-state)
 
-  (..args, digits: digits, unit: none, block: block) => {
+  (..args, digits: digits, unit: none, block: block, label: none) => {
     if args.pos().len() > 1 {
       panic("math-once qalc: the runner accepts at most one expression")
     }
@@ -683,7 +683,7 @@ let qalc-builder(
         })
       }
 
-      result.display
+      if label == none { result.display } else { [#result.display #label] }
     }
   }
 }
@@ -723,11 +723,12 @@ let qalc-builder(
 /// - `block`: Whether runner equations are centered. Default: `true`.
 ///
 /// The returned runner accepts zero or one string, raw block, or Typst math
-/// equation plus the named `digits`, `unit`, and `block` overrides. An
-/// assignment like `$v = 10 m/s$` stores `v`. Later equations show an extra
-/// step with stored variable values substituted. Calling the runner without
-/// an expression returns its result dictionary and must happen in a `context`
-/// block.
+/// equation plus the named `digits`, `unit`, `block`, and `label` overrides.
+/// An assignment like `$v = 10 m/s$` stores `v`. Later equations show an extra
+/// step with stored variable values substituted. `label: <name>` attaches a
+/// referenceable label directly to the generated equation. Calling the runner
+/// without an expression returns its result dictionary and must happen in a
+/// `context` block.
 #let qalc-builder(
   initial-state: (:),
   key: "math-once-qalc",
@@ -739,3 +740,36 @@ let qalc-builder(
   digits: digits,
   block: block,
 )
+
+/// Number block equations only when they have a label, while keeping the
+/// original equation elements intact so Typst references continue to work.
+///
+/// Use this as a document show rule: `#show: number-labelled-equations`.
+///
+/// - `body`: Document content supplied automatically by the show rule.
+/// - `numbering`: Numbering pattern or function for labelled equations.
+///   Default: `"(1)"`.
+/// - `supplement`: Name placed before equation references. Default: `auto`.
+#let number-labelled-equations(
+  body,
+  numbering: "(1)",
+  supplement: auto,
+) = {
+  set math.equation(numbering: numbering, supplement: supplement)
+  show math.equation: equation => {
+    if equation.block and not equation.has("label") and equation.numbering != none {
+      counter(math.equation).update(value => calc.max(0, value - 1))
+      math.equation(
+        equation.body,
+        block: true,
+        numbering: none,
+        number-align: equation.number-align,
+        supplement: equation.supplement,
+        alt: equation.alt,
+      )
+    } else {
+      equation
+    }
+  }
+  body
+}
