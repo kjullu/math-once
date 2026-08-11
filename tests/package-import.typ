@@ -1,4 +1,4 @@
-#import "@local/math-once:0.2.1": evaluate-code, calculate, calculation-builder
+#import "@local/math-once:0.2.2": evaluate-code, calculate, calculation-builder, equation
 
 #let result = evaluate-code(`6 * 7`, unit: `kg`)
 #assert(result.value == 42)
@@ -11,6 +11,7 @@
 #speed.display
 
 #let run = calculation-builder(key: "package-import-runner")
+#assert(type(equation) == function)
 #run(`v = 10 m/s`)
 #run(`d = v * 2 s`)
 #context {

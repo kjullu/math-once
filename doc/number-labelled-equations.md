@@ -7,21 +7,18 @@ number and do not advance the equation counter.
 ## Example
 
 ```typ
-#import "math-once.typ": number-labelled-equations
+#import "math-once.typ": equation, number-labelled-equations
 
-#show: number-labelled-equations.with(
-  supplement: [Ligning],
-  captions: (
-    energy: [Sammenhængen mellem masse og energi],
-  ),
-)
+#show: number-labelled-equations.with(supplement: [Ligning])
 
 // No label: no name or number.
 $ 1 + 1 = 2 $
 
-// Label: receives number (1).
-$ E = m c^2 $ <energy>
-// Caption: Ligning 1: Sammenhængen mellem masse og energi
+// Label: receives number (1) and can have a per-equation caption.
+#equation(
+  $ E = m c^2 $,
+  caption: [Sammenhængen mellem masse og energi],
+) <energy>
 
 Som vist i @energy kan masse omdannes til energi.
 // Som vist i Ligning 1 ...
@@ -36,21 +33,21 @@ It also works with equations returned by `calculate` and `calculation-builder`:
 ```typ
 #import "math-once.typ": calculation-builder, number-labelled-equations
 
-#show: number-labelled-equations.with(
-  supplement: [Ligning],
-  captions: (
-    speed: [Den beregnede hastighed],
-  ),
-)
+#show: number-labelled-equations.with(supplement: [Ligning])
 #let eq = calculation-builder(digits: 2)
 
-#eq($v = 902 / 3.6$, unit: $m/s$) <speed>
+#eq(
+  $v = 902 / 3.6$,
+  unit: $m/s$,
+  caption: [Den beregnede hastighed],
+) <speed>
 #eq($a = v * 2$)
 
 Hastigheden er beregnet i @speed.
 ```
 
-Only the first equation is numbered and captioned because only it has a label.
+Only the first equation is numbered because only it has a label. Its caption is
+declared beside that equation, in the same style as Typst's `figure` calls.
 `calculation-builder` also accepts `label: <speed>` as an alternative to the
 postfix label.
 
@@ -104,8 +101,9 @@ uses Typst's localized equation supplement. Set explicit Danish text with:
 
 `dictionary` — optional, named — default: `(:)`
 
-Maps label names to caption content. Write dictionary keys without angle
-brackets. A caption is centered below its equation and prefixed with the
+Compatibility alternative for documents written before per-equation captions
+were added. Maps label names to caption content. Write dictionary keys without
+angle brackets. A caption is centered below its equation and prefixed with the
 equation's localized reference name and number.
 
 ```typ
@@ -124,6 +122,10 @@ $ E = m c^2 $ <energy>
 Captions require a label because the label connects the caption, number, and
 reference target. Labels without a matching dictionary entry are still
 numbered normally but receive no caption.
+
+For new documents, prefer [`equation(..., caption: ...)`](equation.md) for
+native equations and `#eq(..., caption: ...)` for calculation-builder output.
+This keeps each caption beside the equation it describes.
 
 ## Labels and references
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2
+
+- Added the figure-like `equation(body, caption: ...)` wrapper for captions
+  placed directly beside native equations in the source.
+- Added per-call `caption:` and `gap:` parameters to `calculation-builder`
+  runners.
+- Captioned equations remain native `math.equation` elements, so postfix
+  labels, selective numbering, and references keep using one equation counter.
+
 ## 0.2.1
 
 - Labels written after `calculation-builder` output now attach directly to the

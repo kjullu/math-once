@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculate, calculation-builder, evaluate-code
+#import "../math-once.typ": calculate, calculation-builder, equation, evaluate-code, number-labelled-equations
 
 // calculate documentation examples.
 #calculate(`1 m + 25 cm`).display
@@ -56,6 +56,12 @@ Inline: #inline(`x = 2 + 2`).
 #let dimensioned = calculation-builder(key: "docs-dimensioned", digits: 2)
 #dimensioned($v = 10 m/s + 1 "km"/h$)
 #dimensioned($d = v * 2 s$, digits: 3)
+
+// Per-equation caption examples.
+#show: number-labelled-equations
+#equation($ E = m c^2 $, caption: [Mass-energy equivalence]) <docs-energy>
+#dimensioned($p = 2 m * 3 m$, caption: [Calculated area]) <docs-area>
+See @docs-energy and @docs-area.
 
 // evaluate-code documentation examples.
 #evaluate-code(`902 / 3.6`, digits: 2, unit: `m/s`).display
