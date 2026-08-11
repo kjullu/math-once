@@ -1,6 +1,7 @@
 # Units and prefixes
 
-`calculate` and `calculation-builder` track the seven SI base dimensions. Compatible units
+`calculate` and `calculation-builder` track the seven SI base dimensions plus
+information and logarithmic-ratio dimensions. Compatible units
 are converted before addition or subtraction, while multiplication, division,
 and integer powers combine dimensions.
 
@@ -41,6 +42,8 @@ Prefixes are resolved generically for supported SI units. Micro accepts `µ`,
 | yotta through kilo | `Y`, `Z`, `E`, `P`, `T`, `G`, `M`, `k` |
 | hecto through deci | `h`, `da`, `d` |
 | centi through yocto | `c`, `m`, `µ`/`μ`/`u`, `n`, `p`, `f`, `a`, `z`, `y` |
+| 2022 SI extensions | `Q`, `R`, `r`, `q` |
+| Binary prefixes | `Ki`, `Mi`, `Gi`, `Ti`, `Pi`, `Ei`, `Zi`, `Yi`, `Ri`, `Qi` |
 
 ```typ
 #calculate(`1 µm to nm`).display
@@ -62,6 +65,29 @@ Prefixes are resolved generically for supported SI units. Micro accepts `µ`,
 | Other derived SI | `lm`, `lx`, `Bq`, `Gy`, `Sv`, `kat` |
 | Energy and pressure | `Wh`, `eV`, `cal`, `bar`, `atm` |
 | Imperial and common | `inch`, `ft`, `yd`, `mi`, `mph`, `kn`, `ton` |
+
+The built-in catalog mirrors 244 of the 246 named unit groups shipped by
+Qalculate 5.10, including their listed aliases. This adds astronomical and
+Planck units, CGS/electromagnetic units, US and Imperial volume, area, mass,
+force and pressure units, photometric units, typography units, data units,
+calendar durations, temperature scales, and historical/scientific units.
+For example:
+
+```typ
+#calculate(`1 pc to ly`).display
+#calculate(`1 acre to m^2`).display
+#calculate(`1 hp to W`).display
+#calculate(`1 KiB to bit`).display
+#calculate(`32 fahrenheit to celsius`).display
+```
+
+The complete machine-checked spelling list is in `tests/qalc-units.typ`.
+`tools/audit-qalc-units.py` records how the static catalog is checked against
+the installed qalc data; qalc is not a runtime dependency.
+
+For backwards compatibility, math-once keeps `t` as the Danish abbreviation
+for hours. Qalculate uses `t` for tonnes; use `tonne` or `ton` for that unit in
+math-once.
 
 `t` is accepted as the Danish abbreviation for hours. Arbitrary products,
 quotients, and integer powers can be built from supported units.
@@ -89,8 +115,10 @@ Unit symbols are case-sensitive. In particular:
 
 - Unit names are reserved and take precedence over variables with the same
   name.
-- Affine temperature scales such as Celsius and Fahrenheit are not supported.
-  Kelvin is supported.
+- Celsius, Fahrenheit, Kelvin, and Rankine are supported. Affine temperature
+  names must be multiplied by a plain number (for example, `20 celsius`).
+- Qalculate's `dBW` and `dBm` are not supported because they are logarithmic
+  power-level transforms rather than fixed linear or affine units.
 - Currencies and context-dependent conversions are not supported.
 - A dimensioned value can only be raised to an integer power.
 

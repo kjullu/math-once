@@ -143,6 +143,8 @@ let zero-dim = (
   temperature: 0,
   amount: 0,
   luminosity: 0,
+  information: 0,
+  logratio: 0,
 )
 
 let dim(..values) = {
@@ -227,7 +229,290 @@ units.insert("l", units.L)
 units.insert("sec", units.s)
 units.insert("hr", units.h)
 
+// Generated from Qalculate 5.10's built-in unit catalog; see
+// tools/audit-qalc-units.py. Runtime use remains dependency-free.
+let qalc-unit-definitions = (
+  (names: ("AstronomicalUnit", "au"), scale: 149597870700, dims: dim(length: 1)),
+  (names: ("AtomicMassUnit", "u", "AMU"), scale: 1.66053907e-27, dims: dim(mass: 1)),
+  (names: ("BohrUnit",), scale: 5.2917721e-11, dims: dim(length: 1)),
+  (names: ("BoltzmannUnit", "k_Bunit"), scale: 1.380649e-23, dims: dim(mass: 1, length: 2, temperature: -1, time: -2)),
+  (names: ("Btu",), scale: 1055.05585262, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("Calorie",), scale: 4184, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("DryPint", "dry_pt"), scale: 0.0005506104713575, dims: dim(length: 3)),
+  (names: ("DryQuart", "dry_qt"), scale: 0.001101220942715, dims: dim(length: 3)),
+  (names: ("ElectronUnit", "m_eunit"), scale: 9.1093837139e-31, dims: dim(mass: 1)),
+  (names: ("FluidDrachm", "fl_dr"), scale: 3.696691195313e-06, dims: dim(length: 3)),
+  (names: ("FluidOunce", "fl_oz"), scale: 2.95735295625e-05, dims: dim(length: 3)),
+  (names: ("FootCandle", "fc"), scale: 10.763910417, dims: dim(luminosity: 1, length: -2)),
+  (names: ("FootLambert",), scale: 3.4262591, dims: dim(luminosity: 1, length: -2)),
+  (names: ("GregorianYear", "a_g"), scale: 31556952, dims: dim(time: 1)),
+  (names: ("ImperialBushel", "bu_UK"), scale: 0.03636872, dims: dim(length: 3)),
+  (names: ("ImperialFluidDrachm", "fl_dr_UK"), scale: 3.5516328125e-06, dims: dim(length: 3)),
+  (names: ("ImperialFluidOunce", "fl_oz_UK"), scale: 2.84130625e-05, dims: dim(length: 3)),
+  (names: ("ImperialFluidScruple",), scale: 1.183877604167e-06, dims: dim(length: 3)),
+  (names: ("ImperialGallon", "gal_UK"), scale: 0.00454609, dims: dim(length: 3)),
+  (names: ("ImperialGill", "gi_UK"), scale: 0.0001420653125, dims: dim(length: 3)),
+  (names: ("ImperialMinim",), scale: 5.9193880208e-08, dims: dim(length: 3)),
+  (names: ("ImperialPint", "pt_UK"), scale: 0.00056826125, dims: dim(length: 3)),
+  (names: ("ImperialQuart", "qt_UK"), scale: 0.0011365225, dims: dim(length: 3)),
+  (names: ("JohnsonPica",), scale: 0.0042164, dims: dim(length: 1)),
+  (names: ("LightHour",), scale: 1079252848800, dims: dim(length: 1)),
+  (names: ("LightMinute",), scale: 17987547480, dims: dim(length: 1)),
+  (names: ("LightSecond",), scale: 299792458, dims: dim(length: 1)),
+  (names: ("LiquidPint", "liq_pt"), scale: 0.000473176473, dims: dim(length: 3)),
+  (names: ("LiquidQuart", "liq_qt"), scale: 0.000946352946, dims: dim(length: 3)),
+  (names: ("LongHundredweight", "l_cwt"), scale: 50.80234544, dims: dim(mass: 1)),
+  (names: ("LongTon", "l_ton"), scale: 1016.0469088, dims: dim(mass: 1)),
+  (names: ("NauticalMile", "nmi"), scale: 1852, dims: dim(length: 1)),
+  (names: ("NewDidot",), scale: 0.000375, dims: dim(length: 1)),
+  (names: ("OctalDigit",), scale: 3, dims: dim(information: 1)),
+  (names: ("OunceForce", "ozf"), scale: 0.278013850954, dims: dim(mass: 1, length: 1, time: -2)),
+  (names: ("PS", "pferdestärke"), scale: 735.49875, dims: dim(mass: 1, length: 2, time: -3)),
+  (names: ("PiedDuRoi",), scale: 0.324839384971, dims: dim(length: 1)),
+  (names: ("PlanckCharge", "q_P"), scale: 1.87554604e-18, dims: dim(current: 1, time: 1)),
+  (names: ("PlanckLength", "l_P"), scale: 1.616255e-35, dims: dim(length: 1)),
+  (names: ("PlanckMass", "m_P"), scale: 2.176e-08, dims: dim(mass: 1)),
+  (names: ("PlanckTemperature", "T_P"), scale: 1.416784e32, dims: dim(temperature: 1)),
+  (names: ("PlanckTime", "t_P"), scale: 5.391247e-44, dims: dim(time: 1)),
+  (names: ("PlanckUnit", "ℏ_unit"), scale: 1.054571817e-34, dims: dim(mass: 1, length: 2, time: -1)),
+  (names: ("PoundForce", "lbf"), scale: 4.448221615, dims: dim(mass: 1, length: 1, time: -2)),
+  (names: ("RackUnit", "U", "RU"), scale: 0.04445, dims: dim(length: 1)),
+  (names: ("RadRadioactivity",), scale: 0.01, dims: dim(length: 2, time: -2)),
+  (names: ("RydbergUnit", "Ry"), scale: 2.179872361e-18, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("ShortTon", "s_ton"), scale: 907.18474, dims: dim(mass: 1)),
+  (names: ("SolarLuminosity", "L_☉"), scale: 3.828e26, dims: dim(mass: 1, length: 2, time: -3)),
+  (names: ("SolarMass", "M_☉"), scale: 1.98847e30, dims: dim(mass: 1)),
+  (names: ("SolarRadius", "R_☉"), scale: 695700000, dims: dim(length: 1)),
+  (names: ("TexPoint", "pt_TeX"), scale: 0.000351459803515, dims: dim(length: 1)),
+  (names: ("TexScaledPoint", "sp_TeX"), scale: 5.362851006e-09, dims: dim(length: 1)),
+  (names: ("ThermISO", "thm_ISO"), scale: 105506000, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("ThermUS", "thm_US"), scale: 105480400, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("TonRefrigaration", "TOR"), scale: 3516.852842067, dims: dim(mass: 1, length: 2, time: -3)),
+  (names: ("TropicalYear", "a_t"), scale: 31556925.216, dims: dim(time: 1)),
+  (names: ("TroyOunce", "oz_t"), scale: 0.0311034768, dims: dim(mass: 1)),
+  (names: ("TroyPound", "lb_t"), scale: 0.3732417216, dims: dim(mass: 1)),
+  (names: ("US_foot", "ft_US"), scale: 0.304800609601, dims: dim(length: 1)),
+  (names: ("US_inch", "in_US"), scale: 0.0254000508, dims: dim(length: 1)),
+  (names: ("US_mile", "mi_US"), scale: 1609.347219, dims: dim(length: 1)),
+  (names: ("US_point", "pt_US"), scale: 0.000351366666667, dims: dim(length: 1)),
+  (names: ("US_rod", "rd_US"), scale: 5.029210058, dims: dim(length: 1)),
+  (names: ("abampere", "abA", "Bi", "biot"), scale: 10, dims: dim(current: 1)),
+  (names: ("abcoulomb", "abC", "aC"), scale: 10, dims: dim(current: 1, time: 1)),
+  (names: ("abhenry", "abH"), scale: 1e-09, dims: dim(mass: 1, length: 2, current: -2, time: -2)),
+  (names: ("abohm", "abΩ"), scale: 1e-09, dims: dim(mass: 1, length: 2, current: -2, time: -3)),
+  (names: ("abvolt", "abV"), scale: 1e-08, dims: dim(mass: 1, length: 2, current: -1, time: -3)),
+  (names: ("acre",), scale: 4046.8564224, dims: dim(length: 2)),
+  (names: ("agate",), scale: 0.001940277778, dims: dim(length: 1)),
+  (names: ("ampere", "A", "amp"), scale: 1, dims: dim(current: 1)),
+  (names: ("angstrom", "Å", "ångström"), scale: 1e-10, dims: dim(length: 1)),
+  (names: ("arcminute", "arcmin"), scale: 0.000290888208666, dims: dim()),
+  (names: ("arcsecond", "arcsec"), scale: 4.848136811e-06, dims: dim()),
+  (names: ("are", "a"), scale: 100, dims: dim(length: 2)),
+  (names: ("atmosphere", "atm"), scale: 101325, dims: dim(mass: 1, length: -1, time: -2)),
+  (names: ("bar",), scale: 100000, dims: dim(mass: 1, length: -1, time: -2)),
+  (names: ("barn", "b"), scale: 1e-28, dims: dim(length: 2)),
+  (names: ("barrel", "bbl"), scale: 0.158987295, dims: dim(length: 3)),
+  (names: ("barye", "Ba"), scale: 0.1, dims: dim(mass: 1, length: -1, time: -2)),
+  (names: ("becquerel", "Bq"), scale: 1, dims: dim(time: -1)),
+  (names: ("bel",), scale: 1.151292546, dims: dim(logratio: 1)),
+  (names: ("bit", "shannon", "Sh", "BinaryDigit"), scale: 1, dims: dim(information: 1)),
+  (names: ("bushel", "bu"), scale: 0.03523907, dims: dim(length: 3)),
+  (names: ("byte", "B", "octet", "o"), scale: 8, dims: dim(information: 1)),
+  (names: ("c_unit",), scale: 299792458, dims: dim(length: 1, time: -1)),
+  (names: ("cal_IT",), scale: 4.1868, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("cal_fifteen",), scale: 4.2, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("cal_mean",), scale: 4.19002, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("calorie", "cal"), scale: 4.184, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("candela", "cd"), scale: 1, dims: dim(luminosity: 1)),
+  (names: ("carat",), scale: 0.0002, dims: dim(mass: 1)),
+  (names: ("celsius", "oC", "°C", "℃", "centigrade"), scale: 1, dims: dim(temperature: 1), offset: 273.15),
+  (names: ("cfm",), scale: 0.0004719474432, dims: dim(length: 3, time: -1)),
+  (names: ("cfs",), scale: 0.028316847, dims: dim(length: 3, time: -1)),
+  (names: ("chain", "ch"), scale: 20.1168, dims: dim(length: 1)),
+  (names: ("cicero",), scale: 0.004511658125, dims: dim(length: 1)),
+  (names: ("cmil",), scale: 5.06707479097e-10, dims: dim(length: 2)),
+  (names: ("coulomb", "C"), scale: 1, dims: dim(current: 1, time: 1)),
+  (names: ("cup",), scale: 0.0002365882365, dims: dim(length: 3)),
+  (names: ("curie", "Ci"), scale: 37000000000, dims: dim(time: -1)),
+  (names: ("dalton", "Da"), scale: 1.66053907e-27, dims: dim(mass: 1)),
+  (names: ("daraf",), scale: 1, dims: dim(mass: 1, length: 2, current: -2, time: -4)),
+  (names: ("darcy",), scale: 9.86923267e-13, dims: dim(length: 2)),
+  (names: ("day", "d"), scale: 86400, dims: dim(time: 1)),
+  (names: ("debye", "D"), scale: 3.33564095198152e-30, dims: dim(current: 1, length: 1, time: 1)),
+  (names: ("decare", "da"), scale: 1000, dims: dim(length: 2)),
+  (names: ("decibel", "dB"), scale: 0.115129255, dims: dim(logratio: 1)),
+  (names: ("declet",), scale: 10, dims: dim(information: 1)),
+  (names: ("degree", "deg", "°"), scale: 0.01745329252, dims: dim()),
+  (names: ("dessertspoon",), scale: 1e-05, dims: dim(length: 3)),
+  (names: ("didot", "dd"), scale: 0.000375971510383, dims: dim(length: 1)),
+  (names: ("dram", "dr"), scale: 0.001771845195, dims: dim(mass: 1)),
+  (names: ("dyne", "dyn"), scale: 1e-05, dims: dim(mass: 1, length: 1, time: -2)),
+  (names: ("e_unit", "q_A"), scale: 1.602176634e-19, dims: dim(current: 1, time: 1)),
+  (names: ("einstein",), scale: 1, dims: dim(amount: 1)),
+  (names: ("electronvolt", "eV"), scale: 1.602176634e-19, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("erg",), scale: 1e-07, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("fahrenheit", "oF", "°F", "℉"), scale: 0.555555555555556, dims: dim(temperature: 1), offset: 255.372222222222),
+  (names: ("farad", "F"), scale: 1, dims: dim(current: 2, time: 4, mass: -1, length: -2)),
+  (names: ("fathom",), scale: 1.8288, dims: dim(length: 1)),
+  (names: ("foe",), scale: 1e44, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("foot", "ft"), scale: 0.3048, dims: dim(length: 1)),
+  (names: ("fortnight",), scale: 1209600, dims: dim(time: 1)),
+  (names: ("furlong", "fur"), scale: 201.168, dims: dim(length: 1)),
+  (names: ("galileo", "Gal"), scale: 0.01, dims: dim(length: 1, time: -2)),
+  (names: ("gallon", "gal"), scale: 0.003785411784, dims: dim(length: 3)),
+  (names: ("gauss",), scale: 0.0001, dims: dim(mass: 1, current: -1, time: -2)),
+  (names: ("gee",), scale: 9.80665, dims: dim(length: 1, time: -2)),
+  (names: ("gill", "gi"), scale: 0.00011829411825, dims: dim(length: 3)),
+  (names: ("gph",), scale: 1.051503273e-06, dims: dim(length: 3, time: -1)),
+  (names: ("gpm",), scale: 6.30901964e-05, dims: dim(length: 3, time: -1)),
+  (names: ("gradian", "gra", "gon"), scale: 0.015707963268, dims: dim()),
+  (names: ("grain", "gr"), scale: 6.479891e-05, dims: dim(mass: 1)),
+  (names: ("gram", "g"), scale: 0.001, dims: dim(mass: 1)),
+  (names: ("gramTNT", "gTNT"), scale: 4184, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("gray", "Gy"), scale: 1, dims: dim(length: 2, time: -2)),
+  (names: ("hand",), scale: 0.1016, dims: dim(length: 1)),
+  (names: ("hartley", "Hart", "dit", "DecimalDigit"), scale: 3.32192809488736, dims: dim(information: 1)),
+  (names: ("hartree", "Ha", "E_h"), scale: 4.359744722e-18, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("hectare", "ha"), scale: 10000, dims: dim(length: 2)),
+  (names: ("henry", "H"), scale: 1, dims: dim(mass: 1, length: 2, current: -2, time: -2)),
+  (names: ("hertz", "Hz"), scale: 1, dims: dim(time: -1)),
+  (names: ("horsepower", "hp"), scale: 745.699987158, dims: dim(mass: 1, length: 2, time: -3)),
+  (names: ("hour", "h", "hr", "hrs"), scale: 3600, dims: dim(time: 1)),
+  (names: ("hundredweight", "cwt", "cental", "centals"), scale: 45.359237, dims: dim(mass: 1)),
+  (names: ("inHg",), scale: 3386.388158, dims: dim(mass: 1, length: -1, time: -2)),
+  (names: ("inWC", "iwg", "inH₂O"), scale: 249.08891, dims: dim(mass: 1, length: -1, time: -2)),
+  (names: ("inch", "in"), scale: 0.0254, dims: dim(length: 1)),
+  (names: ("joule", "J"), scale: 1, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("katal", "kat"), scale: 1, dims: dim(amount: 1, time: -1)),
+  (names: ("kayser",), scale: 100, dims: dim(length: -1)),
+  (names: ("kcmil", "MCM"), scale: 5.06707479e-07, dims: dim(length: 2)),
+  (names: ("kelvin", "K"), scale: 1, dims: dim(temperature: 1)),
+  (names: ("knot",), scale: 0.514444444444, dims: dim(length: 1, time: -1)),
+  (names: ("ksi",), scale: 6894757.293, dims: dim(mass: 1, length: -1, time: -2)),
+  (names: ("l_N", "ƛ_unit"), scale: 3.8615927e-13, dims: dim(length: 1)),
+  (names: ("lambert",), scale: 3183.098862, dims: dim(luminosity: 1, length: -2)),
+  (names: ("lightyear", "ly"), scale: 9.4607304725808e15, dims: dim(length: 1)),
+  (names: ("ligne",), scale: 0.002255829062, dims: dim(length: 1)),
+  (names: ("link", "li"), scale: 0.201168, dims: dim(length: 1)),
+  (names: ("liter", "L", "l", "litre"), scale: 0.001, dims: dim(length: 3)),
+  (names: ("lumen", "lm"), scale: 1, dims: dim(luminosity: 1)),
+  (names: ("lux", "lx"), scale: 1, dims: dim(luminosity: 1, length: -2)),
+  (names: ("mWC", "mwg", "mH₂O"), scale: 9806.65, dims: dim(mass: 1, length: -1, time: -2)),
+  (names: ("maxwell", "Mx"), scale: 1e-08, dims: dim(mass: 1, length: 2, current: -1, time: -2)),
+  (names: ("meter", "m", "metre"), scale: 1, dims: dim(length: 1)),
+  (names: ("micron",), scale: 1e-06, dims: dim(length: 1)),
+  (names: ("mile", "mi"), scale: 1609.344, dims: dim(length: 1)),
+  (names: ("minim",), scale: 6.1611519922e-08, dims: dim(length: 3)),
+  (names: ("minute", "min"), scale: 60, dims: dim(time: 1)),
+  (names: ("mmHg",), scale: 133.322368421, dims: dim(mass: 1, length: -1, time: -2)),
+  (names: ("molar",), scale: 1000, dims: dim(amount: 1, length: -3)),
+  (names: ("mole", "mol"), scale: 1, dims: dim(amount: 1)),
+  (names: ("month",), scale: 2629800, dims: dim(time: 1)),
+  (names: ("mpg",), scale: 425143.707430272, dims: dim(length: -2)),
+  (names: ("mph",), scale: 0.44704, dims: dim(length: 1, time: -1)),
+  (names: ("nat",), scale: 1.44269504088896, dims: dim(information: 1)),
+  (names: ("neper", "Np"), scale: 1, dims: dim(logratio: 1)),
+  (names: ("newton", "N"), scale: 1, dims: dim(mass: 1, length: 1, time: -2)),
+  (names: ("nibble", "nybble", "semioctet", "HexDigit", "HexadecimalDigit"), scale: 4, dims: dim(information: 1)),
+  (names: ("nonet",), scale: 9, dims: dim(information: 1)),
+  (names: ("oersted", "Oe"), scale: 79.577471546, dims: dim(current: 1, length: -1)),
+  (names: ("ohm", "Ω"), scale: 1, dims: dim(mass: 1, length: 2, current: -2, time: -3)),
+  (names: ("ounce", "oz"), scale: 0.028349523125, dims: dim(mass: 1)),
+  (names: ("parsec", "pc"), scale: 3.08567758149137e16, dims: dim(length: 1)),
+  (names: ("pascal", "Pa"), scale: 1, dims: dim(mass: 1, length: -1, time: -2)),
+  (names: ("peck", "pk"), scale: 0.00880976754172, dims: dim(length: 3)),
+  (names: ("pennyweight", "pwt"), scale: 0.00155517384, dims: dim(mass: 1)),
+  (names: ("pfund",), scale: 0.5, dims: dim(mass: 1)),
+  (names: ("phot", "ph"), scale: 10000, dims: dim(luminosity: 1, length: -2)),
+  (names: ("pica",), scale: 0.004233333333, dims: dim(length: 1)),
+  (names: ("point", "pt", "pts", "bp_tex"), scale: 0.000352777777778, dims: dim(length: 1)),
+  (names: ("poise", "P"), scale: 0.1, dims: dim(mass: 1, length: -1, time: -1)),
+  (names: ("pond", "gf"), scale: 0.00980665, dims: dim(mass: 1, length: 1, time: -2)),
+  (names: ("pouce",), scale: 0.027069948748, dims: dim(length: 1)),
+  (names: ("pound", "lb"), scale: 0.45359237, dims: dim(mass: 1)),
+  (names: ("poundal", "pdl"), scale: 0.138254954376, dims: dim(mass: 1, length: 1, time: -2)),
+  (names: ("psi",), scale: 6894.757293, dims: dim(mass: 1, length: -1, time: -2)),
+  (names: ("radian", "rad"), scale: 1, dims: dim()),
+  (names: ("rankine", "oR", "oRa", "°R", "°Ra"), scale: 0.555555555556, dims: dim(temperature: 1)),
+  (names: ("rem",), scale: 0.01, dims: dim(length: 2, time: -2)),
+  (names: ("rod", "rd"), scale: 5.0292, dims: dim(length: 1)),
+  (names: ("roentgen", "R", "röntgen"), scale: 0.000258, dims: dim(current: 1, time: 1, mass: -1)),
+  (names: ("rood",), scale: 1011.7141056, dims: dim(length: 2)),
+  (names: ("rpm",), scale: 0.10471975512, dims: dim(time: -1)),
+  (names: ("rutherford", "Rd"), scale: 1000000, dims: dim(time: -1)),
+  (names: ("second", "s"), scale: 1, dims: dim(time: 1)),
+  (names: ("section",), scale: 2589998.47, dims: dim(length: 2)),
+  (names: ("siemens", "S"), scale: 1, dims: dim(current: 2, time: 3, mass: -1, length: -2)),
+  (names: ("sievert", "Sv"), scale: 1, dims: dim(length: 2, time: -2)),
+  (names: ("slug",), scale: 14.593902937, dims: dim(mass: 1)),
+  (names: ("statcoulomb", "statC", "franklin", "Fr", "esu"), scale: 3.33564095198e-10, dims: dim(current: 1, time: 1)),
+  (names: ("statohm", "statΩ"), scale: 898755179000, dims: dim(mass: 1, length: 2, current: -2, time: -3)),
+  (names: ("statvolt", "statV"), scale: 299.792458, dims: dim(mass: 1, length: 2, current: -1, time: -3)),
+  (names: ("steradian", "sr"), scale: 1, dims: dim()),
+  (names: ("stilb", "sb"), scale: 10000, dims: dim(luminosity: 1, length: -2)),
+  (names: ("stokes", "St"), scale: 0.0001, dims: dim(length: 2, time: -1)),
+  (names: ("stone",), scale: 6.35029318, dims: dim(mass: 1)),
+  (names: ("sverdrup",), scale: 1000000, dims: dim(length: 3, time: -1)),
+  (names: ("tablespoon",), scale: 1.5e-05, dims: dim(length: 3)),
+  (names: ("teaspoon",), scale: 5e-06, dims: dim(length: 3)),
+  (names: ("tesla", "T"), scale: 1, dims: dim(mass: 1, current: -1, time: -2)),
+  (names: ("therm", "thm"), scale: 105505585.262, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("thermie", "th"), scale: 4186800, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("thou", "mil"), scale: 2.54e-05, dims: dim(length: 1)),
+  (names: ("toise",), scale: 1.94903631, dims: dim(length: 1)),
+  (names: ("tonTNT", "tTNT"), scale: 4184000000, dims: dim(mass: 1, length: 2, time: -2)),
+  (names: ("tonne", "ton"), scale: 1000, dims: dim(mass: 1)),
+  (names: ("torr", "Torr"), scale: 133.322368421, dims: dim(mass: 1, length: -1, time: -2)),
+  (names: ("township",), scale: 93239944.932, dims: dim(length: 2)),
+  (names: ("tribble",), scale: 12, dims: dim(information: 1)),
+  (names: ("trit", "TrinaryDigit", "TernaryDigit"), scale: 1.58496250072116, dims: dim(information: 1)),
+  (names: ("turn", "tr", "pla", "rev", "revolution", "cyc", "cycle"), scale: 6.283185307, dims: dim()),
+  (names: ("twip",), scale: 1.7638888889e-05, dims: dim(length: 1)),
+  (names: ("volt", "V"), scale: 1, dims: dim(mass: 1, length: 2, current: -1, time: -3)),
+  (names: ("watt", "W"), scale: 1, dims: dim(mass: 1, length: 2, time: -3)),
+  (names: ("weber", "Wb"), scale: 1, dims: dim(mass: 1, length: 2, current: -1, time: -2)),
+  (names: ("week",), scale: 604800, dims: dim(time: 1)),
+  (names: ("word",), scale: 16, dims: dim(information: 1)),
+  (names: ("yard", "yd"), scale: 0.9144, dims: dim(length: 1)),
+  (names: ("year", "a_j", "yr", "annus"), scale: 31557600, dims: dim(time: 1)),
+  (names: ("zentner",), scale: 50, dims: dim(mass: 1)),
+)
+
+for definition in qalc-unit-definitions {
+  let item = (scale: definition.scale, dims: definition.dims,
+    offset: definition.at("offset", default: 0.0))
+  for name in definition.names { units.insert(name, item) }
+}
+
+// Project-specific compatibility aliases and named composites.
+units.insert("t", (scale: 3600.0, dims: dim(time: 1)))
+units.insert("timer", units.at("t"))
+units.insert("kn", units.knot)
+units.insert("Nm", (scale: 1.0, dims: dim(length: 2, mass: 1, time: -2)))
+units.insert("Ncm", (scale: 0.01, dims: units.Nm.dims))
+units.insert("Nmm", (scale: 0.001, dims: units.Nm.dims))
+units.insert("Wh", (scale: 3600.0, dims: dim(length: 2, mass: 1, time: -2)))
+for name in ("degree", "deg", "°") {
+  units.insert(name, (scale: calc.pi / 180, dims: dim()))
+}
+for name in ("arcminute", "arcmin") {
+  units.insert(name, (scale: calc.pi / 10800, dims: dim()))
+}
+for name in ("arcsecond", "arcsec") {
+  units.insert(name, (scale: calc.pi / 648000, dims: dim()))
+}
+for name in ("gradian", "gra", "gon") {
+  units.insert(name, (scale: calc.pi / 200, dims: dim()))
+}
+for name in ("turn", "tr", "pla", "rev", "revolution", "cyc", "cycle") {
+  units.insert(name, (scale: 2 * calc.pi, dims: dim()))
+}
+units.insert("rpm", (scale: 2 * calc.pi / 60, dims: dim(time: -1)))
+// Not representable as linear or affine units: dBW, dBm
+
+
 let prefixes = (
+  ("Q", 1e30), ("R", 1e27),
   ("da", 1e1),
   ("Y", 1e24), ("Z", 1e21), ("E", 1e18), ("P", 1e15),
   ("T", 1e12), ("G", 1e9), ("M", 1e6), ("k", 1e3), ("h", 1e2),
@@ -235,13 +520,25 @@ let prefixes = (
   ("µ", 1e-6), ("μ", 1e-6), ("u", 1e-6),
   ("n", 1e-9), ("p", 1e-12), ("f", 1e-15), ("a", 1e-18),
   ("z", 1e-21), ("y", 1e-24),
+  ("r", 1e-27), ("q", 1e-30),
+)
+
+let binary-prefixes = (
+  ("Qi", calc.pow(1024.0, 10)), ("Ri", calc.pow(1024.0, 9)),
+  ("Yi", calc.pow(1024.0, 8)), ("Zi", calc.pow(1024.0, 7)),
+  ("Ei", calc.pow(1024.0, 6)), ("Pi", calc.pow(1024.0, 5)),
+  ("Ti", calc.pow(1024.0, 4)), ("Gi", calc.pow(1024.0, 3)),
+  ("Mi", calc.pow(1024.0, 2)), ("Ki", 1024.0),
 )
 
 let prefixable = (
   "m", "g", "s", "A", "K", "mol", "cd", "rad", "sr", "Hz", "N", "Nm",
   "Pa", "J", "W", "C", "V", "F", "ohm", "S", "Wb", "T", "H",
   "lm", "lx", "Bq", "Gy", "Sv", "kat", "L", "l", "Wh", "eV", "Ω",
+  "bit", "B", "byte", "bar", "cal", "Da", "barn", "Ci", "rad",
 )
+
+let binary-prefixable = ("bit", "B", "byte", "o", "octet")
 
 let resolve-unit(name) = {
   if name in units { return units.at(name) }
@@ -250,17 +547,29 @@ let resolve-unit(name) = {
       let base = name.slice(prefix.len())
       if base in prefixable {
         let unit = units.at(base)
-        return (scale: factor * unit.scale, dims: unit.dims)
+        if unit.at("offset", default: 0.0) == 0.0 {
+          return (scale: factor * unit.scale, dims: unit.dims, offset: 0.0)
+        }
+      }
+    }
+  }
+  for (prefix, factor) in binary-prefixes {
+    if name.starts-with(prefix) {
+      let base = name.slice(prefix.len())
+      if base in binary-prefixable {
+        let unit = units.at(base)
+        return (scale: factor * unit.scale, dims: unit.dims, offset: 0.0)
       }
     }
   }
   none
 }
 
-let quantity(si-value, dims: zero-dim, preferred: none) = (
+let quantity(si-value, dims: zero-dim, preferred: none, affine: none) = (
   si-value: si-value,
   dims: dims,
   preferred: preferred,
+  affine: affine,
 )
 
 let dims-add(a, b, factor: 1) = {
@@ -294,6 +603,8 @@ let dimensions-name(dims) = {
     (dim(length: -1, mass: 1, time: -2), "pressure"),
     (dim(length: 2, mass: 1, time: -2), "energy"),
     (dim(length: 2, mass: 1, time: -3), "power"),
+    (dim(information: 1), "information"),
+    (dim(logratio: 1), "logarithmic ratio"),
   )
   for (candidate, name) in known {
     if dims == candidate { return name }
@@ -318,6 +629,8 @@ let canonical-unit(dims) = {
     (dim(temperature: 1), "K"),
     (dim(amount: 1), "mol"),
     (dim(luminosity: 1), "cd"),
+    (dim(information: 1), "bit"),
+    (dim(logratio: 1), "Np"),
   )
   for (candidate, symbol) in known {
     if dims == candidate { return symbol }
@@ -331,6 +644,8 @@ let canonical-unit(dims) = {
     temperature: "K",
     amount: "mol",
     luminosity: "cd",
+    information: "bit",
+    logratio: "Np",
   )
   let numerator = ()
   let denominator = ()
@@ -482,7 +797,8 @@ let input-source(source) = if type(source) == content and source.func() == math.
 }
 
 let tokenize(source) = {
-  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|[A-Za-zµμΩ°]+(?:_[A-Za-z0-9]+)*|[=()+*/^+\\-]")
+  let name = "[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*"
+  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|" + name + "|[=()+*/^+\\-]")
   let tokens = ()
   let cursor = 0
   for found in source.matches(pattern) {
@@ -500,7 +816,7 @@ let tokenize(source) = {
 }
 
 let is-number(token) = regex("^(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?$") in token
-let is-name(token) = regex("^[A-Za-zµμΩ°]+(?:_[A-Za-z0-9]+)*$") in token
+let is-name(token) = regex("^[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*$") in token
 let can-end(token) = is-number(token) or is-name(token) or token == ")"
 let can-start(token) = is-number(token) or is-name(token) or token == "("
 
@@ -667,6 +983,23 @@ let apply-op(op, left, right) = {
     )
   }
   if op == "*" {
+    if right.affine != none and is-dimensionless(left) and left.preferred == none {
+      return quantity(
+        left.si-value * right.affine.scale + right.affine.offset,
+        dims: right.dims,
+        preferred: right.preferred,
+      )
+    }
+    if left.affine != none and is-dimensionless(right) and right.preferred == none {
+      return quantity(
+        right.si-value * left.affine.scale + left.affine.offset,
+        dims: left.dims,
+        preferred: left.preferred,
+      )
+    }
+    if left.affine != none or right.affine != none {
+      panic("math-once calculate: affine units must be multiplied by a plain number")
+    }
     return quantity(
       left.si-value * right.si-value,
       dims: dims-add(left.dims, right.dims),
@@ -688,6 +1021,9 @@ let apply-op(op, left, right) = {
     )
   }
   if op == "/" {
+    if left.affine != none or right.affine != none {
+      panic("math-once calculate: affine units cannot be divided")
+    }
     return quantity(
       left.si-value / right.si-value,
       dims: dims-add(left.dims, right.dims, factor: -1),
@@ -695,6 +1031,9 @@ let apply-op(op, left, right) = {
     )
   }
   if op == "^" {
+    if left.affine != none {
+      panic("math-once calculate: affine units cannot be raised to a power")
+    }
     if not is-dimensionless(right) {
       panic("math-once calculate: exponent must be dimensionless")
     }
@@ -772,7 +1111,16 @@ let parse(tokens, scope: (:)) = {
       } else {
         let unit = resolve-unit(token)
         if unit != none {
-          left = quantity(unit.scale, dims: unit.dims, preferred: token)
+          let offset = unit.at("offset", default: 0.0)
+          let affine = if offset == 0.0 { none } else {
+            (scale: unit.scale, offset: offset)
+          }
+          left = quantity(
+            unit.scale + offset,
+            dims: unit.dims,
+            preferred: token,
+            affine: affine,
+          )
         } else {
           panic("math-once calculate: unknown variable or unit `" + token + "`")
         }
@@ -839,14 +1187,20 @@ let calculate(source, digits: 4, scope: (:), unit: none, block: true) = {
   let result = parse(add-implicit-multiplication(expression-tokens), scope: scope)
   let output-unit = result.preferred
   let output-scale = 1.0
+  let output-offset = 0.0
   if target-tokens != none {
     let target = parse(add-implicit-multiplication(target-tokens))
     if target.dims != result.dims {
       if is-dimensionless(result) and not is-dimensionless(target) {
         // A requested unit on a plain number assigns that physical dimension.
         // For example, `902 / 3.6` with `unit: `m/s`` means 250.55... m/s.
+        let assigned-value = if target.affine == none {
+          result.si-value * target.si-value
+        } else {
+          result.si-value * target.affine.scale + target.affine.offset
+        }
         result = quantity(
-          result.si-value * target.si-value,
+          assigned-value,
           dims: target.dims,
           preferred: target-tokens.join(""),
         )
@@ -855,12 +1209,14 @@ let calculate(source, digits: 4, scope: (:), unit: none, block: true) = {
       }
     }
     output-unit = target-tokens.join("")
-    output-scale = target.si-value
+    output-scale = if target.affine == none { target.si-value } else { target.affine.scale }
+    output-offset = if target.affine == none { 0.0 } else { target.affine.offset }
   } else if output-unit == none and not is-dimensionless(result) {
     output-unit = canonical-unit(result.dims)
   } else if output-unit != none {
     let preferred = parse(add-implicit-multiplication(tokenize(output-unit)))
-    output-scale = preferred.si-value
+    output-scale = if preferred.affine == none { preferred.si-value } else { preferred.affine.scale }
+    output-offset = if preferred.affine == none { 0.0 } else { preferred.affine.offset }
   }
 
   if target-tokens == none and result.dims == dim(length: 1) {
@@ -871,7 +1227,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, block: true) = {
     }
   }
 
-  let exact = result.si-value / output-scale
+  let exact = (result.si-value - output-offset) / output-scale
   let value = calc.round(exact, digits: digits)
   let display-body = render-tokens(expression-tokens, scope: scope) + h(0.25em) + math.eq + h(0.25em) + str(value)
   if output-unit != none {
