@@ -1,4 +1,4 @@
-// math-once v0.10.0
+// math-once v0.11.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -1399,9 +1399,32 @@ let calculation-builder(
   }
 }
 
+/// Clear all or selected variables from a calculation-builder state.
+let reset(..names, key: "math-once-calculation") = {
+  let selected = names.pos().map(value => {
+    let name = input-source(value).trim()
+    if regex("^[A-Za-z]+(?:_[A-Za-z0-9]+)*$") not in name {
+      panic(
+        "math-once reset: variable names must contain letters and optional letter or number subscripts",
+      )
+    }
+    name
+  })
+  let variables = state(key, (:))
+  variables.update(old => {
+    if selected.len() == 0 { return (:) }
+    let kept = (:)
+    for (name, value) in old {
+      if name not in selected { kept.insert(name, value) }
+    }
+    kept
+  })
+}
+
 (
   calculate: calculate,
   calculation-builder: calculation-builder,
+  reset: reset,
 )
 }
 
@@ -1462,6 +1485,20 @@ let calculation-builder(
   digits: digits,
   block: block,
   supplement: supplement,
+)
+
+/// Clear variables stored by `calculation-builder`.
+///
+/// - `names`: Optional variable names as strings, raw text, or Typst math.
+///   With no names, all variables are cleared.
+/// - `key`: The state key of the matching calculation builder. Default:
+///   `"math-once-calculation"`.
+///
+/// Use `reset("height", "width")` to clear selected variables or `reset()`
+/// to clear the entire default builder state. The function renders no output.
+#let reset(..names, key: "math-once-calculation") = (_engine.reset)(
+  ..names,
+  key: key,
 )
 
 /// Add a per-equation caption using an interface similar to `figure`.

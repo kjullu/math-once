@@ -385,3 +385,6 @@ Stored dimensioned variables include their unit in the visible substitution:
 #eq($x = v * 2 s$, digits: 3)
 // x = v ⋅ 2 s = 10.28 m/s ⋅ 2 s = 20.556 m
 ```
+
+Use [`reset`](reset.md) with the same state `key` to remove selected variables
+or clear the complete builder state.

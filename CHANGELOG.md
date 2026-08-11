@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.0
+
+- Added `reset()` for clearing all variables stored by the default
+  `calculation-builder` state.
+- Added selective reset through string, raw, or math names, such as
+  `reset("height", "width")`, plus `key:` for custom builders.
+
 ## 0.10.0
 
 - Expanded the static unit catalog to 244 of Qalculate 5.10's 246 named unit
