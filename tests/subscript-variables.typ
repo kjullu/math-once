@@ -2,13 +2,13 @@
 
 #let eq = calculation-builder(key: "subscript-variable-test")
 
-#eq($theta_m = 15$)
-#eq($lambda_0 = 530 m$)
-#eq($x = 2 lambda_0$)
+#eq($theta_m := 15$)
+#eq($lambda_0 := 530 m$)
+#eq($x := 2 lambda_0$)
 
 // Raw input and multi-letter subscripts use the same storage convention.
-#eq(`speed_max = 20 m/s`)
-#eq(`distance = speed_max * 2 s`)
+#eq(`speed_max := 20 m/s`)
+#eq(`distance := speed_max * 2 s`)
 
 #context {
   let variables = eq()

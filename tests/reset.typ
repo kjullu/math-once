@@ -2,9 +2,9 @@
 
 // The default reset key matches the default builder key.
 #let eq = calculation-builder()
-#eq(`height = 10 m`)
-#eq(`width = 5 m`)
-#eq(`depth = 2 m`)
+#eq(`height := 10 m`)
+#eq(`width := 5 m`)
+#eq(`depth := 2 m`)
 
 // Selective reset accepts strings and raw names.
 #reset("height", `width`)
@@ -16,7 +16,7 @@
 }
 
 // Math names, including subscripts, are accepted too.
-#eq($theta_1 = 15 degree$)
+#eq($theta_1 := 15 degree$)
 #reset($theta_1$)
 #context assert("theta_1" not in eq())
 
@@ -29,7 +29,7 @@
   key: "reset-custom-key",
   initial-state: (factor: 2),
 )
-#custom(`length = factor * 3 m`)
+#custom(`length := factor * 3 m`)
 #reset("length", key: "reset-custom-key")
 #context {
   let variables = custom()

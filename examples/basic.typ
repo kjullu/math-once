@@ -29,8 +29,8 @@ Den præcise, ikke-afrundede værdi er også gemt: #a.exact.
 = Genbrugelige variabler
 
 #let run = calculation-builder()
-#run(`v = 10 m/s + 1 km/t`)
-#run(`x = v * 2 s`, digits: 3)
+#run(`v := 10 m/s + 1 km/t`)
+#run(`x := v * 2 s`, digits: 3)
 
 #context {
   let svar = run()

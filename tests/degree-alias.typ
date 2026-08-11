@@ -3,12 +3,12 @@
 #let eq = calculation-builder(key: "degree-alias-test", digits: 2)
 
 // Typst math converts `degree` to the degree symbol.
-#eq($theta_m = 15.0 degree$)
-#eq($x = theta_m * 2$)
+#eq($theta_m := 15.0 degree$)
+#eq($x := theta_m * 2$)
 
 // Raw and string expressions accept the readable alias too.
-#eq(`theta_0 = 10 degree`)
-#eq(`y = 2 * theta_0`)
+#eq(`theta_0 := 10 degree`)
+#eq(`y := 2 * theta_0`)
 
 #let converted = calculate(`180 degree to rad`, digits: 12)
 #assert(converted.value == calc.round(calc.pi, digits: 12))

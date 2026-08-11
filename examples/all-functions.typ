@@ -74,11 +74,11 @@ Inline: #calculate(`100 cm to m`, block: false).display.
   block: true,
 )
 
-// Assignments store full dimensioned results for later calls.
-#run(`v = 10 m/s + 1 km/t`)
-#run(`x = factor * v * 2 s`, unit: `m`, digits: 3)
+// Definitions store full dimensioned results for later calls.
+#run(`v := 10 m/s + 1 km/t`)
+#run(`x := factor * v * 2 s`, unit: `m`, digits: 3)
 
-// A call without assignment calculates without adding a variable. Per-call
+// A call without a definition calculates without adding a variable. Per-call
 // `block`, `digits`, and `unit` override the builder defaults.
 Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 
@@ -94,8 +94,8 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 // Normal Typst math input visibly substitutes stored
 // variables before showing the final result.
 #let eq = calculation-builder(key: "math-input-example", digits: 2)
-#eq($v = 902 / 3.6$)
-#eq($x = v * 2$)
+#eq($v := 902 / 3.6$)
+#eq($x := v * 2$)
 
 = `reset`
 
@@ -115,9 +115,9 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 
 // Reserved unit names can temporarily become variables in the same state.
 #unload($a$, $b$, key: "all-functions-example")
-#run($a = 2$)
-#run($b = 3$)
-#run($x = a + b$)
+#run($a := 2$)
+#run($b := 3$)
+#run($x := a + b$)
 #context assert(run().x.value == 5.0)
 
 // Reset clears the variables and restores the unit meanings.
@@ -147,7 +147,7 @@ $ E = m c^2 $ <energy>
 
 // Calculated equations accept the same per-call caption style.
 #eq(
-  $y = x / 2$,
+  $y := x / 2$,
   caption: [The recovered speed],
   supplement: [Formula],
 ) <recovered-speed>

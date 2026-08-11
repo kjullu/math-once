@@ -1,4 +1,4 @@
-// math-once v0.12.0
+// math-once v0.13.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -754,8 +754,8 @@ let variable-symbol-name(symbol) = {
 
 let math-functions = ("sin", "cos", "tan")
 
-// Convert the subset of Typst math supported by calculate back into parser input.
-// This makes `$v = 902 / 3.6$` as useful as the raw form `` `v = 902 / 3.6` ``.
+// Convert the supported subset of Typst math back into parser input, including
+// the builder's `:=` storage operator.
 let math-items(value) = if value.has("children") { value.children } else { (value,) }
 
 let math-source-part(value, parse) = {
@@ -790,6 +790,7 @@ let math-source-part(value, parse) = {
   let token = value.text.trim()
   let variable-name = variable-symbol-name(token)
   if variable-name != none { variable-name }
+  else if token == "≔" { ":=" }
   else if token in ("⋅", "∗", "×") { "*" }
   else if token in ("÷",) { "/" }
   else if token in ("−",) { "-" }
@@ -808,7 +809,7 @@ let input-source(source) = if type(source) == content and source.func() == math.
 
 let tokenize(source) = {
   let name = "[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*"
-  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|" + name + "|[=()+*/^+\\-]")
+  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|" + name + "|:=|[=()+*/^+\\-]")
   let tokens = ()
   let cursor = 0
   for found in source.matches(pattern) {
@@ -966,6 +967,21 @@ let expand-variables(tokens, scope) = {
 
 let is-unloaded(item) = type(item) == dictionary and item.at("unloaded", default: false) == true
 let is-unloaded-marker(item) = is-unloaded(item) and "si-value" not in item
+
+let missing-variables(tokens, scope, unloaded) = {
+  let missing = ()
+  for token in tokens {
+    if (is-name(token)
+      and token not in math-functions
+      and token != "to"
+      and (token not in scope or is-unloaded-marker(scope.at(token, default: (:))))
+      and (resolve-unit(token) == none or token in unloaded)
+      and token not in missing) {
+      missing.push(token)
+    }
+  }
+  missing
+}
 
 let normalize-scope(scope) = {
   let normalized = (:)
@@ -1300,9 +1316,10 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
 
 /// Create a stateful equation runner with reusable variables.
 ///
-/// Named expressions such as `v = 10 m/s` are stored and automatically made
-/// available to later calls. Call the runner without an expression inside a
-/// context block to retrieve its dictionary of results.
+/// Definitions such as `v := 10 m/s` are stored and automatically made
+/// available to later calls. A plain `v = 10 m/s` is only displayed. Call the
+/// runner without an expression inside a context block to retrieve its
+/// dictionary of results.
 let calculation-builder(
   initial-state: (:),
   key: "math-once-calculation",
@@ -1344,9 +1361,10 @@ let calculation-builder(
     }
 
     let source = input-source(source)
-    let assignment = source.match(regex("^\\s*([A-Za-z]+(?:_[A-Za-z0-9]+)*)\\s*=\\s*(.+)$"))
+    let assignment = source.match(regex("^\\s*([A-Za-z]+(?:_[A-Za-z0-9]+)*)\\s*:=\\s*(.+)$"))
     let name = if assignment == none { none } else { assignment.captures.at(0) }
     let expression = if assignment == none { source } else { assignment.captures.at(1) }
+    let display-only = assignment == none and "=" in tokenize(source)
 
     if caption != none and not block {
       panic("math-once calculation-builder: captions require block: true")
@@ -1363,7 +1381,9 @@ let calculation-builder(
       }
       let assignment-is-unloaded = name != none and name in unloaded
       let illegal-assignment = name != none and resolve-unit(name) != none and not assignment-is-unloaded
-      let result = if illegal-assignment { none } else {
+      let tokens = if display-only { tokenize(source) } else { expression-tokens(expression) }
+      let missing = if display-only { () } else { missing-variables(tokens, current, unloaded) }
+      let result = if illegal-assignment or display-only or missing.len() > 0 { none } else {
         calculate(
           expression,
           digits: digits,
@@ -1380,11 +1400,27 @@ let calculation-builder(
           fill: red,
           [math-once: #raw(name) is a unit name and cannot be used as a variable.],
         )
+      } else if missing.len() > 0 {
+        text(
+          fill: red,
+          [math-once: #raw(missing.first()) is not set.],
+        )
+      } else if display-only {
+        render-tokens(tokens, scope: current)
       } else if name != none {
-        let tokens = expression-tokens(expression)
         let name-scope = current
         name-scope.insert(name, 0)
         let labelled-body = render-tokens((name,), scope: name-scope) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current)
+        result.insert("display", math.equation(labelled-body, block: block))
+        result.insert("variable", name)
+        if assignment-is-unloaded { result.insert("unloaded", true) }
+        variables.update(old => {
+          old.insert(name, result)
+          old
+        })
+        result.display.body
+      } else {
+        let labelled-body = render-tokens(tokens, scope: current)
         let (expanded, has-variables) = expand-variables(tokens, current)
         if has-variables {
           labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded)
@@ -1396,16 +1432,7 @@ let calculation-builder(
             labelled-body += h(0.2em) + render-tokens(tokenize(result.unit))
           }
         }
-        result.insert("display", math.equation(labelled-body, block: block))
-        result.insert("variable", name)
-        if assignment-is-unloaded { result.insert("unloaded", true) }
-        variables.update(old => {
-          old.insert(name, result)
-          old
-        })
-        result.display.body
-      } else {
-        result.display.body
+        labelled-body
       }
     }
     let output = _make-equation(
@@ -1512,8 +1539,9 @@ let unload(..names, key: "math-once-calculation") = {
 /// The returned runner accepts zero or one string, raw block, or Typst math
 /// equation plus the named `digits`, `unit`, `size`, `block`, `label`,
 /// `caption`, and `gap`, and `supplement` overrides.
-/// An assignment like `$v = 10 m/s$` stores `v`. Later equations show an extra
-/// step with stored variable values substituted. A label can be written after
+/// A definition like `$v := 10 m/s$` stores `v`; a plain `=` only displays the
+/// equation. Later expressions show an extra step with stored variable values
+/// substituted. A label can be written after
 /// the call as `#runner(...) <name>` or passed with `label: <name>`. Calling
 /// the runner without an expression returns its result dictionary and must
 /// happen in a `context` block. `caption` adds text below a block equation;

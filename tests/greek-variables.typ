@@ -4,14 +4,14 @@
 
 // Typst math names are stored under their readable ASCII names and retain
 // their mathematical symbols in the rendered equations.
-#eq($lambda = 530 m$)
-#eq($z = 2 lambda$)
-#eq($theta = 2$)
-#eq($x = theta + 1$)
+#eq($lambda := 530 m$)
+#eq($z := 2 lambda$)
+#eq($theta := 2$)
+#eq($x := theta + 1$)
 
 // Raw input uses the same names and storage keys.
-#eq(`omega = 3`)
-#eq(`y = omega * 2`)
+#eq(`omega := 3`)
+#eq(`y := omega * 2`)
 
 #context {
   let variables = eq()
