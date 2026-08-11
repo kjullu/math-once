@@ -68,3 +68,18 @@
   assert(variables.d.unit == "m")
   assert(variables.d.display.block == true)
 }
+
+// Eqrun-style Typst math input and visible variable substitution.
+#let eq = qalc-builder(key: "math-equation-runner", digits: 2)
+#eq($v = 902 / 3.6$)
+#eq($a = v * 2$)
+#eq($u = 10 m/s + 1 "km"/h$)
+#eq($d = u * 2 s$, digits: 3)
+#context {
+  let variables = eq()
+  assert(variables.v.value == 250.56)
+  assert(variables.a.value == 501.11)
+  assert(variables.u.unit == "m/s")
+  assert(variables.d.unit == "m")
+  assert(calc.abs(variables.a.exact - 501.1111111111111) < 0.000000000001)
+}

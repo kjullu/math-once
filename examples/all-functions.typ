@@ -90,3 +90,9 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
   assert(variables.d.unit == "m")
   [Stored distance: #variables.d.value #variables.d.unit]
 }
+
+// Normal Typst math input works like eqrun and visibly substitutes stored
+// variables before showing the final result.
+#let eq = qalc-builder(key: "math-input-example", digits: 2)
+#eq($v = 902 / 3.6$)
+#eq($a = v * 2$)

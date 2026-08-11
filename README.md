@@ -68,7 +68,7 @@ tracks dimensions and converts compatible units automatically.
 
 | Argument | Accepted value | Default | Description |
 | --- | --- | --- | --- |
-| `source` | string or raw block | required | Expression to evaluate. |
+| `source` | string, raw block, or math equation | required | Expression to evaluate. |
 | `digits` | integer | `4` | Decimal places in the displayed value. |
 | `scope` | dictionary | empty | Numbers and earlier qalc results available as variables. |
 | `unit` | string, raw block, or `none` | `none` | Requested output unit; alternative to `to`. |
@@ -94,6 +94,10 @@ Examples of every argument:
 
 // A string source and explicit rounding.
 #qalc("1 m / 3", digits: 2).display
+
+// Normal Typst math input. Quote multi-letter names such as `"km"` because
+// Typst math otherwise interprets their letters as separate symbols.
+#qalc($10 m/s + 1 "km"/h$).display
 
 // Ordinary numbers and earlier qalc results in `scope`.
 #let speed = qalc(`10 m/s`)
@@ -154,10 +158,30 @@ calls automatically have access to all earlier variables:
 | `digits` | integer | `4` | Default decimal places for runner calls. |
 | `block` | boolean | `true` | Center runner equations by default. |
 
-The returned runner accepts zero or one positional expression. Each expression
-call also accepts `digits`, `unit`, and `block`, which override the builder
-defaults for that call. Calling it without an expression retrieves the state
-and therefore requires `context`.
+The returned runner accepts zero or one positional expression as a raw block,
+string, or normal Typst math equation. Each expression call also accepts
+`digits`, `unit`, and `block`, which override the builder defaults for that
+call. Calling it without an expression retrieves the state and therefore
+requires `context`.
+
+Math input works like eqrun. When an expression uses a stored variable, the
+rendered equation includes an extra step with that variable's displayed value:
+
+```typ
+#import "math-once.typ": qalc-builder
+
+#let eq = qalc-builder(digits: 2)
+
+#eq($v = 902 / 3.6$)
+// v = 902 / 3.6 = 250.56
+
+#eq($a = v * 2$)
+// a = v ⋅ 2 = 250.56 ⋅ 2 = 501.11
+```
+
+Calculations continue to use the unrounded stored value, so the last result is
+`501.11`, not `501.12`. This prevents rounding error from accumulating between
+equations. Stored units are included in the substituted step as well.
 
 ```typ
 #import "math-once.typ": qalc-builder
@@ -169,11 +193,11 @@ and therefore requires `context`.
   block: true,
 )
 
-#run(`v = 10 m/s + 1 km/t`)
+#run($v = 10 m/s + 1 km/t$)
 // v = 10 m/s + 1 km/t = 10.2778 m/s
 
-#run(`d = factor * v * 2 s`, unit: `m`, digits: 3)
-// d = factor ⋅ v ⋅ 2 s = 41.111 m
+#run($d = factor * v * 2 s$, unit: `m`, digits: 3)
+// d = factor ⋅ v ⋅ 2 s = 2 ⋅ 10.2778 m/s ⋅ 2 s = 41.111 m
 
 // No assignment: calculate without storing a new variable.
 Inline: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
