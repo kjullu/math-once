@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculate, calculation-builder, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "../math-once.typ": calculate, calculation-builder, reset, equation, equation-outline, evaluate-code, number-labelled-equations
 
 // calculate documentation examples.
 #calculate(`1 m + 25 cm`).display
@@ -63,6 +63,15 @@ Inline: #inline(`x = 2 + 2`).
 #let dimensioned = calculation-builder(key: "docs-dimensioned", digits: 2)
 #dimensioned($v = 10 m/s + 1 "km"/h$)
 #dimensioned($x = v * 2 s$, digits: 3)
+
+// reset documentation examples.
+#let resettable = calculation-builder(key: "docs-reset")
+#resettable(`height = 10 m`)
+#resettable(`width = 5 m`)
+#reset("height", key: "docs-reset")
+#context assert("height" not in resettable() and "width" in resettable())
+#reset(key: "docs-reset")
+#context assert(resettable().len() == 0)
 
 // Per-equation caption examples.
 #show: number-labelled-equations

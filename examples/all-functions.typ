@@ -1,4 +1,4 @@
-#import "../math-once.typ": evaluate-code, calculate, calculation-builder, equation, equation-outline, number-labelled-equations
+#import "../math-once.typ": evaluate-code, calculate, calculation-builder, reset, equation, equation-outline, number-labelled-equations
 
 #set text(lang: "en")
 
@@ -96,6 +96,20 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 #let eq = calculation-builder(key: "math-input-example", digits: 2)
 #eq($v = 902 / 3.6$)
 #eq($x = v * 2$)
+
+= `reset`
+
+// Selected names are removed from the matching builder state.
+#reset("x", key: "all-functions-example")
+#context {
+  let variables = run()
+  assert("x" not in variables)
+  assert("v" in variables)
+}
+
+// No names clears the entire matching state, including initial values.
+#reset(key: "all-functions-example")
+#context assert(run().len() == 0)
 
 = `number-labelled-equations`
 
