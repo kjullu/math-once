@@ -1,6 +1,6 @@
 [package]
 name = "math-once"
-version = "0.3.1"
+version = "0.4.0"
 entrypoint = "math-once.typ"
 authors = ["Mikkel"]
 license = "MIT"

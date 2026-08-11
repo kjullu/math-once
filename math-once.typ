@@ -342,6 +342,54 @@ let source-string(source) = if type(source) == str {
   panic("math-once calculate: expression must be a string, raw text, or math equation")
 }
 
+// Typst turns names such as `lambda` into mathematical symbols before this
+// package sees the equation. Store them under readable ASCII keys while
+// rendering them as their original Greek symbols.
+let variable-symbols = (
+  alpha: "α",
+  beta: "β",
+  gamma: "γ",
+  delta: "δ",
+  epsilon: "ε",
+  zeta: "ζ",
+  eta: "η",
+  theta: "θ",
+  iota: "ι",
+  kappa: "κ",
+  lambda: "λ",
+  mu: "μ",
+  nu: "ν",
+  xi: "ξ",
+  omicron: "ο",
+  pi: "π",
+  rho: "ρ",
+  sigma: "σ",
+  tau: "τ",
+  upsilon: "υ",
+  phi: "φ",
+  chi: "χ",
+  psi: "ψ",
+  omega: "ω",
+  Gamma: "Γ",
+  Delta: "Δ",
+  Theta: "Θ",
+  Lambda: "Λ",
+  Xi: "Ξ",
+  Pi: "Π",
+  Sigma: "Σ",
+  Upsilon: "Υ",
+  Phi: "Φ",
+  Psi: "Ψ",
+  Omega: "Ω",
+)
+
+let variable-symbol-name(symbol) = {
+  for (name, value) in variable-symbols {
+    if value == symbol { return name }
+  }
+  none
+}
+
 // Convert the subset of Typst math supported by calculate back into parser input.
 // This makes `$v = 902 / 3.6$` as useful as the raw form `` `v = 902 / 3.6` ``.
 let math-items(value) = if value.has("children") { value.children } else { (value,) }
@@ -369,7 +417,9 @@ let math-source-part(value, parse) = {
   }
 
   let token = value.text.trim()
-  if token in ("⋅", "∗", "×") { "*" }
+  let variable-name = variable-symbol-name(token)
+  if variable-name != none { variable-name }
+  else if token in ("⋅", "∗", "×") { "*" }
   else if token in ("÷",) { "/" }
   else if token in ("−",) { "-" }
   else { token }
@@ -424,6 +474,8 @@ let render-tokens(tokens) = {
     if is-name(token) {
       if resolve-unit(token) != none {
         "upright(\"" + token + "\")"
+      } else if token in variable-symbols {
+        token
       } else {
         "\"" + token + "\""
       }
@@ -490,14 +542,22 @@ let result-tokens(result) = {
 let expand-variables(tokens, scope) = {
   let expanded = ()
   let changed = false
-  for token in tokens {
+  for (index, token) in tokens.enumerate() {
     if is-name(token) and token in scope and resolve-unit(token) == none {
+      if index > 0 and can-end(tokens.at(index - 1)) {
+        expanded.push("*")
+      }
       let item = scope.at(token)
       if type(item) == dictionary and "value" in item {
         expanded.push(str(item.value))
         if item.unit != none { expanded += tokenize(item.unit) }
       } else {
         expanded.push(str(item))
+      }
+      if (index + 1 < tokens.len()
+        and can-start(tokens.at(index + 1))
+        and not (is-name(tokens.at(index + 1)) and tokens.at(index + 1) in scope)) {
+        expanded.push("*")
       }
       changed = true
     } else {
