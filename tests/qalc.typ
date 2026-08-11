@@ -5,6 +5,8 @@
 #assert(calc.abs(speed.exact - 10.277777777777779) < 0.000000000001)
 #assert(speed.value == 10.2778)
 #assert(speed.unit == "m/s")
+#assert(speed.display.block == true)
+#assert(qalc(`1 m`, block: false).display.block == false)
 
 // Explicit output conversion.
 #let converted = qalc(`10 m/s to km/t`, digits: 2)
@@ -64,4 +66,5 @@
   assert(variables.v.unit == "m/s")
   assert(calc.abs(variables.d.exact - 20.555555555555557) < 0.000000000001)
   assert(variables.d.unit == "m")
+  assert(variables.d.display.block == true)
 }

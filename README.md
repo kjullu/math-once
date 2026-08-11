@@ -45,7 +45,7 @@ subtraction. Multiplication, division, and powers combine dimensions.
   digits: 4,
   scope: (:),
   unit: none,
-  block: false,
+  block: true,
 )
 ```
 
@@ -71,6 +71,9 @@ Supported syntax:
 `to` and `unit:` are equivalent ways to choose the output unit. Use only one
 of them in a calculation. Without either, the result uses the first compatible
 input unit where possible, otherwise a canonical SI unit.
+
+Calculations are block equations and centered by default. Pass `block: false`
+to `qalc` or `qalc-builder` when an inline equation is wanted instead.
 
 ## Stateful variables
 

@@ -29,7 +29,7 @@ Den præcise, ikke-afrundede værdi er også gemt: #a.exact.
 = Variabler som i eqrun
 
 #let run = qalc-builder()
-#run(`v = 10 m/s + 1 km/t`) \
+#run(`v = 10 m/s + 1 km/t`)
 #run(`d = v * 2 s`, digits: 3)
 
 #context {

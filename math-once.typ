@@ -383,7 +383,7 @@
 ///
 /// Use `to` or the `unit` argument to request an output unit. For example,
 /// `10 m/s to km/t` and `qalc(`10 m/s`, unit: `km/t`)` are equivalent.
-#let qalc(source, digits: 4, scope: (:), unit: none, block: false) = {
+#let qalc(source, digits: 4, scope: (:), unit: none, block: true) = {
   let source = source-string(source)
   let raw-tokens = tokenize(source)
   let depth = 0
@@ -458,7 +458,7 @@
   initial-state: (:),
   key: "math-once-qalc",
   digits: 4,
-  block: false,
+  block: true,
 ) = {
   let variables = state(key, initial-state)
 
