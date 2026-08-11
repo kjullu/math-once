@@ -1,4 +1,5 @@
-// math-once: reusable calculations with a unit-aware evaluator.
+// math-once v0.7.0
+// Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
 /// return both the rounded and exact values.
