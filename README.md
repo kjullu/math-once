@@ -23,9 +23,9 @@ conversion, and stateful equation variables.
 ## Acknowledgements and alternatives
 
 - [Qalculate!](https://github.com/Qalculate/libqalculate) is a powerful
-  calculator. Its unit handling *inspired* math-once.
+  calculator. Its unit handling *inspired* math-once. (Terminal and GUI tool)
 - [eqrun](https://github.com/snlxnet/eqrun) is a well-designed calculator for
-  Typst and the original inspiration for this project.
+  Typst and the original inspiration for this project. (Typst plugin, but doens't have units (0.1.1))
 
 ## Install
 
