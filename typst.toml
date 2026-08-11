@@ -1,9 +1,9 @@
 [package]
 name = "math-once"
-version = "0.1.0"
+version = "0.2.0"
 entrypoint = "math-once.typ"
 authors = ["Mikkel"]
 license = "MIT"
-description = "Qalc-like calculations with reusable values, physical units, and automatic conversion."
+description = "Reusable calculations with physical units, automatic conversion, and visible equations."
 categories = ["utility"]
 compiler = "0.14.0"

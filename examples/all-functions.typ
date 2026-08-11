@@ -1,16 +1,16 @@
-#import "../math-once.typ": calculate, qalc, qalc-builder, number-labelled-equations
+#import "../math-once.typ": evaluate-code, calculate, calculation-builder, number-labelled-equations
 
 #set text(lang: "en")
 
-= `calculate`
+= `evaluate-code`
 
 // Raw source, default integer rounding, and inline output.
-#let plain = calculate(`902 / 3.6`)
+#let plain = evaluate-code(`902 / 3.6`)
 #plain.display
 
 // String source, decimal rounding, a scope variable, a unit label, and a
-// centered block equation exercise every calculate argument.
-#let labelled = calculate(
+// centered block equation exercise every evaluate-code argument.
+#let labelled = evaluate-code(
   "x / 3.6",
   digits: 2,
   scope: (x: 902),
@@ -19,8 +19,8 @@
 )
 #labelled.display
 
-// A previous calculate result is automatically unwrapped to its exact value.
-#let reused = calculate(`a * 2`, scope: (a: labelled), digits: 1)
+// A previous evaluate-code result is automatically unwrapped to its exact value.
+#let reused = evaluate-code(`a * 2`, scope: (a: labelled), digits: 1)
 #reused.display
 
 #assert(plain.value == 251.0)
@@ -29,24 +29,24 @@
 #assert(labelled.source == "x / 3.6")
 #assert(labelled.unit.text == "m/s")
 
-= `qalc`
+= `calculate`
 
 // Automatic compatible-unit conversion and centered output.
-#let speed = qalc(`10 m/s + 1 km/t`)
+#let speed = calculate(`10 m/s + 1 km/t`)
 #speed.display
 
 // `unit` selects the output unit; `digits` controls display rounding.
-#let converted = qalc(`(1 m/s + 2 m/s)`, unit: `km/h`, digits: 1)
+#let converted = calculate(`(1 m/s + 2 m/s)`, unit: `km/h`, digits: 1)
 #converted.display
 
 // `to` is an alternative output-unit syntax.
-#qalc(`10 m/s to km/h`, digits: 2).display
+#calculate(`10 m/s to km/h`, digits: 2).display
 
-// `=` is another equivalent, qalc-like output-unit syntax.
-#qalc(`1 m/s + 1 m/s = km/s`).display
+// `=` is another equivalent output-unit syntax.
+#calculate(`1 m/s + 1 m/s = km/s`).display
 
-// Both ordinary numbers and complete qalc results can be scope variables.
-#let distance = qalc(
+// Both ordinary numbers and complete calculate results can be scope variables.
+#let distance = calculate(
   `factor * v * 2 s`,
   scope: (factor: 2, v: speed),
   unit: `m`,
@@ -55,7 +55,7 @@
 #distance.display
 
 // Inline output remains available.
-Inline: #qalc(`100 cm to m`, block: false).display.
+Inline: #calculate(`100 cm to m`, block: false).display.
 
 #assert(speed.value == 10.2778)
 #assert(converted.value == 10.8)
@@ -64,10 +64,10 @@ Inline: #qalc(`100 cm to m`, block: false).display.
 #assert(type(distance.dimensions) == dictionary)
 #assert(distance.source == "factor * v * 2 s")
 
-= `qalc-builder`
+= `calculation-builder`
 
 // Builder defaults: initial state, unique state key, rounding, and layout.
-#let run = qalc-builder(
+#let run = calculation-builder(
   initial-state: (factor: 2),
   key: "all-functions-example",
   digits: 2,
@@ -91,9 +91,9 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
   [Stored distance: #variables.d.value #variables.d.unit]
 }
 
-// Normal Typst math input works like eqrun and visibly substitutes stored
+// Normal Typst math input visibly substitutes stored
 // variables before showing the final result.
-#let eq = qalc-builder(key: "math-input-example", digits: 2)
+#let eq = calculation-builder(key: "math-input-example", digits: 2)
 #eq($v = 902 / 3.6$)
 #eq($a = v * 2$)
 

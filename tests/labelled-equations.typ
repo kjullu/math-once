@@ -1,4 +1,4 @@
-#import "../math-once.typ": qalc-builder, number-labelled-equations
+#import "../math-once.typ": calculation-builder, number-labelled-equations
 
 #show: number-labelled-equations.with(supplement: [Ligning])
 
@@ -10,7 +10,7 @@ $ E = m c^2 $ <energy>
 
 Native reference: @energy.
 
-#let eq = qalc-builder(key: "labelled-equation-test", digits: 2)
+#let eq = calculation-builder(key: "labelled-equation-test", digits: 2)
 
 Unlabelled calculator equation:
 #eq($v = 902 / 3.6$, unit: $m/s$)

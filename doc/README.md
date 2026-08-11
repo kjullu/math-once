@@ -8,24 +8,24 @@ internally in SI base units, so compatible units can be combined safely.
 
 | Function | Use it for |
 | --- | --- |
-| [`qalc`](qalc.md) | One unit-aware calculation with a reusable result. |
-| [`qalc-builder`](qalc-builder.md) | A sequence of equations with stored variables and visible substitution. |
-| [`calculate`](calculate.md) | Trusted Typst code where a unit is only a display label. |
+| [`calculate`](calculate.md) | One unit-aware calculation with a reusable result. |
+| [`calculation-builder`](calculation-builder.md) | A sequence of equations with stored variables and visible substitution. |
+| [`evaluate-code`](evaluate-code.md) | Trusted Typst code where a unit is only a display label. |
 | [`number-labelled-equations`](number-labelled-equations.md) | Number only labelled equations and make them referenceable. |
 
-For most documents, use `qalc` or `qalc-builder`. They understand physical
+For most documents, use `calculate` or `calculation-builder`. They understand physical
 dimensions and reject incompatible operations such as `10 m + 2 s`.
-`calculate` uses unrestricted Typst evaluation and does not interpret units.
+`evaluate-code` uses unrestricted Typst evaluation and does not interpret units.
 
 ## Basic usage
 
 ```typ
-#import "math-once.typ": qalc, qalc-builder
+#import "math-once.typ": calculate, calculation-builder
 
-#qalc(`10 m/s + 1 km/h`).display
+#calculate(`10 m/s + 1 km/h`).display
 // 10 m/s + 1 km/h = 10.2778 m/s
 
-#let eq = qalc-builder(digits: 2)
+#let eq = calculation-builder(digits: 2)
 #eq($v = 902 / 3.6$)
 #eq($a = v * 2$)
 ```
@@ -35,9 +35,9 @@ dimensions and reject incompatible operations such as `10 m + 2 s`.
 Expressions can normally be written as raw text, strings, or Typst math:
 
 ```typ
-#qalc(`10 m/s + 1 km/h`).display
-#qalc("10 m/s + 1 km/h").display
-#qalc($10 m/s + 1 "km"/h$).display
+#calculate(`10 m/s + 1 km/h`).display
+#calculate("10 m/s + 1 km/h").display
+#calculate($10 m/s + 1 "km"/h$).display
 ```
 
 In Typst math, quote multi-letter names such as `"km"`. Raw text is usually

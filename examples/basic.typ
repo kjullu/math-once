@@ -1,34 +1,34 @@
-#import "../math-once.typ": calculate, qalc, qalc-builder
+#import "../math-once.typ": evaluate-code, calculate, calculation-builder
 
 #set text(lang: "da")
 
 = Skriv beregningen én gang
 
-#let a = calculate(`902 / 3.6`, unit: `m/s`)
+#let a = evaluate-code(`902 / 3.6`, unit: `m/s`)
 #a.display
 
 Resultatet kan bruges som et almindeligt tal: #a.value.
 
-#let b = calculate(`a * 2`, scope: (a: a), unit: a.unit, digits: 1)
+#let b = evaluate-code(`a * 2`, scope: (a: a), unit: a.unit, digits: 1)
 #b.display
 
 Den præcise, ikke-afrundede værdi er også gemt: #a.exact.
 
 = Automatisk enhedsregning
 
-#let fart = qalc(`10 m/s + 1 km/t`)
+#let fart = calculate(`10 m/s + 1 km/t`)
 #fart.display
 
-#let afstand = qalc(`fart * 2 s`, scope: (fart: fart), digits: 3)
+#let afstand = calculate(`fart * 2 s`, scope: (fart: fart), digits: 3)
 #afstand.display
 
-#qalc(`10 m/s to km/t`, digits: 2).display
+#calculate(`10 m/s to km/t`, digits: 2).display
 
-#qalc(`(1 m/s + 2 m/s)`, unit: `km/h`, digits: 1).display
+#calculate(`(1 m/s + 2 m/s)`, unit: `km/h`, digits: 1).display
 
-= Variabler som i eqrun
+= Genbrugelige variabler
 
-#let run = qalc-builder()
+#let run = calculation-builder()
 #run(`v = 10 m/s + 1 km/t`)
 #run(`d = v * 2 s`, digits: 3)
 

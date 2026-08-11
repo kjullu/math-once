@@ -1,2 +1,2 @@
-#import "../../math-once.typ": qalc
-#qalc(`10 m + 2 s`)
+#import "../../math-once.typ": calculate
+#calculate(`10 m + 2 s`)

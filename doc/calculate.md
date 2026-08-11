@@ -1,22 +1,20 @@
 # `calculate`
 
-Evaluates a trusted Typst numerical expression and optionally appends a
-display-only unit label. Use [`qalc`](qalc.md) when units must participate in
-the calculation.
-
-> **Security:** `calculate` uses unrestricted Typst `eval`. Only pass source
-> that you trust.
+Evaluates one dimensional expression and returns both rendered equation
+content and a reusable result.
 
 ## Example
 
 ```typ
 #import "math-once.typ": calculate
 
-#let result = calculate(`902 / 3.6`, digits: 2, unit: `m/s`)
-#result.display
-// 902/3.6 = 250.56 m/s
+#let speed = calculate(`10 m/s + 1 km/h`)
+#speed.display
+// 10 m/s + 1 km/h = 10.2778 m/s
 
-The exact value is #result.exact.
+#let distance = calculate(`v * 2 s`, scope: (v: speed), digits: 3)
+#distance.display
+// v ⋅ 2 s = 20.556 m
 ```
 
 ## Signature
@@ -24,10 +22,10 @@ The exact value is #result.exact.
 ```typ
 calculate(
   source,
-  digits: 0,
+  digits: 4,
   scope: (:),
   unit: none,
-  block: false,
+  block: true,
 ) -> dictionary
 ```
 
@@ -35,63 +33,89 @@ calculate(
 
 ### `source`
 
-`str` or `raw` — required, positional
+`str` or `raw` or math `content` — required, positional
 
-A trusted Typst code expression that evaluates to an integer, float, or
-decimal.
+The expression to evaluate. It can contain numbers, variables, units,
+parentheses, and the operators `+`, `-`, `*`, `/`, and `^`.
 
 ```typ
-#calculate(`902 / 3.6`).display
-#calculate("81 / 9").display
+#calculate(`1 m + 25 cm`).display
+#calculate("1 m + 25 cm").display
+#calculate($1 m + 25 "cm"$).display
 ```
+
+Input `*` is rendered as the multiplication dot `⋅`. Adjacent values imply
+multiplication, as in `2 N` or `10 m`.
 
 ### `digits`
 
-`int` — optional, named — default: `0`
+`int` — optional, named — default: `4`
 
 The number of decimal places used for `result.value` and the rendered result.
-It does not change `result.exact`.
+The unrounded value remains available through `result.exact` and
+`result.si-value`.
 
 ```typ
-#calculate(`1 / 3`, digits: 3).display
-// 1/3 = 0.333
+#calculate(`1 m / 3`, digits: 2).display
+// 1 m / 3 = 0.33 m
 ```
 
 ### `scope`
 
 `dictionary` — optional, named — default: `(:)`
 
-Values available to the evaluated expression. Earlier `calculate` results are
-automatically unwrapped to their exact value.
+Numbers and earlier `calculate` results made available as variables. A reused
+`calculate` result keeps its exact SI value and physical dimensions.
 
 ```typ
-#let a = calculate(`902 / 3.6`, digits: 2)
-#let b = calculate(`a * 2`, scope: (a: a), digits: 2)
-#b.display
+#let speed = calculate(`10 m/s`)
+#calculate(
+  `factor * v * 2 s`,
+  scope: (factor: 2, v: speed),
+).display
+// factor ⋅ v ⋅ 2 s = 40 m
 ```
+
+Unit names are reserved and take precedence over scope variable names.
 
 ### `unit`
 
-`str` or `raw` or math `content` or `content` or `none` — optional, named —
-default: `none`
+`str` or `raw` or math `content` or `none` — optional, named — default: `none`
 
-A label appended to the visible result. It is not parsed, converted, or used
-in the calculation.
+Requests the unit used for the returned and displayed value. The requested
+unit normally has the same physical dimensions as the result. When the
+expression is a plain number, `unit` assigns that physical unit to the value.
 
 ```typ
-#calculate(`250`, unit: `m/s`).display
-#calculate(`250`, unit: $m/s$).display
+#calculate(`3 m/s`, unit: `km/h`, digits: 1).display
+// 3 m/s = 10.8 km/h
+
+#calculate($902 / 3.6$, unit: $m/s$, digits: 2).display
+// 902/3.6 = 250.56 m/s
+```
+
+Typst evaluates function arguments before calling the function, so bare
+`unit: m/s` treats `m` and `s` as code variables and does not work. Wrap the
+unit in math, raw text, or a string: `unit: $m/s$`, ``unit: `m/s` ``, or
+`unit: "m/s"`.
+
+Writing `to` or `=` in `source` performs the same conversion. Use only one of
+the three forms in a call.
+
+```typ
+#calculate(`3 m/s to km/h`, digits: 1).display
+#calculate(`3 m/s = km/h`, digits: 1).display
 ```
 
 ### `block`
 
-`bool` — optional, named — default: `false`
+`bool` — optional, named — default: `true`
 
-Whether `result.display` is a centered block equation.
+Controls whether `result.display` is a centered block equation. Set it to
+`false` for an inline equation.
 
 ```typ
-#calculate(`2 + 2`, block: true).display
-Inline: #calculate(`2 + 2`, block: false).display.
+Inline: #calculate(`100 cm to m`, block: false).display.
 ```
 
 ## Result
@@ -101,11 +125,31 @@ Returns a dictionary with these fields:
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `display` | math content | The rendered expression and result. |
-| `value` | number | The rounded result. |
-| `exact` | number | The unrounded result used when reused through `scope`. |
-| `source` | `str` | The normalized Typst source expression. |
-| `unit` | any accepted unit value | The original display-only unit value. |
+| `value` | number | The rounded value expressed in `unit`. |
+| `exact` | number | The unrounded value expressed in `unit`. |
+| `si-value` | `float` | The unrounded value in SI base units. |
+| `dimensions` | dictionary | Exponents for the seven SI base dimensions. |
+| `unit` | `str` or `none` | The displayed output unit. |
+| `source` | `str` | The normalized source expression. |
 
-Unlike `qalc`, `calculate` does not store dimensions. For example, a label of
-`m/s` is carried to the output but has no mathematical meaning to the
-evaluator.
+Use `display` to show the equation and pass the full result through `scope`
+when another calculation needs it:
+
+```typ
+#let length = calculate(`250 cm to m`)
+#length.display
+
+#let area = calculate(`x^2`, scope: (x: length))
+#area.display
+#area.value
+```
+
+## Supported syntax
+
+- Decimal and scientific notation, such as `1.2e3`.
+- `+`, `-`, `*`, `/`, and right-associative `^`.
+- Parentheses and implicit multiplication.
+- Unit products, quotients, prefixes, and integer powers.
+- Output conversion through `to`, `=`, or `unit:`.
+
+See [Units and prefixes](units.md) for unit names and limitations.
