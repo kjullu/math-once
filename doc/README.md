@@ -11,6 +11,7 @@ internally in SI base units, so compatible units can be combined safely.
 | [`calculate`](calculate.md) | One unit-aware calculation with a reusable result. |
 | [`calculation-builder`](calculation-builder.md) | A sequence of equations with stored variables and visible substitution. |
 | [`equation`](equation.md) | A figure-like wrapper for per-equation captions. |
+| [`equation-outline`](equation-outline.md) | A linked list of labelled, captioned equations. |
 | [`evaluate-code`](evaluate-code.md) | Trusted Typst code where a unit is only a display label. |
 | [`number-labelled-equations`](number-labelled-equations.md) | Number only labelled equations and make them referenceable. |
 

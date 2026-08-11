@@ -28,6 +28,7 @@ calculation-builder(
   key: "math-once-calculation",
   digits: 4,
   block: true,
+  supplement: auto,
 ) -> function
 ```
 
@@ -83,6 +84,21 @@ override it with `block: false`.
 Inline: #eq(`x = 2 + 2`).
 ```
 
+### `supplement`
+
+`auto` or `content` or `function` or `none` — optional, named — default: `auto`
+
+Sets the name placed before references and captions created by this builder.
+`auto` inherits the active equation supplement. This is useful for changing
+language or giving one family of calculations its own name.
+
+```typ
+#let eq = calculation-builder(
+  key: "english-equations",
+  supplement: [Equation],
+)
+```
+
 ## Returned runner
 
 `calculation-builder` returns a function with this interface:
@@ -96,6 +112,7 @@ runner(
   label: none,
   caption: none,
   gap: 0.65em,
+  supplement: builder-supplement,
 ) -> content or dictionary
 ```
 
@@ -205,6 +222,21 @@ Controls the vertical distance between this calculation and its caption.
 ```typ
 #let eq = calculation-builder(key: "caption-gap-example")
 #eq(`x = 2 + 2`, caption: [A compact caption], gap: 0.3em)
+```
+
+### `supplement` override
+
+`auto` or `content` or `function` or `none` — optional, named
+
+Overrides the builder's `supplement` for one calculation.
+
+```typ
+#let eq = calculation-builder(key: "mixed-supplements")
+#eq(
+  `x = 2 + 2`,
+  caption: [A named formula],
+  supplement: [Formula],
+) <formula>
 ```
 
 ## Reading stored variables

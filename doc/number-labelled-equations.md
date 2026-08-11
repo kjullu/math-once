@@ -20,6 +20,8 @@ $ 1 + 1 = 2 $
   caption: [Sammenhængen mellem masse og energi],
 ) <energy>
 
+// Visible caption: Ligning 1: Sammenhængen mellem masse og energi
+
 Som vist i @energy kan masse omdannes til energi.
 // Som vist i Ligning 1 ...
 ```
@@ -126,6 +128,17 @@ numbered normally but receive no caption.
 For new documents, prefer [`equation(..., caption: ...)`](equation.md) for
 native equations and `#eq(..., caption: ...)` for calculation-builder output.
 This keeps each caption beside the equation it describes.
+
+## Equation outline
+
+Use [`equation-outline`](equation-outline.md) to create a list of labelled,
+captioned equations with dot leaders and page numbers:
+
+```typ
+#import "math-once.typ": equation-outline
+
+#equation-outline(title: [Ligningsoversigt])
+```
 
 ## Labels and references
 

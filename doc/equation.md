@@ -24,6 +24,8 @@ Som vist i @energy kan masse omdannes til energi.
 
 The equation is numbered because it has a label. Without `<energy>`, it still
 has its caption but receives no number under `number-labelled-equations`.
+With a label, the caption is automatically prefixed with the same name and
+number as a reference: `Ligning 1: Sammenhængen ...`.
 
 ## Signature
 
@@ -32,6 +34,7 @@ equation(
   body,
   caption: none,
   gap: 0.65em,
+  supplement: auto,
 ) -> content
 ```
 
@@ -78,6 +81,24 @@ The vertical distance between the formula and caption.
 )
 ```
 
+### `supplement`
+
+`auto` or `content` or `function` or `none` — optional, named — default: `auto`
+
+Overrides the name placed before this equation's reference and caption. With
+`auto`, the value from `number-labelled-equations` is inherited.
+
+```typ
+#equation(
+  $ E = m c^2 $,
+  caption: [Mass-energy equivalence],
+  supplement: [Equation],
+) <energy>
+
+// Caption: Equation 1: Mass-energy equivalence
+// Reference: @energy becomes Equation 1
+```
+
 ## Labels and references
 
 Write the label after the complete function call, just as a label is written
@@ -92,5 +113,8 @@ after a native equation. Use `@label` to reference it.
 Se @kinetic.
 ```
 
-For stateful calculations, use the same `caption:` and `gap:` arguments
-directly on a [`calculation-builder`](calculation-builder.md#caption) runner.
+For stateful calculations, use the same `caption:`, `gap:`, and `supplement:`
+arguments directly on a
+[`calculation-builder`](calculation-builder.md#caption) runner.
+Use [`equation-outline`](equation-outline.md) to list all labelled equations
+that have a per-equation caption.
