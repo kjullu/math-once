@@ -100,9 +100,12 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 = `number-labelled-equations`
 
 // Only labelled block equations receive a number and a reference name.
-#show: number-labelled-equations.with(supplement: [Equation])
+#show: number-labelled-equations.with(
+  supplement: [Equation],
+  captions: (energy: [Mass-energy equivalence]),
+)
 
 $ 1 + 1 = 2 $
-$ E = m c^2 $ <energy-equation>
+$ E = m c^2 $ <energy>
 
-See @energy-equation.
+See @energy.

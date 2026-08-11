@@ -9,13 +9,19 @@ number and do not advance the equation counter.
 ```typ
 #import "math-once.typ": number-labelled-equations
 
-#show: number-labelled-equations.with(supplement: [Ligning])
+#show: number-labelled-equations.with(
+  supplement: [Ligning],
+  captions: (
+    energy: [Sammenhængen mellem masse og energi],
+  ),
+)
 
 // No label: no name or number.
 $ 1 + 1 = 2 $
 
 // Label: receives number (1).
 $ E = m c^2 $ <energy>
+// Caption: Ligning 1: Sammenhængen mellem masse og energi
 
 Som vist i @energy kan masse omdannes til energi.
 // Som vist i Ligning 1 ...
@@ -30,19 +36,23 @@ It also works with equations returned by `calculate` and `calculation-builder`:
 ```typ
 #import "math-once.typ": calculation-builder, number-labelled-equations
 
-#show: number-labelled-equations.with(supplement: [Ligning])
+#show: number-labelled-equations.with(
+  supplement: [Ligning],
+  captions: (
+    speed: [Den beregnede hastighed],
+  ),
+)
 #let eq = calculation-builder(digits: 2)
 
-#eq($v = 902 / 3.6$, unit: $m/s$, label: <speed>)
+#eq($v = 902 / 3.6$, unit: $m/s$) <speed>
 #eq($a = v * 2$)
 
 Hastigheden er beregnet i @speed.
 ```
 
-Only the first equation is numbered because only it has a label. Use the
-runner's `label:` parameter for `calculation-builder`: placing `<speed>` after the
-function call would label Typst's contextual state wrapper rather than the
-equation inside it.
+Only the first equation is numbered and captioned because only it has a label.
+`calculation-builder` also accepts `label: <speed>` as an alternative to the
+postfix label.
 
 ## Signature
 
@@ -51,6 +61,7 @@ number-labelled-equations(
   body,
   numbering: "(1)",
   supplement: auto,
+  captions: (:),
 ) -> content
 ```
 
@@ -88,6 +99,31 @@ uses Typst's localized equation supplement. Set explicit Danish text with:
 ```typ
 #show: number-labelled-equations.with(supplement: [Ligning])
 ```
+
+### `captions`
+
+`dictionary` — optional, named — default: `(:)`
+
+Maps label names to caption content. Write dictionary keys without angle
+brackets. A caption is centered below its equation and prefixed with the
+equation's localized reference name and number.
+
+```typ
+#show: number-labelled-equations.with(
+  supplement: [Ligning],
+  captions: (
+    pythagoras: [Pythagoras' læresætning],
+    energy: [Sammenhængen mellem masse og energi],
+  ),
+)
+
+$ a^2 + b^2 = c^2 $ <pythagoras>
+$ E = m c^2 $ <energy>
+```
+
+Captions require a label because the label connects the caption, number, and
+reference target. Labels without a matching dictionary entry are still
+numbered normally but receive no caption.
 
 ## Labels and references
 

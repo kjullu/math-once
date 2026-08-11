@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+- Labels written after `calculation-builder` output now attach directly to the
+  generated equation: `#eq(...) <label>`.
+- `number-labelled-equations` can add captions to labelled native and
+  calculated equations through its `captions` dictionary.
+- Labelled equations receive numbers; unlabelled equations remain unnumbered
+  and do not advance the equation counter.
+
 ## 0.2.0
 
 Breaking API rename:
