@@ -76,6 +76,19 @@
   )
 }
 
+// Keep captions inside the equation element. This lets a postfix label attach
+// to the real math.equation instead of to a surrounding layout container.
+#let _captioned-body(body, caption, gap) = if caption == none {
+  body
+} else {
+  stack(
+    dir: ttb,
+    spacing: gap,
+    align(center, body),
+    align(center, text(size: 0.9em, caption)),
+  )
+}
+
 // Everything in this dictionary is an implementation detail. Keeping the
 // parser in one value leaves only the documented wrappers below as public API.
 #let _engine = {
@@ -646,7 +659,7 @@ let calculation-builder(
 ) = {
   let variables = state(key, initial-state)
 
-  (..args, digits: digits, unit: none, block: block, label: none) => {
+  (..args, digits: digits, unit: none, block: block, label: none, caption: none, gap: 0.65em) => {
     if args.pos().len() > 1 {
       panic("math-once calculate: the runner accepts at most one expression")
     }
@@ -660,32 +673,40 @@ let calculation-builder(
     let name = if assignment == none { none } else { assignment.captures.at(0) }
     let expression = if assignment == none { source } else { assignment.captures.at(1) }
 
-    let output = math.equation(
-      context {
-        let current = variables.get()
-        let result = calculate(expression, digits: digits, scope: current, unit: unit, block: block)
+    if caption != none and not block {
+      panic("math-once calculation-builder: captions require block: true")
+    }
+    if caption != none and type(caption) not in (content, str) {
+      panic("math-once calculation-builder: caption must be content, a string, or none")
+    }
 
-        if name != none {
-          let tokens = expression-tokens(expression)
-          let labelled-body = render-tokens((name,)) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens)
-          let (expanded, has-variables) = expand-variables(tokens, current)
-          if has-variables {
-            labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded)
-          }
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + str(result.value)
-          if result.unit != none {
-            labelled-body += h(0.2em) + render-tokens(tokenize(result.unit))
-          }
-          result.insert("display", math.equation(labelled-body, block: block))
-          result.insert("variable", name)
-          variables.update(old => {
-            old.insert(name, result)
-            old
-          })
+    let equation-body = context {
+      let current = variables.get()
+      let result = calculate(expression, digits: digits, scope: current, unit: unit, block: block)
+
+      if name != none {
+        let tokens = expression-tokens(expression)
+        let labelled-body = render-tokens((name,)) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens)
+        let (expanded, has-variables) = expand-variables(tokens, current)
+        if has-variables {
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded)
         }
+        labelled-body += h(0.25em) + math.eq + h(0.25em) + str(result.value)
+        if result.unit != none {
+          labelled-body += h(0.2em) + render-tokens(tokenize(result.unit))
+        }
+        result.insert("display", math.equation(labelled-body, block: block))
+        result.insert("variable", name)
+        variables.update(old => {
+          old.insert(name, result)
+          old
+        })
+      }
 
-        result.display.body
-      },
+      result.display.body
+    }
+    let output = math.equation(
+      _captioned-body(equation-body, caption, gap),
       block: block,
     )
     if label == none { output } else { [#output #label] }
@@ -727,12 +748,14 @@ let calculation-builder(
 /// - `block`: Whether runner equations are centered. Default: `true`.
 ///
 /// The returned runner accepts zero or one string, raw block, or Typst math
-/// equation plus the named `digits`, `unit`, `block`, and `label` overrides.
+/// equation plus the named `digits`, `unit`, `block`, `label`, `caption`, and
+/// `gap` overrides.
 /// An assignment like `$v = 10 m/s$` stores `v`. Later equations show an extra
 /// step with stored variable values substituted. A label can be written after
 /// the call as `#runner(...) <name>` or passed with `label: <name>`. Calling
 /// the runner without an expression returns its result dictionary and must
-/// happen in a `context` block.
+/// happen in a `context` block. `caption` adds text below a block equation;
+/// `gap` controls the space above that caption.
 #let calculation-builder(
   initial-state: (:),
   key: "math-once-calculation",
@@ -744,6 +767,34 @@ let calculation-builder(
   digits: digits,
   block: block,
 )
+
+/// Add a per-equation caption using an interface similar to `figure`.
+///
+/// - `body`: A Typst math equation, such as `$ E = m c^2 $`.
+/// - `caption`: Optional caption shown below the equation. Default: `none`.
+/// - `gap`: Space between the equation and caption. Default: `0.65em`.
+///
+/// The result remains a real `math.equation`, so a postfix label can be added
+/// as `#equation($ ... $, caption: [...]) <label>` and referenced with `@label`.
+#let equation(body, caption: none, gap: 0.65em) = {
+  if type(body) != content or body.func() != math.equation {
+    panic("math-once equation: body must be a Typst math equation")
+  }
+  if caption == none {
+    return body
+  }
+  if type(caption) not in (content, str) {
+    panic("math-once equation: caption must be content, a string, or none")
+  }
+  if not body.block {
+    panic("math-once equation: captions require a block equation")
+  }
+
+  math.equation(
+    _captioned-body(body.body, caption, gap),
+    block: body.block,
+  )
+}
 
 /// Number block equations only when they have a label, while keeping the
 /// original equation elements intact so Typst references continue to work.

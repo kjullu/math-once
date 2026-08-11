@@ -94,6 +94,8 @@ runner(
   unit: none,
   block: builder-block,
   label: none,
+  caption: none,
+  gap: 0.65em,
 ) -> content or dictionary
 ```
 
@@ -169,9 +171,41 @@ referenced. It is an alternative to the more natural postfix syntax.
 Se @speed.
 ```
 
-Captions for both builder output and native equations are configured through
-the [`captions` parameter](number-labelled-equations.md#captions) of
-`number-labelled-equations`.
+### `caption`
+
+`content` or `str` or `none` — optional, named — default: `none`
+
+Places a caption directly below this calculation, like the named `caption`
+argument of a Typst figure. The calculation must be a block equation. A postfix
+label still attaches to the generated equation and can be referenced normally.
+
+```typ
+#import "math-once.typ": calculation-builder, number-labelled-equations
+
+#show: number-labelled-equations.with(supplement: [Ligning])
+#let eq = calculation-builder(key: "caption-example")
+
+#eq(
+  $v = 10 m/s$,
+  caption: [Den valgte begyndelseshastighed],
+) <speed>
+
+Se @speed.
+```
+
+The older central [`captions` dictionary](number-labelled-equations.md#captions)
+is retained for compatibility.
+
+### `gap`
+
+`relative` — optional, named — default: `0.65em`
+
+Controls the vertical distance between this calculation and its caption.
+
+```typ
+#let eq = calculation-builder(key: "caption-gap-example")
+#eq(`x = 2 + 2`, caption: [A compact caption], gap: 0.3em)
+```
 
 ## Reading stored variables
 

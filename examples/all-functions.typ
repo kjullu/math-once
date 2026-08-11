@@ -1,4 +1,4 @@
-#import "../math-once.typ": evaluate-code, calculate, calculation-builder, number-labelled-equations
+#import "../math-once.typ": evaluate-code, calculate, calculation-builder, equation, number-labelled-equations
 
 #set text(lang: "en")
 
@@ -108,4 +108,21 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 $ 1 + 1 = 2 $
 $ E = m c^2 $ <energy>
 
+= `equation`
+
+// The figure-like caption stays attached to a native equation and its label.
+#equation(
+  $ p = m v $,
+  caption: [Momentum as mass times velocity],
+  gap: 0.4em,
+) <momentum>
+
+// Calculated equations accept the same per-call caption style.
+#eq(
+  $b = a / 2$,
+  caption: [The recovered speed],
+) <recovered-speed>
+
 See @energy.
+See also @momentum.
+See also @recovered-speed.
