@@ -326,7 +326,7 @@ let render-tokens(tokens) = {
     if is-name(token) {
       "\"" + token + "\""
     } else if token == "*" {
-      "times"
+      "dot"
     } else {
       token
     }

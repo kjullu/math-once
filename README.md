@@ -38,7 +38,7 @@ directly. No installation or additional files are required:
 
 #let distance = qalc(`v * 2 s`, scope: (v: speed), digits: 3)
 #distance.display
-// v * 2 s = 20.556 m
+// v ⋅ 2 s = 20.556 m
 ```
 
 If it is installed as a local Typst package, this import works too:
@@ -112,6 +112,7 @@ Inline: #qalc(`100 cm to m`, block: false).display.
 Supported syntax:
 
 - Operators: `+`, `-`, `*`, `/`, and `^`
+- Input `*` is rendered as the conventional multiplication dot `⋅`
 - Parentheses and implicit multiplication, such as `10 m` and `2 N`
 - Scientific notation, such as `1.2e3`
 - Explicit conversion with `to`, such as `10 m/s to km/t`
@@ -172,7 +173,7 @@ and therefore requires `context`.
 // v = 10 m/s + 1 km/t = 10.2778 m/s
 
 #run(`d = factor * v * 2 s`, unit: `m`, digits: 3)
-// d = factor * v * 2 s = 41.111 m
+// d = factor ⋅ v ⋅ 2 s = 41.111 m
 
 // No assignment: calculate without storing a new variable.
 Inline: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
