@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.15.0
+
+- Changed `calculation-builder` to render common calculation failures as
+  centered red messages instead of stopping Typst compilation.
+- Added friendly feedback for incompatible dimensions and conversions,
+  division by zero, invalid trigonometric arguments and unit powers, common
+  `size` mistakes, output-unit conflicts, and malformed parentheses.
+- Failed definitions are not stored, so later use produces the existing
+  `is not set` feedback.
+- Improved inverse-dimension names so errors can distinguish inverse time from
+  inverse length.
+- Kept direct `calculate` calls strict: they continue to panic on invalid input
+  for programmatic error detection.
+
 ## 0.14.0
 
 - Added quoted symbolic count labels in output-unit expressions. For example,

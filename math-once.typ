@@ -1,4 +1,4 @@
-// math-once v0.14.0
+// math-once v0.15.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -573,6 +573,14 @@ let quantity(si-value, dims: zero-dim, preferred: none, affine: none) = (
   affine: affine,
 )
 
+let calculation-failure(message) = (error: message)
+let is-calculation-failure(value) = type(value) == dictionary and "error" in value
+let calculation-fail(message, soft: false) = if soft {
+  calculation-failure(message)
+} else {
+  panic("math-once calculate: " + message)
+}
+
 let dims-add(a, b, factor: 1) = {
   let result = zero-dim
   for (name, value) in a {
@@ -600,6 +608,8 @@ let dimensions-name(dims) = {
     (dim(length: 1, time: -2), "acceleration"),
     (dim(length: 2), "area"),
     (dim(length: 3), "volume"),
+    (dim(length: -1), "inverse length"),
+    (dim(time: -1), "inverse time"),
     (dim(length: 1, mass: 1, time: -2), "force"),
     (dim(length: -1, mass: 1, time: -2), "pressure"),
     (dim(length: 2, mass: 1, time: -2), "energy"),
@@ -1012,12 +1022,13 @@ let normalize-scope(scope) = {
   normalized
 }
 
-let apply-op(op, left, right) = {
+let apply-op(op, left, right, soft: false) = {
   if op == "+" or op == "-" {
     if left.dims != right.dims {
-      panic(
-        "math-once calculate: cannot " + if op == "+" { "add " } else { "subtract " }
+      return calculation-fail(
+        "cannot " + if op == "+" { "add " } else { "subtract " }
         + dimensions-name(left.dims) + " and " + dimensions-name(right.dims),
+        soft: soft,
       )
     }
     return quantity(
@@ -1042,7 +1053,7 @@ let apply-op(op, left, right) = {
       )
     }
     if left.affine != none or right.affine != none {
-      panic("math-once calculate: affine units must be multiplied by a plain number")
+      return calculation-fail("affine units must be multiplied by a plain number", soft: soft)
     }
     return quantity(
       left.si-value * right.si-value,
@@ -1066,7 +1077,10 @@ let apply-op(op, left, right) = {
   }
   if op == "/" {
     if left.affine != none or right.affine != none {
-      panic("math-once calculate: affine units cannot be divided")
+      return calculation-fail("affine units cannot be divided", soft: soft)
+    }
+    if right.si-value == 0 {
+      return calculation-fail("cannot divide by zero", soft: soft)
     }
     return quantity(
       left.si-value / right.si-value,
@@ -1076,26 +1090,26 @@ let apply-op(op, left, right) = {
   }
   if op == "^" {
     if left.affine != none {
-      panic("math-once calculate: affine units cannot be raised to a power")
+      return calculation-fail("affine units cannot be raised to a power", soft: soft)
     }
     if not is-dimensionless(right) {
-      panic("math-once calculate: exponent must be dimensionless")
+      return calculation-fail("exponent must be dimensionless", soft: soft)
     }
     let exponent = right.si-value
     if not is-dimensionless(left) and exponent != calc.round(exponent) {
-      panic("math-once calculate: a unit may only be raised to an integer power")
+      return calculation-fail("a unit may only be raised to an integer power", soft: soft)
     }
     return quantity(
       calc.pow(left.si-value, exponent),
       dims: dims-scale(left.dims, exponent),
     )
   }
-  panic("math-once calculate: unsupported operator `" + op + "`")
+  calculation-fail("unsupported operator `" + op + "`", soft: soft)
 }
 
-let apply-function(name, argument) = {
+let apply-function(name, argument, soft: false) = {
   if not is-dimensionless(argument) {
-    panic("math-once calculate: `" + name + "` requires a dimensionless angle")
+    return calculation-fail("`" + name + "` requires a dimensionless angle", soft: soft)
   }
   let angle = if argument.preferred == none {
     argument.si-value * calc.pi / 180
@@ -1106,33 +1120,36 @@ let apply-function(name, argument) = {
     if name == "sin" { calc.sin(angle) }
     else if name == "cos" { calc.cos(angle) }
     else if name == "tan" { calc.tan(angle) }
-    else { panic("math-once calculate: unsupported function `" + name + "`") },
+    else { calculation-fail("unsupported function `" + name + "`", soft: soft) },
   )
 }
 
-let parse(tokens, scope: (:), unloaded: (), custom-units: false) = {
+let parse(tokens, scope: (:), unloaded: (), custom-units: false, soft: false) = {
   let scope = normalize-scope(scope)
   let precedence = ("+": 1, "-": 1, "*": 2, "/": 2, "^": 3)
 
   let parse-expression(tokens, position, minimum: 0) = {
     if position >= tokens.len() {
-      panic("math-once calculate: expected a number, variable, unit, or parenthesis")
+      return (calculation-fail("expected a number, variable, unit, or parenthesis", soft: soft), position)
     }
 
     let token = tokens.at(position)
     let left = none
     if token in math-functions {
       if position + 1 >= tokens.len() or tokens.at(position + 1) != "(" {
-        panic("math-once calculate: `" + token + "` must be followed by parentheses")
+        return (calculation-fail("`" + token + "` must be followed by parentheses", soft: soft), position)
       }
       let (argument, next) = parse-expression(tokens, position + 2)
+      if is-calculation-failure(argument) { return (argument, next) }
       if next >= tokens.len() or tokens.at(next) != ")" {
-        panic("math-once calculate: missing closing parenthesis after `" + token + "`")
+        return (calculation-fail("missing closing parenthesis after `" + token + "`", soft: soft), next)
       }
-      left = apply-function(token, argument)
+      left = apply-function(token, argument, soft: soft)
+      if is-calculation-failure(left) { return (left, next + 1) }
       position = next + 1
     } else if token == "+" or token == "-" {
       let (operand, next) = parse-expression(tokens, position + 1, minimum: 3)
+      if is-calculation-failure(operand) { return (operand, next) }
       left = if token == "-" {
         quantity(-operand.si-value, dims: operand.dims, preferred: operand.preferred)
       } else {
@@ -1141,8 +1158,9 @@ let parse(tokens, scope: (:), unloaded: (), custom-units: false) = {
       position = next
     } else if token == "(" {
       let (inside, next) = parse-expression(tokens, position + 1)
+      if is-calculation-failure(inside) { return (inside, next) }
       if next >= tokens.len() or tokens.at(next) != ")" {
-        panic("math-once calculate: missing closing parenthesis")
+        return (calculation-fail("missing closing parenthesis", soft: soft), next)
       }
       left = inside
       position = next + 1
@@ -1155,7 +1173,7 @@ let parse(tokens, scope: (:), unloaded: (), custom-units: false) = {
       if token in scope {
         left = scope.at(token)
       } else if token in unloaded {
-        panic("math-once calculate: unloaded unit `" + token + "` has not been assigned a variable value")
+        return (calculation-fail("`" + token + "` is not set", soft: soft), position + 1)
       } else {
         let unit = resolve-unit(unit-name)
         if unit != none {
@@ -1174,12 +1192,12 @@ let parse(tokens, scope: (:), unloaded: (), custom-units: false) = {
           // count label. It has scale one and adds no physical dimension.
           left = quantity(1.0, preferred: token)
         } else {
-          panic("math-once calculate: unknown variable or unit `" + token + "`")
+          return (calculation-fail("unknown variable or unit `" + token + "`", soft: soft), position + 1)
         }
       }
       position += 1
     } else {
-      panic("math-once calculate: unexpected token `" + token + "`")
+      return (calculation-fail("unexpected token `" + token + "`", soft: soft), position + 1)
     }
 
     while position < tokens.len() {
@@ -1189,34 +1207,38 @@ let parse(tokens, scope: (:), unloaded: (), custom-units: false) = {
       if op-precedence < minimum { break }
       let next-minimum = if op == "^" { op-precedence } else { op-precedence + 1 }
       let (right, next) = parse-expression(tokens, position + 1, minimum: next-minimum)
-      left = apply-op(op, left, right)
+      if is-calculation-failure(right) { return (right, next) }
+      left = apply-op(op, left, right, soft: soft)
+      if is-calculation-failure(left) { return (left, next) }
       position = next
     }
     (left, position)
   }
 
   let (result, position) = parse-expression(tokens, 0)
+  if is-calculation-failure(result) { return result }
   if position != tokens.len() {
-    panic("math-once calculate: unexpected token `" + tokens.at(position) + "`")
+    return calculation-fail("unexpected token `" + tokens.at(position) + "`", soft: soft)
   }
   result
 }
 
-let normalize-size(size) = {
+let normalize-size(size, soft: false) = {
   if size == none { return none }
   let value = if type(size) in (int, float, decimal) {
     float(size)
   } else if type(size) in (str, content) {
-    let parsed = parse(add-implicit-multiplication(tokenize(input-source(size))))
+    let parsed = parse(add-implicit-multiplication(tokenize(input-source(size))), soft: soft)
+    if is-calculation-failure(parsed) { return parsed }
     if not is-dimensionless(parsed) {
-      panic("math-once calculate: size must not contain a physical unit")
+      return calculation-fail("size must not contain a physical unit", soft: soft)
     }
     parsed.si-value
   } else {
-    panic("math-once calculate: size must be a positive number or math expression")
+    return calculation-fail("size must be a positive number or math expression", soft: soft)
   }
   if value <= 0 {
-    panic("math-once calculate: size must be greater than zero")
+    return calculation-fail("size must be greater than zero", soft: soft)
   }
   value
 }
@@ -1225,8 +1247,9 @@ let normalize-size(size) = {
 /// `sin`, `cos`, `tan`, and the operators `+`, `-`, `*`, `/`, and `^`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
-let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: ()) = {
-  let size = normalize-size(size)
+let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), soft: false) = {
+  let size = normalize-size(size, soft: soft)
+  if is-calculation-failure(size) { return size }
   let source = input-source(source)
   let raw-tokens = tokenize(source)
   let depth = 0
@@ -1235,17 +1258,17 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     if token == "(" { depth += 1 }
     if token == ")" { depth -= 1 }
     if token in ("to", "=") and depth == 0 {
-      if conversion-index != none { panic("math-once calculate: only one output-unit separator is allowed") }
+      if conversion-index != none { return calculation-fail("only one output-unit separator is allowed", soft: soft) }
       conversion-index = index
     }
   }
-  if depth != 0 { panic("math-once calculate: unbalanced parentheses") }
+  if depth != 0 { return calculation-fail("unbalanced parentheses", soft: soft) }
 
   if conversion-index != none and unit != none {
-    panic("math-once calculate: use only one of `to`, `=`, or `unit`")
+    return calculation-fail("use only one of `to`, `=`, or `unit`", soft: soft)
   }
   if size != none and (conversion-index != none or unit != none) {
-    panic("math-once calculate: use `size` or an output unit, not both")
+    return calculation-fail("use `size` or an output unit, not both", soft: soft)
   }
 
   let expression-tokens = if conversion-index == none { raw-tokens } else { raw-tokens.slice(0, conversion-index) }
@@ -1256,15 +1279,17 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   } else {
     none
   }
-  if expression-tokens.len() == 0 { panic("math-once calculate: missing expression before output conversion") }
-  if target-tokens != none and target-tokens.len() == 0 { panic("math-once calculate: missing output unit") }
+  if expression-tokens.len() == 0 { return calculation-fail("missing expression before output conversion", soft: soft) }
+  if target-tokens != none and target-tokens.len() == 0 { return calculation-fail("missing output unit", soft: soft) }
 
-  let result = parse(add-implicit-multiplication(expression-tokens), scope: scope, unloaded: unloaded)
+  let result = parse(add-implicit-multiplication(expression-tokens), scope: scope, unloaded: unloaded, soft: soft)
+  if is-calculation-failure(result) { return result }
   let output-unit = result.preferred
   let output-scale = 1.0
   let output-offset = 0.0
   if target-tokens != none {
-    let target = parse(add-implicit-multiplication(target-tokens), custom-units: true)
+    let target = parse(add-implicit-multiplication(target-tokens), custom-units: true, soft: soft)
+    if is-calculation-failure(target) { return target }
     if target.dims != result.dims {
       if is-dimensionless(result) and not is-dimensionless(target) {
         // A requested unit on a plain number assigns that physical dimension.
@@ -1280,7 +1305,10 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
           preferred: target-tokens.join(""),
         )
       } else {
-        panic("math-once calculate: cannot convert " + dimensions-name(result.dims) + " to " + dimensions-name(target.dims))
+        return calculation-fail(
+          "cannot convert " + dimensions-name(result.dims) + " to " + dimensions-name(target.dims),
+          soft: soft,
+        )
       }
     }
     output-unit = target-tokens.map(token => if is-quoted-unit(token) { quoted-unit-name(token) } else { token }).join("")
@@ -1296,7 +1324,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
 
   if size != none {
     if is-dimensionless(result) {
-      panic("math-once calculate: size requires a result with a physical unit")
+      return calculation-fail("size requires a result with a physical unit", soft: soft)
     }
     output-unit = sized-output-unit(result.dims, size)
     output-scale = size
@@ -1406,8 +1434,10 @@ let calculation-builder(
           size: size,
           block: block,
           unloaded: unloaded,
+          soft: true,
         )
       }
+      let calculation-error = if is-calculation-failure(result) { result.error } else { none }
 
       if illegal-assignment {
         text(
@@ -1418,6 +1448,11 @@ let calculation-builder(
         text(
           fill: red,
           [math-once: #raw(missing.first()) is not set.],
+        )
+      } else if calculation-error != none {
+        text(
+          fill: red,
+          [math-once: #calculation-error.],
         )
       } else if display-only {
         render-tokens(tokens, scope: current)

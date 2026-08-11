@@ -33,10 +33,14 @@ functions you need:
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.14.0": calculate, calculation-builder, reset, unload, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.15.0": calculate, calculation-builder, reset, unload, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst and has no runtime dependencies.
+
+Common calculation mistakes passed through `calculation-builder` are shown as
+centered red messages in the document instead of stopping compilation. Direct
+`calculate(...)` calls still panic, making failures observable in Typst code.
 
 ## Documentation
 
