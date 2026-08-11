@@ -381,8 +381,9 @@
 /// Evaluate a qalc-like expression containing numbers, units, variables, and
 /// the operators `+`, `-`, `*`, `/`, and `^`.
 ///
-/// Use `to` to request an output unit, for example `10 m/s to km/t`.
-#let qalc(source, digits: 4, scope: (:), block: false) = {
+/// Use `to` or the `unit` argument to request an output unit. For example,
+/// `10 m/s to km/t` and `qalc(`10 m/s`, unit: `km/t`)` are equivalent.
+#let qalc(source, digits: 4, scope: (:), unit: none, block: false) = {
   let source = source-string(source)
   let raw-tokens = tokenize(source)
   let depth = 0
@@ -397,8 +398,18 @@
   }
   if depth != 0 { panic("math-once qalc: unbalanced parentheses") }
 
+  if conversion-index != none and unit != none {
+    panic("math-once qalc: use either `to` or `unit`, not both")
+  }
+
   let expression-tokens = if conversion-index == none { raw-tokens } else { raw-tokens.slice(0, conversion-index) }
-  let target-tokens = if conversion-index == none { none } else { raw-tokens.slice(conversion-index + 1) }
+  let target-tokens = if conversion-index != none {
+    raw-tokens.slice(conversion-index + 1)
+  } else if unit != none {
+    tokenize(source-string(unit))
+  } else {
+    none
+  }
   if expression-tokens.len() == 0 { panic("math-once qalc: missing expression before `to`") }
   if target-tokens != none and target-tokens.len() == 0 { panic("math-once qalc: missing unit after `to`") }
 

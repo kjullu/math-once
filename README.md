@@ -19,6 +19,9 @@ directly. No installation or additional files are required:
 #qalc(`10 m/s to km/t`, digits: 2).display
 // 10 m/s = 36 km/t
 
+#qalc(`(1 m/s + 2 m/s)`, unit: `km/h`, digits: 1).display
+// 1 m/s + 2 m/s = 10.8 km/h
+
 #let distance = qalc(`v * 2 s`, scope: (v: speed), digits: 3)
 #distance.display
 // v * 2 s = 20.556 m
@@ -41,6 +44,7 @@ subtraction. Multiplication, division, and powers combine dimensions.
   `10 m/s + 1 km/t`,
   digits: 4,
   scope: (:),
+  unit: none,
   block: false,
 )
 ```
@@ -61,7 +65,12 @@ Supported syntax:
 - Parentheses and implicit multiplication, such as `10 m` and `2 N`
 - Scientific notation, such as `1.2e3`
 - Explicit conversion with `to`, such as `10 m/s to km/t`
+- An output unit with `unit:`, for example the raw value `km/h`
 - Previous results and ordinary numbers supplied through `scope`
+
+`to` and `unit:` are equivalent ways to choose the output unit. Use only one
+of them in a calculation. Without either, the result uses the first compatible
+input unit where possible, otherwise a canonical SI unit.
 
 Supported units:
 
