@@ -1,4 +1,4 @@
-#import "../lib.typ": calculate
+#import "../lib.typ": calculate, qalc
 
 #set text(lang: "da")
 
@@ -13,3 +13,13 @@ Resultatet kan bruges som et almindeligt tal: #a.value.
 #b.display
 
 Den præcise, ikke-afrundede værdi er også gemt: #a.exact.
+
+= Automatisk enhedsregning
+
+#let fart = qalc(`10 m/s + 1 km/t`)
+#fart.display
+
+#let afstand = qalc(`fart * 2 s`, scope: (fart: fart), digits: 3)
+#afstand.display
+
+#qalc(`10 m/s to km/t`, digits: 2).display

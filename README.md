@@ -1,31 +1,37 @@
 # math-once
 
-`math-once` is a small, pure Typst package for writing a calculation once,
-showing the calculation and its result, and reusing the result later.
+`math-once` is a pure Typst calculator that evaluates qalc-like expressions
+with physical units, renders the calculation, and lets later calculations
+reuse the dimensioned result.
+
+## Quick start
 
 ```typ
-#import "@local/math-once:0.1.0": calculate
+#import "@local/math-once:0.1.0": qalc
 
-#let a = calculate(`902 / 3.6`, unit: `m/s`)
-#a.display
+#let speed = qalc(`10 m/s + 1 km/t`)
+#speed.display
+// 10 m/s + 1 km/t = 10.2778 m/s
 
-// Pass the whole result; math-once uses its exact value internally.
-#let b = calculate(`a * 2`, scope: (a: a), unit: a.unit, digits: 1)
-#b.display
+#qalc(`10 m/s to km/t`, digits: 2).display
+// 10 m/s = 36 km/t
+
+#let distance = qalc(`v * 2 s`, scope: (v: speed), digits: 3)
+#distance.display
+// v * 2 s = 20.556 m
 ```
 
-This renders the equivalents of $902 / 3.6 = 251 m/s$ and
-$a times 2 = 501.1 m/s$.
-The expression in each call is written only once.
+The expression in each call is written only once. Values are stored internally
+in SI base units, so compatible units are converted before addition or
+subtraction. Multiplication, division, and powers combine dimensions.
 
-## API
+## `qalc`
 
 ```typ
-#let result = calculate(
-  `902 / 3.6`,
-  digits: 0,
+#let result = qalc(
+  `10 m/s + 1 km/t`,
+  digits: 4,
   scope: (:),
-  unit: none,
   block: false,
 )
 ```
@@ -33,27 +39,59 @@ The expression in each call is written only once.
 The result is a dictionary:
 
 - `result.display` is the visible equation.
-- `result.value` is the rounded number displayed by the equation.
-- `result.exact` is the value before rounding.
+- `result.value` is the displayed, rounded number in `result.unit`.
+- `result.exact` is the unrounded number in `result.unit`.
+- `result.si-value` is the unrounded value in SI base units.
+- `result.dimensions` contains its physical dimensions.
+- `result.unit` is the displayed unit.
 - `result.source` is the original expression as a string.
-- `result.unit` is the supplied unit, so it can be reused later.
 
-Use `digits: 2` for two decimals and `block: true` for a displayed equation.
-Variables used in a later expression must be explicitly supplied in `scope`.
-A complete earlier result can be supplied directly; its exact value is then
-used automatically, so intermediate display rounding does not accumulate.
-Single-letter variable names such as `a`, `b`, and `x` render best in Typst's
-math mode.
+Supported syntax:
 
-The `unit` option accepts a string, raw text, or math content. It is rendered
-and retained with the result. Units are intentionally not guessed from an
-arbitrary source string: when multiplying or dividing unlike quantities, pass
-the resulting unit explicitly. This prevents silently incorrect dimensional
-algebra.
+- Operators: `+`, `-`, `*`, `/`, and `^`
+- Parentheses and implicit multiplication, such as `10 m` and `2 N`
+- Scientific notation, such as `1.2e3`
+- Explicit conversion with `to`, such as `10 m/s to km/t`
+- Previous results and ordinary numbers supplied through `scope`
 
-`calculate` uses Typst's `eval` function so the same source can be evaluated as
-code and rendered as mathematics. Only pass trusted expressions; do not pass
-untrusted user or external input.
+Supported units:
+
+| Dimension | Units |
+| --- | --- |
+| Length | `mm`, `cm`, `m`, `km` |
+| Time | `s`, `min`, `h`, `t` (`t` is Danish *timer*) |
+| Mass | `g`, `kg` |
+| Volume | `mL`, `L`, plus derived `m^3` |
+| Derived SI | `Hz`, `N`, `Pa`, `J`, `W` |
+| Other SI bases | `A`, `K`, `mol`, `cd` |
+
+Unit names are reserved and take precedence over equally named scope
+variables. Affine temperature units such as Celsius and Fahrenheit are not yet
+supported; `K` is supported.
+
+Incompatible operations fail clearly. For example, the expression
+`10 m + 2 s` reports that length and time cannot be added, while `10 m to s`
+rejects the conversion.
+
+## Simple source evaluation
+
+The original `calculate` API remains available for ordinary Typst numerical
+expressions where units only need to be retained as a label:
+
+```typ
+#import "@local/math-once:0.1.0": calculate
+
+#let a = calculate(`902 / 3.6`, unit: `m/s`)
+#a.display
+
+// Pass the complete result to reuse its exact value.
+#let b = calculate(`a * 2`, scope: (a: a), unit: a.unit, digits: 1)
+#b.display
+```
+
+`calculate` uses Typst's unrestricted `eval` function. Only pass trusted
+expressions to it. `qalc` instead accepts only its documented numerical and
+unit syntax.
 
 ## Local development
 
@@ -62,8 +100,8 @@ Compile the example and tests with:
 ```sh
 typst compile --root . examples/basic.typ build/basic.pdf
 typst compile --root . tests/test.typ build/test.pdf
+typst compile --root . tests/qalc.typ build/qalc.pdf
 ```
 
 Ordinary Typst packages are written in Typst itself. TypeScript is not needed,
 and this package does not need a WebAssembly plugin.
-
