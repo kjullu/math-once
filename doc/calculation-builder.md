@@ -411,3 +411,26 @@ or clear the complete builder state.
 
 Use [`unload`](unload.md) before a definition when a reserved unit spelling
 must temporarily be used as a variable name.
+
+## Error feedback
+
+Common calculation errors are rendered as centered red messages without
+stopping the rest of the document. These include unset variables, reserved
+variable names, incompatible addition and conversion, division by zero,
+invalid trigonometric arguments or unit powers, common `size` mistakes,
+conflicting output options, and unbalanced parentheses.
+
+```typ
+#let eq = calculation-builder(key: "error-example")
+
+#eq(`1 m + 2 s`)
+// red: math-once: cannot add length and time.
+
+#eq(`1 / 0`)
+// red: math-once: cannot divide by zero.
+```
+
+A failed `:=` definition is not stored. A later expression that uses its name
+therefore reports that the variable is not set. Direct [`calculate`](calculate.md)
+calls remain strict and panic on invalid input, which is useful when their
+return values are consumed programmatically.
