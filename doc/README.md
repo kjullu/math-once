@@ -11,6 +11,7 @@ internally in SI base units, so compatible units can be combined safely.
 | [`qalc`](qalc.md) | One unit-aware calculation with a reusable result. |
 | [`qalc-builder`](qalc-builder.md) | A sequence of equations with stored variables and visible substitution. |
 | [`calculate`](calculate.md) | Trusted Typst code where a unit is only a display label. |
+| [`number-labelled-equations`](number-labelled-equations.md) | Number only labelled equations and make them referenceable. |
 
 For most documents, use `qalc` or `qalc-builder`. They understand physical
 dimensions and reject incompatible operations such as `10 m + 2 s`.

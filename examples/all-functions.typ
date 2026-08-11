@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculate, qalc, qalc-builder
+#import "../math-once.typ": calculate, qalc, qalc-builder, number-labelled-equations
 
 #set text(lang: "en")
 
@@ -96,3 +96,13 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 #let eq = qalc-builder(key: "math-input-example", digits: 2)
 #eq($v = 902 / 3.6$)
 #eq($a = v * 2$)
+
+= `number-labelled-equations`
+
+// Only labelled block equations receive a number and a reference name.
+#show: number-labelled-equations.with(supplement: [Equation])
+
+$ 1 + 1 = 2 $
+$ E = m c^2 $ <energy-equation>
+
+See @energy-equation.

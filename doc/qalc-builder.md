@@ -93,6 +93,7 @@ runner(
   digits: builder-digits,
   unit: none,
   block: builder-block,
+  label: none,
 ) -> content or dictionary
 ```
 
@@ -146,6 +147,26 @@ Requests an output unit for this call. It behaves like the `unit` parameter of
 `bool` — optional, named
 
 Overrides the builder's `block` value for this call.
+
+### `label`
+
+`label` or `none` — optional, named — default: `none`
+
+Attaches a Typst label directly to the generated equation so it can be
+referenced. This parameter is needed because `qalc-builder` uses contextual
+state; writing a label after the function call would attach it to the context
+wrapper instead of the equation.
+
+```typ
+#import "math-once.typ": qalc-builder, number-labelled-equations
+
+#show: number-labelled-equations.with(supplement: [Ligning])
+#let eq = qalc-builder(key: "label-example")
+
+#eq($v = 10 m/s$, label: <speed>)
+
+Se @speed.
+```
 
 ## Reading stored variables
 
