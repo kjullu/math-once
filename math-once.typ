@@ -211,6 +211,7 @@ let units = (
 // Symbol and spelling aliases that cannot all be written as dictionary keys.
 units.insert("Ω", units.ohm)
 units.insert("°", units.deg)
+units.insert("degree", units.deg)
 units.insert("l", units.L)
 units.insert("sec", units.s)
 units.insert("hr", units.h)
@@ -476,7 +477,9 @@ let add-implicit-multiplication(tokens) = {
 let render-tokens(tokens) = {
   let source = tokens.map(token => {
     if is-name(token) {
-      if resolve-unit(token) != none {
+      if token == "degree" {
+        "degree"
+      } else if resolve-unit(token) != none {
         "upright(\"" + token + "\")"
       } else if "_" in token {
         let parts = token.split("_")
@@ -613,14 +616,28 @@ let apply-op(op, left, right) = {
     return quantity(
       left.si-value * right.si-value,
       dims: dims-add(left.dims, right.dims),
-      preferred: if is-dimensionless(left) { right.preferred } else if is-dimensionless(right) { left.preferred } else { none },
+      preferred: if (left.preferred != none
+        and is-dimensionless(right)
+        and right.preferred == none) {
+        left.preferred
+      } else if (right.preferred != none
+        and is-dimensionless(left)
+        and left.preferred == none) {
+        right.preferred
+      } else if is-dimensionless(left) {
+        right.preferred
+      } else if is-dimensionless(right) {
+        left.preferred
+      } else {
+        none
+      },
     )
   }
   if op == "/" {
     return quantity(
       left.si-value / right.si-value,
       dims: dims-add(left.dims, right.dims, factor: -1),
-      preferred: if is-dimensionless(right) { left.preferred } else { none },
+      preferred: if is-dimensionless(right) and right.preferred == none { left.preferred } else { none },
     )
   }
   if op == "^" {
