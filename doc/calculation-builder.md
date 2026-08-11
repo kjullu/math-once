@@ -175,6 +175,27 @@ The common lowercase Greek names are available, along with the distinct
 uppercase Greek symbols. Examples include `alpha`, `beta`, `theta`, `lambda`,
 `pi`, `sigma`, `phi`, `psi`, and `omega`.
 
+Variables can also have letter or number subscripts. The complete name,
+including its underscore, becomes the state dictionary key:
+
+```typ
+#let eq = calculation-builder(key: "subscript-example")
+
+#eq($theta_m = 15$)
+#eq($lambda_0 = 530 m$)
+#eq($d = 2 lambda_0$)
+
+#context {
+  let variables = eq()
+  [#variables.at("theta_m").value]
+  [#variables.at("lambda_0").value]
+}
+```
+
+Raw input uses the same underscore syntax, for example
+`` `speed_max = 20 m/s` ``. Subscripts are intentionally limited to letters
+and digits so they remain unambiguous reusable variable names.
+
 ### `digits`
 
 `int` — optional, named

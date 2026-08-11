@@ -400,10 +400,14 @@ let math-source-part(value, parse) = {
     return "(" + parse(value.num) + ")/(" + parse(value.denom) + ")"
   }
   if value.func() == math.attach {
-    if value.has("b") {
-      panic("math-once calculate: subscripts in variable names are not supported")
-    }
     let base = math-source-part(value.base, parse)
+    if value.has("b") {
+      let subscript = parse(value.b)
+      if regex("^[A-Za-z0-9]+$") not in subscript {
+        panic("math-once calculate: variable subscripts must contain only letters or digits")
+      }
+      base += "_" + subscript
+    }
     if value.has("t") {
       return base + "^(" + parse(value.t) + ")"
     }
@@ -436,7 +440,7 @@ let input-source(source) = if type(source) == content and source.func() == math.
 }
 
 let tokenize(source) = {
-  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|[A-Za-zµμΩ°]+|[=()+*/^+\\-]")
+  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|[A-Za-zµμΩ°]+(?:_[A-Za-z0-9]+)*|[=()+*/^+\\-]")
   let tokens = ()
   let cursor = 0
   for found in source.matches(pattern) {
@@ -454,7 +458,7 @@ let tokenize(source) = {
 }
 
 let is-number(token) = regex("^(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?$") in token
-let is-name(token) = regex("^[A-Za-zµμΩ°]+$") in token
+let is-name(token) = regex("^[A-Za-zµμΩ°]+(?:_[A-Za-z0-9]+)*$") in token
 let can-end(token) = is-number(token) or is-name(token) or token == ")"
 let can-start(token) = is-number(token) or is-name(token) or token == "("
 
@@ -474,6 +478,16 @@ let render-tokens(tokens) = {
     if is-name(token) {
       if resolve-unit(token) != none {
         "upright(\"" + token + "\")"
+      } else if "_" in token {
+        let parts = token.split("_")
+        let render-part(part, base: false) = if part in variable-symbols {
+          part
+        } else if part.len() == 1 or is-number(part) {
+          part
+        } else {
+          "\"" + part + "\""
+        }
+        render-part(parts.first(), base: true) + parts.slice(1).map(part => "_" + render-part(part)).join("")
       } else if token in variable-symbols {
         token
       } else {
@@ -801,7 +815,7 @@ let calculation-builder(
     }
 
     let source = input-source(source)
-    let assignment = source.match(regex("^\\s*([A-Za-z]+)\\s*=\\s*(.+)$"))
+    let assignment = source.match(regex("^\\s*([A-Za-z]+(?:_[A-Za-z0-9]+)*)\\s*=\\s*(.+)$"))
     let name = if assignment == none { none } else { assignment.captures.at(0) }
     let expression = if assignment == none { source } else { assignment.captures.at(1) }
 
