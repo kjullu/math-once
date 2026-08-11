@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculate, qalc
+#import "../math-once.typ": calculate, qalc, qalc-builder
 
 #set text(lang: "da")
 
@@ -25,3 +25,14 @@ Den præcise, ikke-afrundede værdi er også gemt: #a.exact.
 #qalc(`10 m/s to km/t`, digits: 2).display
 
 #qalc(`(1 m/s + 2 m/s)`, unit: `km/h`, digits: 1).display
+
+= Variabler som i eqrun
+
+#let run = qalc-builder()
+#run(`v = 10 m/s + 1 km/t`) \
+#run(`d = v * 2 s`, digits: 3)
+
+#context {
+  let svar = run()
+  [Den gemte afstand er #svar.d.value #svar.d.unit.]
+}

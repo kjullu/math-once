@@ -448,3 +448,49 @@
     display: math.equation(display-body, block: block),
   )
 }
+
+/// Create a stateful equation runner similar to eqrun.
+///
+/// Named expressions such as `v = 10 m/s` are stored and automatically made
+/// available to later calls. Call the runner without an expression inside a
+/// context block to retrieve its dictionary of results.
+#let qalc-builder(
+  initial-state: (:),
+  key: "math-once-qalc",
+  digits: 4,
+  block: false,
+) = {
+  let variables = state(key, initial-state)
+
+  (..args, digits: digits, unit: none, block: block) => {
+    if args.pos().len() > 1 {
+      panic("math-once qalc: the runner accepts at most one expression")
+    }
+    let source = args.pos().at(0, default: none)
+    if source == none {
+      return variables.get()
+    }
+
+    let source = source-string(source)
+    let assignment = source.match(regex("^\\s*([A-Za-z]+)\\s*=\\s*(.+)$"))
+    let name = if assignment == none { none } else { assignment.captures.at(0) }
+    let expression = if assignment == none { source } else { assignment.captures.at(1) }
+
+    context {
+      let current = variables.get()
+      let result = qalc(expression, digits: digits, scope: current, unit: unit, block: block)
+
+      if name != none {
+        let labelled-body = render-tokens((name,)) + h(0.25em) + math.eq + h(0.25em) + result.display.body
+        result.insert("display", math.equation(labelled-body, block: block))
+        result.insert("variable", name)
+        variables.update(old => {
+          old.insert(name, result)
+          old
+        })
+      }
+
+      result.display
+    }
+  }
+}
