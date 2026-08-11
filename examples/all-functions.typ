@@ -76,7 +76,7 @@ Inline: #calculate(`100 cm to m`, block: false).display.
 
 // Assignments store full dimensioned results for later calls.
 #run(`v = 10 m/s + 1 km/t`)
-#run(`d = factor * v * 2 s`, unit: `m`, digits: 3)
+#run(`x = factor * v * 2 s`, unit: `m`, digits: 3)
 
 // A call without assignment calculates without adding a variable. Per-call
 // `block`, `digits`, and `unit` override the builder defaults.
@@ -87,15 +87,15 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
   let variables = run()
   assert(variables.factor == 2)
   assert(variables.v.unit == "m/s")
-  assert(variables.d.unit == "m")
-  [Stored distance: #variables.d.value #variables.d.unit]
+  assert(variables.x.unit == "m")
+  [Stored distance: #variables.x.value #variables.x.unit]
 }
 
 // Normal Typst math input visibly substitutes stored
 // variables before showing the final result.
 #let eq = calculation-builder(key: "math-input-example", digits: 2)
 #eq($v = 902 / 3.6$)
-#eq($a = v * 2$)
+#eq($x = v * 2$)
 
 = `number-labelled-equations`
 
@@ -121,7 +121,7 @@ $ E = m c^2 $ <energy>
 
 // Calculated equations accept the same per-call caption style.
 #eq(
-  $b = a / 2$,
+  $y = x / 2$,
   caption: [The recovered speed],
   supplement: [Formula],
 ) <recovered-speed>

@@ -5,7 +5,7 @@
 // Typst math names are stored under their readable ASCII names and retain
 // their mathematical symbols in the rendered equations.
 #eq($lambda = 530 m$)
-#eq($d = 2 lambda$)
+#eq($z = 2 lambda$)
 #eq($theta = 2$)
 #eq($x = theta + 1$)
 
@@ -17,7 +17,7 @@
   let variables = eq()
   assert(variables.lambda.value == 530.0)
   assert(variables.lambda.unit == "m")
-  assert(variables.d.value == 1060.0)
+  assert(variables.z.value == 1060.0)
   assert(variables.theta.value == 2.0)
   assert(variables.x.value == 3.0)
   assert(variables.omega.value == 3.0)

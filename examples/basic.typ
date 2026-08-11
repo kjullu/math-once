@@ -30,9 +30,9 @@ Den præcise, ikke-afrundede værdi er også gemt: #a.exact.
 
 #let run = calculation-builder()
 #run(`v = 10 m/s + 1 km/t`)
-#run(`d = v * 2 s`, digits: 3)
+#run(`x = v * 2 s`, digits: 3)
 
 #context {
   let svar = run()
-  [Den gemte afstand er #svar.d.value #svar.d.unit.]
+  [Den gemte afstand er #svar.x.value #svar.x.unit.]
 }

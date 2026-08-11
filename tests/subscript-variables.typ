@@ -4,7 +4,7 @@
 
 #eq($theta_m = 15$)
 #eq($lambda_0 = 530 m$)
-#eq($d = 2 lambda_0$)
+#eq($x = 2 lambda_0$)
 
 // Raw input and multi-letter subscripts use the same storage convention.
 #eq(`speed_max = 20 m/s`)
@@ -14,7 +14,7 @@
   let variables = eq()
   assert(variables.at("theta_m").value == 15.0)
   assert(variables.at("lambda_0").value == 530.0)
-  assert(variables.d.value == 1060.0)
+  assert(variables.x.value == 1060.0)
   assert(variables.at("speed_max").value == 20.0)
   assert(variables.distance.value == 40.0)
 }

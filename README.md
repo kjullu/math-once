@@ -12,8 +12,8 @@ conversion, and stateful equation variables.
 #eq($v = 902 / 3.6$)
 // v = 902/3.6 = 250.56
 
-#eq($a = v * 2$)
-// a = v ⋅ 2 = 250.56 ⋅ 2 = 501.11
+#eq($x = v * 2$)
+// x = v ⋅ 2 = 250.56 ⋅ 2 = 501.11
 ```
 
 ## Install
@@ -28,7 +28,7 @@ functions you need:
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.9.0": calculate, calculation-builder, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.10.0": calculate, calculation-builder, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst and has no runtime dependencies.

@@ -13,8 +13,8 @@ unit-aware results, and later equations visibly substitute stored values.
 #eq($v = 902 / 3.6$)
 // v = 902/3.6 = 250.56
 
-#eq($a = v * 2$)
-// a = v ⋅ 2 = 250.56 ⋅ 2 = 501.11
+#eq($x = v * 2$)
+// x = v ⋅ 2 = 250.56 ⋅ 2 = 501.11
 ```
 
 Calculations use the unrounded stored value. This avoids accumulating rounding
@@ -27,8 +27,8 @@ are the result:
 #eq($v = 10 m/s$)
 // v = 10 m/s
 
-#eq($a = v * 2$)
-// a = v ⋅ 2 = 10 m/s ⋅ 2 = 20 m/s
+#eq($x = v * 2$)
+// x = v ⋅ 2 = 10 m/s ⋅ 2 = 20 m/s
 ```
 
 Arithmetic, unit conversions, and rounding still add a result step whenever it
@@ -60,7 +60,7 @@ Unit names are reserved and cannot be used as keys.
   initial-state: (factor: 2),
   key: "initial-state-example",
 )
-#eq(`a = factor * 3`)
+#eq(`x = factor * 3`)
 ```
 
 ### `key`
@@ -143,7 +143,7 @@ result without storing a new variable.
 ```typ
 #let eq = calculation-builder(key: "source-example")
 #eq($v = 10 m/s$)
-#eq($d = v * 2 s$)
+#eq($x = v * 2 s$)
 #eq(`1 m/s to km/h`)
 ```
 
@@ -164,8 +164,8 @@ while the stored dictionary uses its readable ASCII name:
 #eq($lambda = 530 m$)
 // λ = 530 m
 
-#eq($d = 2 lambda$)
-// d = 2λ = 2 ⋅ 530 m = 1060 m
+#eq($x = 2 lambda$)
+// x = 2λ = 2 ⋅ 530 m = 1060 m
 
 #context {
   let variables = eq()
@@ -185,7 +185,7 @@ including its underscore, becomes the state dictionary key:
 
 #eq($theta_m = 15$)
 #eq($lambda_0 = 530 m$)
-#eq($d = 2 lambda_0$)
+#eq($x = 2 lambda_0$)
 
 #context {
   let variables = eq()
@@ -205,8 +205,8 @@ math:
 #eq($theta_m = 15.0 degree$)
 // θ_m = 15.0°
 
-#eq($d = theta_m * 2$)
-// d = θ_m ⋅ 2 = 15° ⋅ 2 = 30°
+#eq($x = theta_m * 2$)
+// x = θ_m ⋅ 2 = 15° ⋅ 2 = 30°
 ```
 
 Unit names are reserved and cannot be assigned as variables. This keeps an
@@ -225,14 +225,14 @@ as degrees, matching the common calculator convention. Explicit `deg`, `°`,
 
 #eq($lambda = 530 "nm"$)
 #eq($n = 1$)
-#eq($o = 15.0$)
-#eq($d = (n * lambda) / (sin(o))$)
-// d = (n ⋅ λ) / sin(o) = (1 ⋅ 530 nm) / sin(15)
+#eq($theta_1 = 15.0$)
+#eq($x = (n * lambda) / (sin(theta_1))$)
+// x = (n ⋅ λ) / sin(θ_1) = (1 ⋅ 530 nm) / sin(15)
 //   = 2.047762752 µm
 ```
 
 Typst math requires quotes around multi-letter units such as `"nm"`. Raw input
-can instead be written without quotes: `` `l = 530 nm` ``.
+can instead be written without quotes: `` `lambda = 530 nm` ``.
 
 Microscopic SI lengths automatically select a readable engineering prefix, so
 a result of roughly `2047.76 nm` is displayed as roughly `2.04776 µm`.
@@ -255,8 +255,8 @@ Requests an output unit for this call. It behaves like the `unit` parameter of
 #eq(`v = 10 m/s`, unit: `km/h`, digits: 1)
 // v = 10 m/s = 36 km/h
 
-#eq($u = 902 / 3.6$, unit: $m/s$, digits: 2)
-// u = 902/3.6 = 250.56 m/s
+#eq($x = 902 / 3.6$, unit: $m/s$, digits: 2)
+// x = 902/3.6 = 250.56 m/s
 ```
 
 ### `size`
@@ -273,8 +273,8 @@ familiar scales use their normal prefix.
 #eq($lambda = 530 "nm"$)
 #eq($n = 1$)
 #eq($theta_1 = 15 degree$)
-#eq($d = (n * lambda) / sin(theta_1)$, size: $10^(-6)$)
-// d = ... = 2.047762752 µm
+#eq($x = (n * lambda) / sin(theta_1)$, size: $10^(-6)$)
+// x = ... = 2.047762752 µm
 ```
 
 The exact `si-value` is unchanged and is used by later calculations. `size`
@@ -304,7 +304,7 @@ referenced. It is an alternative to the more natural postfix syntax.
 #eq($v = 10 m/s$) <speed>
 
 // Equivalent:
-#eq($u = 20 m/s$, label: <other-speed>)
+#eq($x = 20 m/s$, label: <other-speed>)
 
 Se @speed.
 ```
@@ -382,6 +382,6 @@ Stored dimensioned variables include their unit in the visible substitution:
 ```typ
 #let eq = calculation-builder(key: "dimensioned-example", digits: 2)
 #eq($v = 10 m/s + 1 "km"/h$)
-#eq($d = v * 2 s$, digits: 3)
-// d = v ⋅ 2 s = 10.28 m/s ⋅ 2 s = 20.556 m
+#eq($x = v * 2 s$, digits: 3)
+// x = v ⋅ 2 s = 10.28 m/s ⋅ 2 s = 20.556 m
 ```

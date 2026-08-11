@@ -5,14 +5,14 @@
 #eq($lambda = 530 "nm"$)
 #eq($n = 1$)
 #eq($theta_1 = 15.0 degree$)
-#eq($d = (n * lambda) / (sin(theta_1))$, size: $10^(-6)$)
+#eq($x = (n * lambda) / (sin(theta_1))$, size: $10^(-6)$)
 
 #context {
   let variables = eq()
   assert(variables.n.value == 1.0)
-  assert(variables.d.unit == "µm")
-  assert(variables.d.size == 0.000001)
-  assert(calc.abs(variables.d.value - 2.047762752) < 0.000000001)
+  assert(variables.x.unit == "µm")
+  assert(variables.x.size == 0.000001)
+  assert(calc.abs(variables.x.value - 2.047762752) < 0.000000001)
 }
 
 // Unit symbols remain units in a builder expression.
