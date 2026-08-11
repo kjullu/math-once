@@ -10,7 +10,7 @@ Copy [`math-once.typ`](math-once.typ) into your Typst project and import it
 directly. No installation or additional files are required:
 
 ```typ
-#import "math-once.typ": qalc, calculate
+#import "math-once.typ": qalc, qalc-builder, calculate
 
 #let speed = qalc(`10 m/s + 1 km/t`)
 #speed.display
@@ -71,6 +71,36 @@ Supported syntax:
 `to` and `unit:` are equivalent ways to choose the output unit. Use only one
 of them in a calculation. Without either, the result uses the first compatible
 input unit where possible, otherwise a canonical SI unit.
+
+## Stateful variables
+
+`qalc-builder` provides eqrun-style variables. A name on the left side of `=`
+stores the complete result, including its exact SI value and dimensions. Later
+calls automatically have access to all earlier variables:
+
+```typ
+#import "math-once.typ": qalc-builder
+
+#let run = qalc-builder()
+
+#run(`v = 10 m/s + 1 km/t`)
+// v = 10 m/s + 1 km/t = 10.2778 m/s
+
+#run(`d = v * 2 s`, digits: 3)
+// d = v * 2 s = 20.556 m
+
+#context {
+  let variables = run()
+  [Distance: #variables.d.value #variables.d.unit]
+}
+```
+
+Different runners should receive different state keys:
+
+```typ
+#let first = qalc-builder(key: "first-calculator")
+#let second = qalc-builder(key: "second-calculator")
+```
 
 Supported units:
 

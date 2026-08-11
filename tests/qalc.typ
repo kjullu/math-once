@@ -1,4 +1,4 @@
-#import "../math-once.typ": qalc
+#import "../math-once.typ": qalc, qalc-builder
 
 // Automatic conversion during addition: 1 km/t = 0.2777... m/s.
 #let speed = qalc(`10 m/s + 1 km/t`)
@@ -53,3 +53,15 @@
 #energy.display \
 #area.display \
 #volume.display
+
+// Stateful, eqrun-style variables.
+#let run = qalc-builder()
+#run(`v = 10 m/s + 1 km/t`)
+#run(`d = v * 2 s`, digits: 3)
+#context {
+  let variables = run()
+  assert(variables.v.value == 10.2778)
+  assert(variables.v.unit == "m/s")
+  assert(calc.abs(variables.d.exact - 20.555555555555557) < 0.000000000001)
+  assert(variables.d.unit == "m")
+}
