@@ -5,7 +5,7 @@ Write a calculation once, show the equation, and reuse its exact result.
 conversion, and stateful equation variables.
 
 ```typ
-#import "math-once.typ": calculation-builder, unload
+#import "math-once.typ": calculation-builder
 
 #let eq = calculation-builder(digits: 2)
 
@@ -15,11 +15,17 @@ conversion, and stateful equation variables.
 #eq($v * 2$)
 // v ⋅ 2 = 250.56 ⋅ 2 = 501.11
 
-#unload($d$)
-#eq($d := 0.5 "mm"$)
-#eq($1 / d$, unit: $"linjer" / m$)
-// 1/d = 1/(0.5 mm) = 2000 linjer/m
+#eq($distance := 0.5 "mm"$)
+#eq($1 / distance$, unit: $"lines" / m$)
+// 1/distance = 1/(0.5 mm) = 2000 lines/m
 ```
+
+## Acknowledgements and alternatives
+
+- [Qalculate!](https://github.com/Qalculate/libqalculate) is a powerful
+  calculator. Its unit handling *inspired* math-once.
+- [eqrun](https://github.com/snlxnet/eqrun) is a well-designed calculator for
+  Typst and the original inspiration for this project.
 
 ## Install
 
