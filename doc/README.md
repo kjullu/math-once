@@ -50,4 +50,4 @@ Expressions can normally be written as raw text, strings, or Typst math:
 In Typst math, quote multi-letter names such as `"km"`. Raw text is usually
 the simplest form for unit-heavy expressions.
 
-See [Units and prefixes](units.md) for the supported unit system and see [all Supported units](Supported units.md) for a list of all units.
+See [Units and prefixes](units.md) for the supported unit system and see [all Supported units](supported-units.md) for a list of all units.
