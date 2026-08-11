@@ -80,15 +80,24 @@ Unit names are reserved and take precedence over scope variable names.
 
 ### `unit`
 
-`str` or `raw` or `none` — optional, named — default: `none`
+`str` or `raw` or math `content` or `none` — optional, named — default: `none`
 
 Requests the unit used for the returned and displayed value. The requested
-unit must have the same physical dimensions as the result.
+unit normally has the same physical dimensions as the result. When the
+expression is a plain number, `unit` assigns that physical unit to the value.
 
 ```typ
 #qalc(`3 m/s`, unit: `km/h`, digits: 1).display
 // 3 m/s = 10.8 km/h
+
+#qalc($902 / 3.6$, unit: $m/s$, digits: 2).display
+// 902/3.6 = 250.56 m/s
 ```
+
+Typst evaluates function arguments before calling the function, so bare
+`unit: m/s` treats `m` and `s` as code variables and does not work. Wrap the
+unit in math, raw text, or a string: `unit: $m/s$`, ``unit: `m/s` ``, or
+`unit: "m/s"`.
 
 Writing `to` or `=` in `source` performs the same conversion. Use only one of
 the three forms in a call.

@@ -127,7 +127,7 @@ Overrides the builder's `digits` value for this call.
 
 ### `unit`
 
-`str` or `raw` or `none` — optional, named — default: `none`
+`str` or `raw` or math `content` or `none` — optional, named — default: `none`
 
 Requests an output unit for this call. It behaves like the `unit` parameter of
 [`qalc`](qalc.md#unit).
@@ -136,6 +136,9 @@ Requests an output unit for this call. It behaves like the `unit` parameter of
 #let eq = qalc-builder(key: "unit-example")
 #eq(`v = 10 m/s`, unit: `km/h`, digits: 1)
 // v = 10 m/s = 36 km/h
+
+#eq($u = 902 / 3.6$, unit: $m/s$, digits: 2)
+// u = 902/3.6 = 250.56 m/s
 ```
 
 ### `block`

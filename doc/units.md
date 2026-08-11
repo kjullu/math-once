@@ -21,7 +21,15 @@ Select an output unit with `to`, `=`, or the `unit` parameter:
 ```
 
 Use only one conversion form in each call. The target must have the same
-dimensions as the result.
+dimensions as the result. On a plain number, `unit` assigns the requested
+physical unit:
+
+```typ
+#qalc($902 / 3.6$, unit: $m/s$, digits: 2).display
+// 902/3.6 = 250.56 m/s
+```
+
+Unit symbols are rendered upright, following normal mathematical typography.
 
 ## SI prefixes
 

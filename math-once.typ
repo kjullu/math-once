@@ -367,7 +367,11 @@ let add-implicit-multiplication(tokens) = {
 let render-tokens(tokens) = {
   let source = tokens.map(token => {
     if is-name(token) {
-      "\"" + token + "\""
+      if resolve-unit(token) != none {
+        "upright(\"" + token + "\")"
+      } else {
+        "\"" + token + "\""
+      }
     } else if token == "*" {
       "dot"
     } else {
@@ -375,6 +379,24 @@ let render-tokens(tokens) = {
     }
   }).join(" ")
   eval(source, mode: "math").body
+}
+
+let compact-unit-tokens(tokens) = {
+  let result = ()
+  let index = 0
+  while index < tokens.len() {
+    if (index + 2 < tokens.len()
+      and tokens.at(index) == "("
+      and is-name(tokens.at(index + 1))
+      and tokens.at(index + 2) == ")") {
+      result.push(tokens.at(index + 1))
+      index += 3
+    } else {
+      result.push(tokens.at(index))
+      index += 1
+    }
+  }
+  result
 }
 
 let expression-tokens(source) = {
@@ -558,7 +580,7 @@ let qalc(source, digits: 4, scope: (:), unit: none, block: true) = {
   let target-tokens = if conversion-index != none {
     raw-tokens.slice(conversion-index + 1)
   } else if unit != none {
-    tokenize(source-string(unit))
+    compact-unit-tokens(tokenize(input-source(unit)))
   } else {
     none
   }
@@ -571,7 +593,17 @@ let qalc(source, digits: 4, scope: (:), unit: none, block: true) = {
   if target-tokens != none {
     let target = parse(add-implicit-multiplication(target-tokens))
     if target.dims != result.dims {
-      panic("math-once qalc: cannot convert " + dimensions-name(result.dims) + " to " + dimensions-name(target.dims))
+      if is-dimensionless(result) and not is-dimensionless(target) {
+        // A requested unit on a plain number assigns that physical dimension.
+        // For example, `902 / 3.6` with `unit: `m/s`` means 250.55... m/s.
+        result = quantity(
+          result.si-value * target.si-value,
+          dims: target.dims,
+          preferred: target-tokens.join(""),
+        )
+      } else {
+        panic("math-once qalc: cannot convert " + dimensions-name(result.dims) + " to " + dimensions-name(target.dims))
+      }
     }
     output-unit = target-tokens.join("")
     output-scale = target.si-value
