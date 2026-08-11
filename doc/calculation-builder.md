@@ -53,6 +53,7 @@ calculation-builder(
 `dictionary` — optional, named — default: `(:)`
 
 Numbers or existing `calculate` results available before the first equation.
+Unit names are reserved and cannot be used as keys.
 
 ```typ
 #let eq = calculation-builder(
@@ -207,9 +208,10 @@ math:
 // d = θ_m ⋅ 2 = 15° ⋅ 2 = 30°
 ```
 
-Stored variables take precedence over unit names. This permits conventional
-variables such as `m` in a formula. If a builder contains a variable named
-`m`, write `meter` or `metre` when the unit metre is needed in the expression.
+Unit names are reserved and cannot be assigned as variables. This keeps an
+expression such as `1 m + 25 cm` unambiguous. For example, `#eq($m = 1$)`
+prints a red, centered message and does not store the variable because `m` is
+the metre unit. Choose another name such as `n` or use `order` in raw input.
 
 ## Trigonometric calculations
 
@@ -220,11 +222,11 @@ as degrees, matching the common calculator convention. Explicit `deg`, `°`,
 ```typ
 #let eq = calculation-builder(key: "diffraction", digits: 9)
 
-#eq($l = 530 "nm"$)
-#eq($m = 1$)
+#eq($lambda = 530 "nm"$)
+#eq($n = 1$)
 #eq($o = 15.0$)
-#eq($d = (m * l) / (sin(o))$)
-// d = (m ⋅ l) / sin(o) = (1 ⋅ 530 nm) / sin(15)
+#eq($d = (n * lambda) / (sin(o))$)
+// d = (n ⋅ λ) / sin(o) = (1 ⋅ 530 nm) / sin(15)
 //   = 2.047762752 µm
 ```
 

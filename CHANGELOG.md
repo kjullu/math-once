@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0
+
+- Unit names are now reserved and cannot be assigned as builder variables or
+  supplied as `calculate` scope variables. This prevents a variable such as
+  `m` from silently changing the metre unit into a dimensionless value.
+- Builder assignments such as `m = 1` now print a red message in the document
+  without storing the variable. Use another name such as `n` instead.
+
 ## 0.7.0
 
 - Added explicit common metric length units: `dm`, `µm`/`μm`/`um`, `nm`, and
