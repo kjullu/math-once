@@ -1,4 +1,4 @@
-#import "../lib.typ": calculate, qalc
+#import "../math-once.typ": calculate, qalc
 
 #set text(lang: "da")
 

@@ -1,4 +1,4 @@
-#import "../lib.typ": calculate
+#import "../math-once.typ": calculate
 
 #let a = calculate(`902 / 3.6`, unit: `m/s`)
 #assert(a.value == 251.0)
