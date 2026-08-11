@@ -1,4 +1,4 @@
-// math-once v0.7.0
+// math-once v0.8.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -642,6 +642,12 @@ let expand-variables(tokens, scope) = {
 let normalize-scope(scope) = {
   let normalized = (:)
   for (name, item) in scope {
+    if resolve-unit(name) != none {
+      panic(
+        "math-once calculate: `" + name
+        + "` is a unit name and cannot be used as a variable",
+      )
+    }
     if type(item) == dictionary and "si-value" in item and "dimensions" in item {
       normalized.insert(name, quantity(item.si-value, dims: item.dimensions, preferred: item.unit))
     } else if type(item) in (int, float, decimal) {
@@ -903,6 +909,14 @@ let calculation-builder(
   block: true,
   supplement: auto,
 ) = {
+  for (name, _) in initial-state {
+    if resolve-unit(name) != none {
+      panic(
+        "math-once calculation-builder: `" + name
+        + "` is a unit name and cannot be used as a variable",
+      )
+    }
+  }
   let variables = state(key, initial-state)
 
   (
@@ -927,6 +941,14 @@ let calculation-builder(
     let assignment = source.match(regex("^\\s*([A-Za-z]+(?:_[A-Za-z0-9]+)*)\\s*=\\s*(.+)$"))
     let name = if assignment == none { none } else { assignment.captures.at(0) }
     let expression = if assignment == none { source } else { assignment.captures.at(1) }
+
+    if name != none and resolve-unit(name) != none {
+      let message = text(
+        fill: red,
+        [math-once: #raw(name) is a unit name and cannot be used as a variable.],
+      )
+      return if block { align(center, message) } else { message }
+    }
 
     if caption != none and not block {
       panic("math-once calculation-builder: captions require block: true")
@@ -987,6 +1009,7 @@ let calculation-builder(
 ///   `*`, `/`, `^`, and optionally `to` or `=` for output conversion.
 /// - `digits`: Decimal places used for the visible `value`. Default: `4`.
 /// - `scope`: Numbers or earlier calculate results available as variables.
+///   Unit names are reserved and cannot be used as variable names.
 /// - `unit`: Optional requested output unit as a string, raw block, or Typst
 ///   math equation. This is an alternative to `to` or `=` in `source`.
 /// - `block`: Whether the rendered equation is centered. Default: `true`.
@@ -1003,7 +1026,8 @@ let calculation-builder(
 
 /// Create a stateful calculator for sequences of equations.
 ///
-/// - `initial-state`: Initial numeric values or calculate results. Default: empty.
+/// - `initial-state`: Initial numeric values or calculate results. Unit names
+///   are reserved and cannot be used as keys. Default: empty.
 /// - `key`: Typst state key. Give independent runners different keys.
 /// - `digits`: Default decimal places for runner calls. Default: `4`.
 /// - `block`: Whether runner equations are centered. Default: `true`.
@@ -1017,7 +1041,8 @@ let calculation-builder(
 /// the call as `#runner(...) <name>` or passed with `label: <name>`. Calling
 /// the runner without an expression returns its result dictionary and must
 /// happen in a `context` block. `caption` adds text below a block equation;
-/// `gap` controls the space above that caption.
+/// `gap` controls the space above that caption. Assigning to a reserved unit
+/// name prints a red message and does not update the state.
 #let calculation-builder(
   initial-state: (:),
   key: "math-once-calculation",
