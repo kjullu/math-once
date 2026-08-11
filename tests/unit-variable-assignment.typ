@@ -3,8 +3,8 @@
 #let eq = calculation-builder(key: "unit-variable-assignment-message")
 
 // This renders a red message and must not store `m` as a variable.
-#eq($m = 1$)
-#eq($x = 1 m + 25 "cm"$, unit: $m$)
+#eq($m := 1$)
+#eq($x := 1 m + 25 "cm"$, unit: $m$)
 
 #context {
   let variables = eq()

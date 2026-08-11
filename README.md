@@ -9,11 +9,11 @@ conversion, and stateful equation variables.
 
 #let eq = calculation-builder(digits: 2)
 
-#eq($v = 902 / 3.6$)
-// v = 902/3.6 = 250.56
+#eq($v := 902 / 3.6$)
+// v = 902/3.6
 
-#eq($x = v * 2$)
-// x = v ⋅ 2 = 250.56 ⋅ 2 = 501.11
+#eq($v * 2$)
+// v ⋅ 2 = 250.56 ⋅ 2 = 501.11
 ```
 
 ## Install
@@ -28,7 +28,7 @@ functions you need:
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.12.0": calculate, calculation-builder, reset, unload, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.13.0": calculate, calculation-builder, reset, unload, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst and has no runtime dependencies.
@@ -48,6 +48,8 @@ The package is implemented entirely in Typst and has no runtime dependencies.
 
 A compilable example covering the complete public API is available in
 [`examples/all-functions.typ`](examples/all-functions.typ).
+
+You can find all the supported units [here](Supported units.md)
 
 See the [changelog](CHANGELOG.md) when upgrading from `0.1.x`.
 

@@ -39,11 +39,11 @@ It also works with equations returned by `calculate` and `calculation-builder`:
 #let eq = calculation-builder(digits: 2)
 
 #eq(
-  $v = 902 / 3.6$,
+  $v := 902 / 3.6$,
   unit: $m/s$,
   caption: [Den beregnede hastighed],
 ) <speed>
-#eq($x = v * 2$)
+#eq($x := v * 2$)
 
 Hastigheden er beregnet i @speed.
 ```

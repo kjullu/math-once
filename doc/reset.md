@@ -22,8 +22,8 @@ The default `key` matches a builder created without an explicit key:
 
 ```typ
 #let eq = calculation-builder()
-#eq(`height = 10 m`)
-#eq(`width = 5 m`)
+#eq(`height := 10 m`)
+#eq(`width := 5 m`)
 
 #reset("height")
 // width remains stored
@@ -69,8 +69,8 @@ Must match the `key` passed to the associated builder:
 
 ```typ
 #let eq = calculation-builder(key: "geometry")
-#eq(`height = 10 m`)
-#eq(`width = 5 m`)
+#eq(`height := 10 m`)
+#eq(`width := 5 m`)
 
 #reset("height", key: "geometry")
 #reset(key: "geometry")

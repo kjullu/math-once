@@ -78,8 +78,8 @@
 
 // Stateful reusable variables.
 #let run = calculation-builder()
-#run(`v = 10 m/s + 1 km/t`)
-#run(`x = v * 2 s`, digits: 3)
+#run(`v := 10 m/s + 1 km/t`)
+#run(`x := v * 2 s`, digits: 3)
 #context {
   let variables = run()
   assert(variables.v.value == 10.2778)
@@ -91,12 +91,12 @@
 
 // Typst math input and visible variable substitution.
 #let eq = calculation-builder(key: "math-equation-runner", digits: 2)
-#eq($v = 902 / 3.6$)
-#eq($x = v * 2$)
-#eq($y = 902 / 3.6$, unit: $m/s$)
-#eq($z = y * 2$)
-#eq($p = 10 m/s + 1 "km"/h$)
-#eq($q = p * 2 s$, digits: 3)
+#eq($v := 902 / 3.6$)
+#eq($x := v * 2$)
+#eq($y := 902 / 3.6$, unit: $m/s$)
+#eq($z := y * 2$)
+#eq($p := 10 m/s + 1 "km"/h$)
+#eq($q := p * 2 s$, digits: 3)
 #context {
   let variables = eq()
   assert(variables.v.value == 250.56)

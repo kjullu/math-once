@@ -30,9 +30,12 @@ dimensions and reject incompatible operations such as `10 m + 2 s`.
 // 10 m/s + 1 km/h = 10.2778 m/s
 
 #let eq = calculation-builder(digits: 2)
-#eq($v = 902 / 3.6$)
-#eq($x = v * 2$)
+#eq($v := 902 / 3.6$)
+#eq($x := v * 2$)
 ```
+
+In a calculation builder, `:=` stores a variable while an ordinary `=` only
+displays the written equation.
 
 ## Input forms
 
@@ -47,4 +50,4 @@ Expressions can normally be written as raw text, strings, or Typst math:
 In Typst math, quote multi-letter names such as `"km"`. Raw text is usually
 the simplest form for unit-heavy expressions.
 
-See [Units and prefixes](units.md) for the supported unit system.
+See [Units and prefixes](units.md) for the supported unit system and see [all Supported units](Supported units.md) for a list of all units.

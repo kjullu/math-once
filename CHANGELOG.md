@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.0
+
+- Changed calculation-builder storage to the explicit `name := expression`
+  syntax. The definition is rendered with an ordinary equals sign.
+- Plain `name = expression` calls are now display-only and do not update
+  builder state.
+- Expressions containing unset variables now render a red `is not set`
+  message instead of stopping Typst compilation.
+- Non-assignment expressions now visibly substitute stored values before the
+  final calculated result.
+
 ## 0.12.0
 
 - Added `unload` for temporarily allowing known unit names to be assigned and

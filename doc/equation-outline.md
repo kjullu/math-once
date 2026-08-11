@@ -78,7 +78,7 @@ The outline also includes labelled captions made by `calculation-builder`.
 )
 
 #eq(
-  $v = 10 m/s$,
+  $v := 10 m/s$,
   caption: [Initial velocity],
 ) <speed>
 ```

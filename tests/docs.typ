@@ -27,47 +27,47 @@ Inline: #calculate(`100 cm to m`, block: false).display.
   initial-state: (factor: 2),
   key: "docs-initial-state",
 )
-#initial(`x = factor * 3`)
+#initial(`x := factor * 3`)
 
 #let rounding = calculation-builder(key: "docs-rounding", digits: 2)
-#rounding(`x = 1 / 3`)
-#rounding(`y = x * 2`, digits: 4)
+#rounding(`x := 1 / 3`)
+#rounding(`y := x * 2`, digits: 4)
 
 #let inline = calculation-builder(key: "docs-inline", block: false)
-Inline: #inline(`x = 2 + 2`).
+Inline: #inline(`x := 2 + 2`).
 
 #let source = calculation-builder(key: "docs-source")
-#source($v = 10 m/s$)
-#source($x = v * 2 s$)
+#source($v := 10 m/s$)
+#source($x := v * 2 s$)
 #source(`1 m/s to km/h`)
-#source(`speed = 10 m/s`)
-#source($"other" = 10 m/s$)
+#source(`speed := 10 m/s`)
+#source($"other" := 10 m/s$)
 
 #let converted = calculation-builder(key: "docs-unit")
-#converted(`v = 10 m/s`, unit: `km/h`, digits: 1)
-#converted($x = 902 / 3.6$, unit: $m/s$, digits: 2)
+#converted(`v := 10 m/s`, unit: `km/h`, digits: 1)
+#converted($x := 902 / 3.6$, unit: $m/s$, digits: 2)
 
 #let sized = calculation-builder(key: "docs-size", digits: 9)
-#sized($lambda = 530 "nm"$)
-#sized($n = 1$)
-#sized($theta_1 = 15 degree$)
-#sized($x = (n * lambda) / sin(theta_1)$, size: $10^(-6)$)
+#sized($lambda := 530 "nm"$)
+#sized($n := 1$)
+#sized($theta_1 := 15 degree$)
+#sized($x := (n * lambda) / sin(theta_1)$, size: $10^(-6)$)
 
 #let stored = calculation-builder(key: "docs-state", digits: 2)
-#stored($v = 902 / 3.6$)
+#stored($v := 902 / 3.6$)
 #context {
   let variables = stored()
   assert(variables.v.value == 250.56)
 }
 
 #let dimensioned = calculation-builder(key: "docs-dimensioned", digits: 2)
-#dimensioned($v = 10 m/s + 1 "km"/h$)
-#dimensioned($x = v * 2 s$, digits: 3)
+#dimensioned($v := 10 m/s + 1 "km"/h$)
+#dimensioned($x := v * 2 s$, digits: 3)
 
 // reset documentation examples.
 #let resettable = calculation-builder(key: "docs-reset")
-#resettable(`height = 10 m`)
-#resettable(`width = 5 m`)
+#resettable(`height := 10 m`)
+#resettable(`width := 5 m`)
 #reset("height", key: "docs-reset")
 #context assert("height" not in resettable() and "width" in resettable())
 #reset(key: "docs-reset")
@@ -75,9 +75,9 @@ Inline: #inline(`x = 2 + 2`).
 
 // unload documentation examples.
 #unload($a$, $b$, key: "docs-reset")
-#resettable($a = 2$)
-#resettable($b = 3$)
-#resettable($x = a + b$)
+#resettable($a := 2$)
+#resettable($b := 3$)
+#resettable($x := a + b$)
 #context assert(resettable().x.value == 5.0)
 #reset(key: "docs-reset")
 
@@ -86,7 +86,7 @@ Inline: #inline(`x = 2 + 2`).
 #equation-outline(title: [List of Equations])
 #equation($ E = m c^2 $, caption: [Mass-energy equivalence]) <docs-energy>
 #dimensioned(
-  $p = 2 m * 3 m$,
+  $p := 2 m * 3 m$,
   caption: [Calculated area],
   supplement: [Formula],
 ) <docs-area>

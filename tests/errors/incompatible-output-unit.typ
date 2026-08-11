@@ -3,4 +3,4 @@
 #let eq = calculation-builder(key: "incompatible-output-unit")
 
 // This file must fail: speed cannot be converted to power.
-#eq(`v = 1 m/s + 1 m/s = W`)
+#eq(`v := 1 m/s + 1 m/s = W`)

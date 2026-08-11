@@ -34,21 +34,21 @@ Per-equation-caption reference: @momentum.
 #let eq = calculation-builder(key: "labelled-equation-test", digits: 2)
 
 Unlabelled calculator equation:
-#eq($v = 902 / 3.6$, unit: $m/s$)
+#eq($v := 902 / 3.6$, unit: $m/s$)
 
 Labelled calculator equation:
-#eq($x = v * 2$) <calculation>
+#eq($x := v * 2$) <calculation>
 
 Calculator reference: @calculation.
 
 Calculator equation with the equivalent named label argument:
-#eq($y = x / 2$, label: <named-calculation>)
+#eq($y := x / 2$, label: <named-calculation>)
 
 Named-label reference: @named-calculation.
 
 Calculator equation with a per-equation caption:
 #eq(
-  $z = y * 2$,
+  $z := y * 2$,
   caption: [Den genberegnede hastighed],
 ) <captioned-calculation>
 

@@ -13,7 +13,7 @@
 
 // In a stateful runner, the first `=` assigns and the second selects a unit.
 #let run = calculation-builder(key: "equals-unit-repro")
-#run(`v = 1 m/s + 1 m/s = km/s`)
+#run(`v := 1 m/s + 1 m/s = km/s`)
 #context {
   let variables = run()
   assert(variables.v.value == 0.002)

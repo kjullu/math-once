@@ -25,10 +25,13 @@ unit names. Unload them before assigning variables with those names:
 #let eq = calculation-builder()
 
 #unload($a$, $b$)
-#eq($a = 2$)
-#eq($b = 3$)
-#eq($x = a + b$)
-// x = a + b = 2 + 3 = 5
+#eq($a := 2$)
+#eq($b := 3$)
+#eq($x := a + b$)
+// x = a + b
+
+#eq($x$)
+// x = 5
 ```
 
 Strings and raw names work too:
@@ -48,7 +51,7 @@ Resetting one variable also restores that unit name:
 
 ```typ
 #reset("a")
-#eq($a = 4$)
+#eq($a := 4$)
 // red message: a is a unit name again
 ```
 
@@ -86,7 +89,7 @@ Must match the associated builder and any reset calls:
 ```typ
 #let eq = calculation-builder(key: "custom")
 #unload("m", key: "custom")
-#eq($m = 1$)
+#eq($m := 1$)
 
 #reset(key: "custom")
 ```
