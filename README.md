@@ -1,171 +1,8 @@
 # math-once
 
-`math-once` is a pure Typst calculator that evaluates qalc-like expressions
-with physical units, renders the calculation, and lets later calculations
-reuse the dimensioned result.
-
-## Public API
-
-The file exports exactly three supported functions:
-
-| Function | Purpose |
-| --- | --- |
-| `qalc` | Evaluate one dimensional expression and return its result. |
-| `qalc-builder` | Create a stateful runner with eqrun-style variables. |
-| `calculate` | Evaluate unrestricted Typst code with an optional unit label. |
-
-Every function and argument is documented below. A single compilable document
-covering all of them is available in
-[`examples/all-functions.typ`](examples/all-functions.typ).
-
-## Quick start
-
-Copy [`math-once.typ`](math-once.typ) into your Typst project and import it
-directly. No installation or additional files are required:
-
-```typ
-#import "math-once.typ": qalc, qalc-builder, calculate
-
-#let speed = qalc(`10 m/s + 1 km/t`)
-#speed.display
-// 10 m/s + 1 km/t = 10.2778 m/s
-
-#qalc(`10 m/s to km/t`, digits: 2).display
-// 10 m/s = 36 km/t
-
-#qalc(`(1 m/s + 2 m/s)`, unit: `km/h`, digits: 1).display
-// 1 m/s + 2 m/s = 10.8 km/h
-
-#let distance = qalc(`v * 2 s`, scope: (v: speed), digits: 3)
-#distance.display
-// v ⋅ 2 s = 20.556 m
-```
-
-If it is installed as a local Typst package, this import works too:
-
-```typ
-#import "@local/math-once:0.1.0": qalc, qalc-builder, calculate
-```
-
-The expression in each call is written only once. Values are stored internally
-in SI base units, so compatible units are converted before addition or
-subtraction. Multiplication, division, and powers combine dimensions.
-
-## `qalc`
-
-Evaluates one constrained qalc-style expression. Unlike `calculate`, `qalc`
-tracks dimensions and converts compatible units automatically.
-
-```typ
-#let result = qalc(
-  `10 m/s + 1 km/t`,
-  digits: 4,
-  scope: (:),
-  unit: none,
-  block: true,
-)
-```
-
-| Argument | Accepted value | Default | Description |
-| --- | --- | --- | --- |
-| `source` | string, raw block, or math equation | required | Expression to evaluate. |
-| `digits` | integer | `4` | Decimal places in the displayed value. |
-| `scope` | dictionary | empty | Numbers and earlier qalc results available as variables. |
-| `unit` | string, raw block, or `none` | `none` | Requested output unit; alternative to `to`. |
-| `block` | boolean | `true` | Center as a block equation when true. |
-
-The result is a dictionary:
-
-| Field | Description |
-| --- | --- |
-| `result.display` | Rendered equation content. |
-| `result.value` | Rounded number in `result.unit`. |
-| `result.exact` | Unrounded number in `result.unit`. |
-| `result.si-value` | Unrounded value in SI base units, used for reuse. |
-| `result.dimensions` | Dictionary of physical base-dimension exponents. |
-| `result.unit` | Displayed output unit, or `none` if dimensionless. |
-| `result.source` | Original expression as a string. |
-
-Examples of every argument:
-
-```typ
-// `source` as raw text; defaults to four digits and centered output.
-#qalc(`10 m/s + 1 km/t`).display
-
-// A string source and explicit rounding.
-#qalc("1 m / 3", digits: 2).display
-
-// Normal Typst math input. Quote multi-letter names such as `"km"` because
-// Typst math otherwise interprets their letters as separate symbols.
-#qalc($10 m/s + 1 "km"/h$).display
-
-// Ordinary numbers and earlier qalc results in `scope`.
-#let speed = qalc(`10 m/s`)
-#qalc(
-  `factor * v * 2 s`,
-  scope: (factor: 2, v: speed),
-).display
-
-// Requested output unit.
-#qalc(`3 m/s`, unit: `km/h`, digits: 1).display
-
-// Inline instead of centered.
-Inline: #qalc(`100 cm to m`, block: false).display.
-```
-
-Supported syntax:
-
-- Operators: `+`, `-`, `*`, `/`, and `^`
-- Input `*` is rendered as the conventional multiplication dot `⋅`
-- Parentheses and implicit multiplication, such as `10 m` and `2 N`
-- Scientific notation, such as `1.2e3`
-- Explicit conversion with `to`, such as `10 m/s to km/t`
-- Qalc-style conversion with `=`, such as `1 m/s + 1 m/s = km/s`
-- An output unit with `unit:`, for example the raw value `km/h`
-- Previous results and ordinary numbers supplied through `scope`
-
-`to`, `=`, and `unit:` are equivalent ways to choose the output unit. Use only
-one in a calculation. Without one, the result uses the first compatible input
-unit where possible, otherwise a canonical SI unit.
-
-```typ
-#qalc(`1 m/s + 1 m/s = km/s`).display
-// 1 m/s + 1 m/s = 0.002 km/s
-```
-
-Calculations are block equations and centered by default. Pass `block: false`
-to `qalc` or `qalc-builder` when an inline equation is wanted instead.
-
-## Stateful variables
-
-`qalc-builder` provides eqrun-style variables. A name on the left side of `=`
-stores the complete result, including its exact SI value and dimensions. Later
-calls automatically have access to all earlier variables:
-
-```typ
-#let run = qalc-builder(
-  initial-state: (:),
-  key: "math-once-qalc",
-  digits: 4,
-  block: true,
-)
-```
-
-| Builder argument | Accepted value | Default | Description |
-| --- | --- | --- | --- |
-| `initial-state` | dictionary | empty | Initial numbers or qalc results. |
-| `key` | string | `"math-once-qalc"` | Typst state key; it must be unique per independent runner. |
-| `digits` | integer | `4` | Default decimal places for runner calls. |
-| `block` | boolean | `true` | Center runner equations by default. |
-
-The returned runner accepts zero or one positional expression as a raw block,
-string, or normal Typst math equation. Each expression call also accepts
-`digits`, `unit`, and `block`, which override the builder defaults for that
-call. Calling it without an expression retrieves the state and therefore
-requires `context`.
-
-Math input works like eqrun. When an expression uses a stored variable, the
-rendered equation includes an extra step with that variable's displayed value:
+Write a calculation once, show the equation, and reuse its exact result.
+`math-once` is a single-file Typst calculator with physical units, automatic
+conversion, and eqrun-style variables.
 
 ```typ
 #import "math-once.typ": qalc-builder
@@ -173,156 +10,40 @@ rendered equation includes an extra step with that variable's displayed value:
 #let eq = qalc-builder(digits: 2)
 
 #eq($v = 902 / 3.6$)
-// v = 902 / 3.6 = 250.56
+// v = 902/3.6 = 250.56
 
 #eq($a = v * 2$)
 // a = v ⋅ 2 = 250.56 ⋅ 2 = 501.11
 ```
 
-Calculations continue to use the unrounded stored value, so the last result is
-`501.11`, not `501.12`. This prevents rounding error from accumulating between
-equations. Stored units are included in the substituted step as well.
+## Install
+
+Copy [`math-once.typ`](math-once.typ) into your project and import the
+functions you need:
 
 ```typ
-#import "math-once.typ": qalc-builder
-
-#let run = qalc-builder(
-  initial-state: (factor: 2),
-  key: "worked-example",
-  digits: 2,
-  block: true,
-)
-
-#run($v = 10 m/s + 1 km/t$)
-// v = 10 m/s + 1 km/t = 10.2778 m/s
-
-#run($d = factor * v * 2 s$, unit: `m`, digits: 3)
-// d = factor ⋅ v ⋅ 2 s = 2 ⋅ 10.2778 m/s ⋅ 2 s = 41.111 m
-
-// No assignment: calculate without storing a new variable.
-Inline: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
-
-#context {
-  let variables = run()
-  [Distance: #variables.d.value #variables.d.unit]
-}
+#import "math-once.typ": qalc, qalc-builder, calculate
 ```
 
-Different runners should receive different state keys:
+When installed as a local Typst package, use:
 
 ```typ
-#let first = qalc-builder(key: "first-calculator")
-#let second = qalc-builder(key: "second-calculator")
+#import "@local/math-once:0.1.0": qalc, qalc-builder, calculate
 ```
 
-### Units and prefixes
+The package is implemented entirely in Typst and has no runtime dependencies.
 
-All SI prefixes are resolved generically and work with both base and derived
-units. Micro accepts `µ`, `μ`, and ASCII `u`.
+## Documentation
 
-| Prefixes | Symbols |
-| --- | --- |
-| yotta through kilo | `Y`, `Z`, `E`, `P`, `T`, `G`, `M`, `k` |
-| hecto through deci | `h`, `da`, `d` |
-| centi through yocto | `c`, `m`, `µ`/`μ`/`u`, `n`, `p`, `f`, `a`, `z`, `y` |
+- [Documentation overview](doc/README.md)
+- [`qalc`](doc/qalc.md) — evaluate one unit-aware expression
+- [`qalc-builder`](doc/qalc-builder.md) — store and reuse equation variables
+- [`calculate`](doc/calculate.md) — evaluate trusted Typst code
+- [Units and prefixes](doc/units.md)
 
-Supported units and their prefixed forms where meaningful:
+A compilable example covering the complete public API is available in
+[`examples/all-functions.typ`](examples/all-functions.typ).
 
-| Dimension | Units |
-| --- | --- |
-| SI bases | `m`, `g`/`kg`, `s`, `A`, `K`, `mol`, `cd` |
-| Time | `s`/`sec`, `min`, `h`/`hr`, `t` (Danish *timer*), `day`, `week` |
-| Volume | `L`/`l` and derived `m^3` |
-| Angles | `rad`, `sr`, `deg`, `°` |
-| Mechanical SI | `Hz`, `N`, `Pa`, `J`, `W` |
-| Electrical SI | `C`, `V`, `F`, `ohm`/`Ω`, `S`, `Wb`, `T`, `H` |
-| Other derived SI | `lm`, `lx`, `Bq`, `Gy`, `Sv`, `kat` |
-| Energy and pressure | `Wh`, `eV`, `cal`, `bar`, `atm` |
-| Imperial/common | `inch`, `ft`, `yd`, `mi`, `mph`, `kn`, `ton` |
+## License
 
-Examples:
-
-```typ
-#qalc(`1 µm to nm`).display
-#qalc(`1 MHz to Hz`).display
-#qalc(`1 mV * 1 A`, unit: `mW`).display
-#qalc(`1 MJ to kWh`).display
-#qalc(`1 mph to km/h`).display
-```
-
-Unit names are reserved and take precedence over equally named scope
-variables. Arbitrary products, quotients, and integer powers can be built from
-these units. Affine temperature scales such as Celsius and Fahrenheit,
-currencies, and context-dependent units are not multiplicative and are not yet
-supported; Kelvin is supported.
-
-Incompatible operations fail clearly. For example, the expression
-`10 m + 2 s` reports that length and time cannot be added, while `10 m to s`
-rejects the conversion.
-
-## Simple source evaluation
-
-The original `calculate` API remains available for ordinary Typst numerical
-expressions where units only need to be retained as a label:
-
-```typ
-#let result = calculate(
-  `902 / 3.6`,
-  digits: 0,
-  scope: (:),
-  unit: none,
-  block: false,
-)
-```
-
-| Argument | Accepted value | Default | Description |
-| --- | --- | --- | --- |
-| `source` | string or raw block | required | Trusted Typst code expression. |
-| `digits` | integer | `0` | Decimal places in the displayed value. |
-| `scope` | dictionary | empty | Values made available during evaluation. |
-| `unit` | string, raw block, math, content, or `none` | `none` | Display-only unit label retained in the result. |
-| `block` | boolean | `false` | Center as a block equation when true. |
-
-The returned dictionary contains `display`, rounded `value`, unrounded
-`exact`, normalized `source`, and the original `unit` value.
-
-Examples of every argument:
-
-```typ
-#import "@local/math-once:0.1.0": calculate
-
-// Raw source and an inline result.
-#let a = calculate(`902 / 3.6`, unit: `m/s`)
-#a.display
-
-// String source, exact-result reuse through `scope`, rounding, unit, and block.
-#let b = calculate(
-  "a * 2",
-  scope: (a: a),
-  digits: 1,
-  unit: a.unit,
-  block: true,
-)
-#b.display
-```
-
-`calculate` uses Typst's unrestricted `eval` function. Only pass trusted
-expressions to it. `qalc` instead accepts only its documented numerical and
-unit syntax.
-
-## Local development
-
-Compile the example and tests with:
-
-```sh
-typst compile --root . examples/basic.typ build/basic.pdf
-typst compile --root . examples/all-functions.typ build/all-functions.pdf
-typst compile --root . tests/test.typ build/test.pdf
-typst compile --root . tests/qalc.typ build/qalc.pdf
-typst compile --root . tests/public-api.typ build/public-api.pdf
-typst compile --root . tests/unit-repro.typ build/unit-repro.pdf
-typst compile --root . tests/units.typ build/units.pdf
-```
-
-Ordinary Typst packages are written in Typst itself. TypeScript is not needed,
-and this package does not need a WebAssembly plugin.
+MIT
