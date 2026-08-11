@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculation-builder, equation, number-labelled-equations
+#import "../math-once.typ": calculation-builder, equation, equation-outline, number-labelled-equations
 
 #show: number-labelled-equations.with(
   supplement: [Ligning],
@@ -7,6 +7,8 @@
     calculation: [Den dobbelte hastighed],
   ),
 )
+
+#equation-outline(title: [Ligningsoversigt])
 
 Unlabelled native equation:
 $ 1 + 1 = 2 $
@@ -63,6 +65,6 @@ Captioned calculator reference: @captioned-calculation.
   assert(query(ref.where(target: <force>)).len() == 1)
   assert(query(ref.where(target: <calculation>)).len() == 2)
   assert(query(ref.where(target: <named-calculation>)).len() == 1)
-  assert(query(ref.where(target: <momentum>)).len() == 1)
-  assert(query(ref.where(target: <captioned-calculation>)).len() == 1)
+  assert(query(ref.where(target: <momentum>)).len() == 3)
+  assert(query(ref.where(target: <captioned-calculation>)).len() == 3)
 }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- Captioned, labelled equations now display their reference prefix before the
+  caption, for example `Ligning 1: Mass-energy equivalence`.
+- `equation` and `calculation-builder` now accept `supplement` overrides, so
+  individual equation families can use names such as `Equation` or `Formula`.
+- Added `equation-outline`, which creates a linked list of labelled, captioned
+  equations with dot leaders and page numbers.
+
 ## 0.2.2
 
 - Added the figure-like `equation(body, caption: ...)` wrapper for captions

@@ -1,4 +1,4 @@
-#import "../math-once.typ": evaluate-code, calculate, calculation-builder, equation, number-labelled-equations
+#import "../math-once.typ": evaluate-code, calculate, calculation-builder, equation, equation-outline, number-labelled-equations
 
 #set text(lang: "en")
 
@@ -105,6 +105,8 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
   captions: (energy: [Mass-energy equivalence]),
 )
 
+#equation-outline(title: [List of Equations])
+
 $ 1 + 1 = 2 $
 $ E = m c^2 $ <energy>
 
@@ -121,6 +123,7 @@ $ E = m c^2 $ <energy>
 #eq(
   $b = a / 2$,
   caption: [The recovered speed],
+  supplement: [Formula],
 ) <recovered-speed>
 
 See @energy.

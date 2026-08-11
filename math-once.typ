@@ -76,17 +76,59 @@
   )
 }
 
+// The show rule exposes the current equation label to its caption without
+// replacing the original, referenceable math.equation element.
+#let _caption-label = state("math-once-caption-label", none)
+
 // Keep captions inside the equation element. This lets a postfix label attach
-// to the real math.equation instead of to a surrounding layout container.
+// to the real math.equation instead of to a surrounding layout container. The
+// metadata makes the caption available to equation-outline without displaying
+// anything extra.
 #let _captioned-body(body, caption, gap) = if caption == none {
   body
 } else {
+  let visible-caption = context {
+    let label = _caption-label.get()
+    let prefix = if label == none { none } else { [#ref(label): ] }
+    text(size: 0.9em)[#prefix#caption]
+  }
   stack(
     dir: ttb,
     spacing: gap,
     align(center, body),
-    align(center, text(size: 0.9em, caption)),
+    align(center, visible-caption + metadata((
+      kind: "math-once-caption",
+      body: caption,
+    ))),
   )
+}
+
+#let _equation-caption(equation) = {
+  if equation.body.func() != stack or not equation.body.has("children") {
+    return none
+  }
+  let children = equation.body.children
+  if children.len() != 2 or children.at(1).func() != align {
+    return none
+  }
+  let caption-line = children.at(1).body
+  if not caption-line.has("children") {
+    return none
+  }
+  let marker = caption-line.children.last()
+  if marker.func() != metadata or type(marker.value) != dictionary {
+    return none
+  }
+  if marker.value.at("kind", default: none) != "math-once-caption" {
+    return none
+  }
+  marker.value.body
+}
+
+#let _make-equation(body, block, supplement) = if supplement == auto {
+  math.equation(body, block: block)
+} else {
+  math.equation(body, block: block, supplement: supplement)
 }
 
 // Everything in this dictionary is an implementation detail. Keeping the
@@ -656,10 +698,20 @@ let calculation-builder(
   key: "math-once-calculation",
   digits: 4,
   block: true,
+  supplement: auto,
 ) = {
   let variables = state(key, initial-state)
 
-  (..args, digits: digits, unit: none, block: block, label: none, caption: none, gap: 0.65em) => {
+  (
+    ..args,
+    digits: digits,
+    unit: none,
+    block: block,
+    label: none,
+    caption: none,
+    gap: 0.65em,
+    supplement: supplement,
+  ) => {
     if args.pos().len() > 1 {
       panic("math-once calculate: the runner accepts at most one expression")
     }
@@ -705,9 +757,10 @@ let calculation-builder(
 
       result.display.body
     }
-    let output = math.equation(
+    let output = _make-equation(
       _captioned-body(equation-body, caption, gap),
-      block: block,
+      block,
+      supplement,
     )
     if label == none { output } else { [#output #label] }
   }
@@ -746,10 +799,11 @@ let calculation-builder(
 /// - `key`: Typst state key. Give independent runners different keys.
 /// - `digits`: Default decimal places for runner calls. Default: `4`.
 /// - `block`: Whether runner equations are centered. Default: `true`.
+/// - `supplement`: Optional reference and caption name. Default: `auto`.
 ///
 /// The returned runner accepts zero or one string, raw block, or Typst math
 /// equation plus the named `digits`, `unit`, `block`, `label`, `caption`, and
-/// `gap` overrides.
+/// `gap`, and `supplement` overrides.
 /// An assignment like `$v = 10 m/s$` stores `v`. Later equations show an extra
 /// step with stored variable values substituted. A label can be written after
 /// the call as `#runner(...) <name>` or passed with `label: <name>`. Calling
@@ -761,11 +815,13 @@ let calculation-builder(
   key: "math-once-calculation",
   digits: 4,
   block: true,
+  supplement: auto,
 ) = (_engine.calculation-builder)(
   initial-state: initial-state,
   key: key,
   digits: digits,
   block: block,
+  supplement: supplement,
 )
 
 /// Add a per-equation caption using an interface similar to `figure`.
@@ -773,26 +829,56 @@ let calculation-builder(
 /// - `body`: A Typst math equation, such as `$ E = m c^2 $`.
 /// - `caption`: Optional caption shown below the equation. Default: `none`.
 /// - `gap`: Space between the equation and caption. Default: `0.65em`.
+/// - `supplement`: Optional reference and caption name. Default: `auto`.
 ///
 /// The result remains a real `math.equation`, so a postfix label can be added
 /// as `#equation($ ... $, caption: [...]) <label>` and referenced with `@label`.
-#let equation(body, caption: none, gap: 0.65em) = {
+#let equation(body, caption: none, gap: 0.65em, supplement: auto) = {
   if type(body) != content or body.func() != math.equation {
     panic("math-once equation: body must be a Typst math equation")
   }
-  if caption == none {
+  if caption == none and supplement == auto {
     return body
   }
-  if type(caption) not in (content, str) {
+  if caption != none and type(caption) not in (content, str) {
     panic("math-once equation: caption must be content, a string, or none")
   }
-  if not body.block {
+  if caption != none and not body.block {
     panic("math-once equation: captions require a block equation")
   }
 
-  math.equation(
+  _make-equation(
     _captioned-body(body.body, caption, gap),
-    block: body.block,
+    body.block,
+    supplement,
+  )
+}
+
+/// Create a list of labelled, captioned equations with page numbers.
+///
+/// - `title`: Heading above the list. Default: `[List of Equations]`.
+/// - `indent`: Outline indentation. Default: `auto`.
+#let equation-outline(title: [List of Equations], indent: auto) = {
+  show outline.entry: entry => {
+    let equation = entry.element
+    let caption = _equation-caption(equation)
+    if caption == none or not equation.has("label") {
+      none
+    } else {
+      entry.indented(
+        ref(equation.label),
+        [
+          #link(equation.location(), caption)
+          #box(width: 1fr, entry.fill)
+          #link(equation.location(), entry.page())
+        ],
+      )
+    }
+  }
+  outline(
+    title: title,
+    target: math.equation.where(block: true),
+    indent: indent,
   )
 }
 
@@ -833,6 +919,12 @@ let calculation-builder(
       [
         #equation
         #align(center, text(size: 0.9em)[#ref(equation.label): #caption])
+      ]
+    } else if equation.block and equation.has("label") {
+      [
+        #_caption-label.update(equation.label)
+        #equation
+        #_caption-label.update(none)
       ]
     } else {
       equation

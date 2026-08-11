@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculate, calculation-builder, equation, evaluate-code, number-labelled-equations
+#import "../math-once.typ": calculate, calculation-builder, equation, equation-outline, evaluate-code, number-labelled-equations
 
 // calculate documentation examples.
 #calculate(`1 m + 25 cm`).display
@@ -59,8 +59,13 @@ Inline: #inline(`x = 2 + 2`).
 
 // Per-equation caption examples.
 #show: number-labelled-equations
+#equation-outline(title: [List of Equations])
 #equation($ E = m c^2 $, caption: [Mass-energy equivalence]) <docs-energy>
-#dimensioned($p = 2 m * 3 m$, caption: [Calculated area]) <docs-area>
+#dimensioned(
+  $p = 2 m * 3 m$,
+  caption: [Calculated area],
+  supplement: [Formula],
+) <docs-area>
 See @docs-energy and @docs-area.
 
 // evaluate-code documentation examples.
