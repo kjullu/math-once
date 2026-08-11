@@ -76,3 +76,9 @@
     unit: unit,
   )
 }
+
+#import "qalc.typ" as qalc-module
+
+/// Evaluate an expression with physical units and automatic conversion.
+/// See `qalc.typ` for the full API documentation.
+#let qalc = qalc-module.qalc
