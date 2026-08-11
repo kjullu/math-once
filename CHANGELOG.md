@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- Greek mathematical variable names such as `lambda`, `theta`, and `omega`
+  now work in builder equations, retain their symbols, and use readable state
+  keys such as `variables.lambda`.
+- Implicit multiplication around expanded variables is now shown explicitly,
+  for example `2 lambda = 2 ⋅ 530 m = 1060 m`.
+
 ## 0.3.1
 
 - Direct assignments no longer repeat an identical value and unit. For

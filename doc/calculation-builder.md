@@ -153,6 +153,28 @@ the quotes.
 #eq($"speed" = 10 m/s$)
 ```
 
+Greek mathematical names are supported directly. Typst displays the symbol,
+while the stored dictionary uses its readable ASCII name:
+
+```typ
+#let eq = calculation-builder(key: "greek-variable-example")
+
+#eq($lambda = 530 m$)
+// λ = 530 m
+
+#eq($d = 2 lambda$)
+// d = 2λ = 2 ⋅ 530 m = 1060 m
+
+#context {
+  let variables = eq()
+  [Wavelength: #variables.lambda.value #variables.lambda.unit]
+}
+```
+
+The common lowercase Greek names are available, along with the distinct
+uppercase Greek symbols. Examples include `alpha`, `beta`, `theta`, `lambda`,
+`pi`, `sigma`, `phi`, `psi`, and `omega`.
+
 ### `digits`
 
 `int` — optional, named
