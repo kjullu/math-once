@@ -49,7 +49,7 @@ The package is implemented entirely in Typst and has no runtime dependencies.
 A compilable example covering the complete public API is available in
 [`examples/all-functions.typ`](examples/all-functions.typ).
 
-You can find all the supported units [here](doc/Supported units.md)
+You can find all the supported units [here](doc/supported-units.md)
 
 See the [changelog](CHANGELOG.md) when upgrading from `0.1.x`.
 
