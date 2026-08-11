@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.14.0
+
+- Added quoted symbolic count labels in output-unit expressions. For example,
+  `unit: $"linjer"/m$` displays an inverse length as lines per metre while
+  retaining dimensional validation of `m`.
+- Quoted names that already exist in the unit catalog, such as `"cm"`, keep
+  their normal physical meaning.
+
 ## 0.13.0
 
 - Changed calculation-builder storage to the explicit `name := expression`

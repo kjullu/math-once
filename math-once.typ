@@ -1,4 +1,4 @@
-// math-once v0.13.0
+// math-once v0.14.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -758,7 +758,7 @@ let math-functions = ("sin", "cos", "tan")
 // the builder's `:=` storage operator.
 let math-items(value) = if value.has("children") { value.children } else { (value,) }
 
-let math-source-part(value, parse) = {
+let math-source-part(value, parse, preserve-text: false) = {
   if repr(value.func()) == "space" { return "" }
   if value.func() == math.frac {
     return "(" + parse(value.num) + ")/(" + parse(value.denom) + ")"
@@ -788,6 +788,9 @@ let math-source-part(value, parse) = {
   }
 
   let token = value.text.trim()
+  if value.func() == text and preserve-text {
+    return "\"" + token + "\""
+  }
   let variable-name = variable-symbol-name(token)
   if variable-name != none { variable-name }
   else if token == "≔" { ":=" }
@@ -797,19 +800,20 @@ let math-source-part(value, parse) = {
   else { token }
 }
 
-let math-source-body(body) = math-items(body).map(item => {
-  if item == [#math.eq] { "=" } else { math-source-part(item, math-source-body) }
+let math-source-body(body, preserve-text: false) = math-items(body).map(item => {
+  let parse = child => math-source-body(child, preserve-text: preserve-text)
+  if item == [#math.eq] { "=" } else { math-source-part(item, parse, preserve-text: preserve-text) }
 }).filter(item => item != "").join(" ")
 
-let input-source(source) = if type(source) == content and source.func() == math.equation {
-  math-source-body(source.body).trim()
+let input-source(source, preserve-text: false) = if type(source) == content and source.func() == math.equation {
+  math-source-body(source.body, preserve-text: preserve-text).trim()
 } else {
   source-string(source)
 }
 
 let tokenize(source) = {
   let name = "[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*"
-  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|" + name + "|:=|[=()+*/^+\\-]")
+  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|\"" + name + "\"|" + name + "|:=|[=()+*/^+\\-]")
   let tokens = ()
   let cursor = 0
   for found in source.matches(pattern) {
@@ -828,8 +832,10 @@ let tokenize(source) = {
 
 let is-number(token) = regex("^(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?$") in token
 let is-name(token) = regex("^[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*$") in token
-let can-end(token) = is-number(token) or is-name(token) or token == ")"
-let can-start(token) = is-number(token) or is-name(token) or token == "("
+let is-quoted-unit(token) = token.len() >= 2 and token.starts-with("\"") and token.ends-with("\"")
+let quoted-unit-name(token) = token.slice(1, token.len() - 1)
+let can-end(token) = is-number(token) or is-name(token) or is-quoted-unit(token) or token == ")"
+let can-start(token) = is-number(token) or is-name(token) or is-quoted-unit(token) or token == "("
 
 let add-implicit-multiplication(tokens) = {
   let result = ()
@@ -863,7 +869,9 @@ let render-tokens(tokens, scope: (:)) = {
   }
 
   let source = tokens.map(token => {
-    if is-name(token) {
+    if is-quoted-unit(token) {
+      "upright(\"" + quoted-unit-name(token) + "\")"
+    } else if is-name(token) {
       if token in math-functions {
         token
       } else if token in scope {
@@ -892,7 +900,7 @@ let compact-unit-tokens(tokens) = {
   while index < tokens.len() {
     if (index + 2 < tokens.len()
       and tokens.at(index) == "("
-      and is-name(tokens.at(index + 1))
+      and (is-name(tokens.at(index + 1)) or is-quoted-unit(tokens.at(index + 1)))
       and tokens.at(index + 2) == ")") {
       result.push(tokens.at(index + 1))
       index += 3
@@ -1102,7 +1110,7 @@ let apply-function(name, argument) = {
   )
 }
 
-let parse(tokens, scope: (:), unloaded: ()) = {
+let parse(tokens, scope: (:), unloaded: (), custom-units: false) = {
   let scope = normalize-scope(scope)
   let precedence = ("+": 1, "-": 1, "*": 2, "/": 2, "^": 3)
 
@@ -1141,13 +1149,15 @@ let parse(tokens, scope: (:), unloaded: ()) = {
     } else if is-number(token) {
       left = quantity(float(token))
       position += 1
-    } else if is-name(token) {
+    } else if is-name(token) or is-quoted-unit(token) {
+      let quoted = is-quoted-unit(token)
+      let unit-name = if quoted { quoted-unit-name(token) } else { token }
       if token in scope {
         left = scope.at(token)
       } else if token in unloaded {
         panic("math-once calculate: unloaded unit `" + token + "` has not been assigned a variable value")
       } else {
-        let unit = resolve-unit(token)
+        let unit = resolve-unit(unit-name)
         if unit != none {
           let offset = unit.at("offset", default: 0.0)
           let affine = if offset == 0.0 { none } else {
@@ -1156,9 +1166,13 @@ let parse(tokens, scope: (:), unloaded: ()) = {
           left = quantity(
             unit.scale + offset,
             dims: unit.dims,
-            preferred: token,
+            preferred: unit-name,
             affine: affine,
           )
+        } else if quoted and custom-units {
+          // A quoted unknown name in an output-unit expression is a symbolic
+          // count label. It has scale one and adds no physical dimension.
+          left = quantity(1.0, preferred: token)
         } else {
           panic("math-once calculate: unknown variable or unit `" + token + "`")
         }
@@ -1238,7 +1252,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   let target-tokens = if conversion-index != none {
     raw-tokens.slice(conversion-index + 1)
   } else if unit != none {
-    compact-unit-tokens(tokenize(input-source(unit)))
+    compact-unit-tokens(tokenize(input-source(unit, preserve-text: true)))
   } else {
     none
   }
@@ -1250,7 +1264,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   let output-scale = 1.0
   let output-offset = 0.0
   if target-tokens != none {
-    let target = parse(add-implicit-multiplication(target-tokens))
+    let target = parse(add-implicit-multiplication(target-tokens), custom-units: true)
     if target.dims != result.dims {
       if is-dimensionless(result) and not is-dimensionless(target) {
         // A requested unit on a plain number assigns that physical dimension.
@@ -1269,7 +1283,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
         panic("math-once calculate: cannot convert " + dimensions-name(result.dims) + " to " + dimensions-name(target.dims))
       }
     }
-    output-unit = target-tokens.join("")
+    output-unit = target-tokens.map(token => if is-quoted-unit(token) { quoted-unit-name(token) } else { token }).join("")
     output-scale = if target.affine == none { target.si-value } else { target.affine.scale }
     output-offset = if target.affine == none { 0.0 } else { target.affine.offset }
   } else if output-unit == none and not is-dimensionless(result) {

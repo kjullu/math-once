@@ -274,6 +274,10 @@ Requests an output unit for this call. It behaves like the `unit` parameter of
 // x = 902/3.6; the stored value is 250.56 m/s
 ```
 
+Unknown names quoted inside a math unit can be used as symbolic count labels,
+for example `unit: $"linjer"/m$`. Known unit names retain their catalog
+meaning. See [Custom output labels](units.md#custom-output-labels).
+
 ### `size`
 
 `int` or `float` or `decimal` or string/raw/math `content` or `none` — optional,

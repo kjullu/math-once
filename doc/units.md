@@ -32,6 +32,33 @@ physical unit:
 
 Unit symbols are rendered upright, following normal mathematical typography.
 
+## Custom output labels
+
+Quote an unknown name inside a Typst math unit to use it as a symbolic count
+label. This is useful for results such as lines per metre:
+
+```typ
+#let eq = calculation-builder(key: "line-density", digits: 0)
+#unload($d$, key: "line-density")
+#eq($d := 0.5 "mm"$)
+#eq($1 / d$, unit: $"linjer" / m$)
+// 1/d = 1/(0.5 mm) = 2000 linjer/m
+```
+
+The quoted custom part has scale one and is dimensionless, while known parts
+of the unit expression are still checked and converted. Consequently,
+`$"linjer"/m$` is compatible with inverse length, but not with an ordinary
+length.
+
+Use math syntax around the output unit so quoted custom names remain explicit:
+`unit: $"linjer"/m$`. A known quoted name retains its catalog meaning, so
+`unit: $"cm"/h$` still means centimetres per hour. An unquoted unknown name is
+an error, which helps catch misspelled units.
+
+In this example, `d` is first passed to `unload` because it is also a catalog
+spelling for the day unit. This lets the builder use it as a variable until the
+next complete reset.
+
 ## SI prefixes
 
 Prefixes are resolved generically for supported SI units. Micro accepts `µ`,

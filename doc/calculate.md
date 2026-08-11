@@ -100,6 +100,18 @@ Typst evaluates function arguments before calling the function, so bare
 unit in math, raw text, or a string: `unit: $m/s$`, ``unit: `m/s` ``, or
 `unit: "m/s"`.
 
+Inside a math unit, an unknown quoted name is a symbolic count label. Known
+parts of the unit are still converted and dimension-checked:
+
+```typ
+#calculate($1 / (0.5 "mm")$, unit: $"linjer" / m$, digits: 0).display
+// 1/(0.5 mm) = 2000 linjer/m
+```
+
+Use this explicit math form for custom labels. An unquoted unknown name remains
+an error, and a quoted catalog name such as `"cm"` remains centimetres. See
+[Custom output labels](units.md#custom-output-labels).
+
 Writing `to` or `=` in `source` performs the same conversion. Use only one of
 the three forms in a call.
 
