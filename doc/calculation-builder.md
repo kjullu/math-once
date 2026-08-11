@@ -196,6 +196,17 @@ Raw input uses the same underscore syntax, for example
 `` `speed_max = 20 m/s` ``. Subscripts are intentionally limited to letters
 and digits so they remain unambiguous reusable variable names.
 
+`degree` can be used with a subscripted angle and is displayed as `°` in Typst
+math:
+
+```typ
+#eq($theta_m = 15.0 degree$)
+// θ_m = 15.0°
+
+#eq($d = theta_m * 2$)
+// d = θ_m ⋅ 2 = 15° ⋅ 2 = 30°
+```
+
 ### `digits`
 
 `int` — optional, named

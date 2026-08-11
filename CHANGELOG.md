@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+
+- Variable names can contain letter or number subscripts, so equations such as
+  `theta_m = 15` retain the mathematical form `θ_m` and use the state key
+  `theta_m`.
+- Added `degree` as an input alias for `°` in raw and string expressions.
+- Angle units are preserved through multiplication and division by plain
+  scalars, so `theta_m * 2` remains expressed in degrees.
+
 ## 0.4.0
 
 - Greek mathematical variable names such as `lambda`, `theta`, and `omega`

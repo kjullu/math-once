@@ -55,7 +55,7 @@ Prefixes are resolved generically for supported SI units. Micro accepts `µ`,
 | SI bases | `m`, `g`/`kg`, `s`, `A`, `K`, `mol`, `cd` |
 | Time | `s`/`sec`, `min`, `h`/`hr`, `t`, `day`, `week` |
 | Volume | `L`/`l` and derived `m^3` |
-| Angles | `rad`, `sr`, `deg`, `°` |
+| Angles | `rad`, `sr`, `deg`, `degree`, `°` |
 | Mechanical SI | `Hz`, `N`, `Pa`, `J`, `W` |
 | Electrical SI | `C`, `V`, `F`, `ohm`/`Ω`, `S`, `Wb`, `T`, `H` |
 | Other derived SI | `lm`, `lx`, `Bq`, `Gy`, `Sv`, `kat` |
