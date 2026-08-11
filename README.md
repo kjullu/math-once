@@ -30,7 +30,7 @@ conversion, and stateful equation variables.
 ## Install
 
 Copy [`math-once.typ`](math-once.typ) into your project and import the
-functions you need:
+[functions](doc/README.md) you need:
 
 ```typ
 #import "math-once.typ": calculate, calculation-builder, reset, unload, equation, equation-outline, evaluate-code, number-labelled-equations
