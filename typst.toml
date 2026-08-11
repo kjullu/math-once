@@ -1,7 +1,7 @@
 [package]
 name = "math-once"
 version = "0.1.0"
-entrypoint = "lib.typ"
+entrypoint = "math-once.typ"
 authors = ["Mikkel"]
 license = "MIT"
 description = "Qalc-like calculations with reusable values, physical units, and automatic conversion."

@@ -6,8 +6,11 @@ reuse the dimensioned result.
 
 ## Quick start
 
+Copy [`math-once.typ`](math-once.typ) into your Typst project and import it
+directly. No installation or additional files are required:
+
 ```typ
-#import "@local/math-once:0.1.0": qalc
+#import "math-once.typ": qalc, calculate
 
 #let speed = qalc(`10 m/s + 1 km/t`)
 #speed.display
@@ -19,6 +22,12 @@ reuse the dimensioned result.
 #let distance = qalc(`v * 2 s`, scope: (v: speed), digits: 3)
 #distance.display
 // v * 2 s = 20.556 m
+```
+
+If it is installed as a local Typst package, this import works too:
+
+```typ
+#import "@local/math-once:0.1.0": qalc, calculate
 ```
 
 The expression in each call is written only once. Values are stored internally

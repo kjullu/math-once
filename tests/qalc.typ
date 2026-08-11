@@ -1,4 +1,4 @@
-#import "../lib.typ": qalc
+#import "../math-once.typ": qalc
 
 // Automatic conversion during addition: 1 km/t = 0.2777... m/s.
 #let speed = qalc(`10 m/s + 1 km/t`)
