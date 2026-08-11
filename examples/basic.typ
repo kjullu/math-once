@@ -23,3 +23,5 @@ Den præcise, ikke-afrundede værdi er også gemt: #a.exact.
 #afstand.display
 
 #qalc(`10 m/s to km/t`, digits: 2).display
+
+#qalc(`(1 m/s + 2 m/s)`, unit: `km/h`, digits: 1).display

@@ -11,6 +11,12 @@
 #assert(converted.value == 36.0)
 #assert(converted.unit == "km/t")
 
+// The named `unit` argument is an alternative to writing `to`.
+#let requested-unit = qalc(`(1 m/s + 2 m/s)`, unit: `km/h`, digits: 1)
+#assert(requested-unit.value == 10.8)
+#assert(requested-unit.unit == "km/h")
+#assert(calc.abs(requested-unit.si-value - 3.0) < 0.000000000001)
+
 // A prior result is a dimensioned variable, not just a displayed number.
 #let distance = qalc(`v * 2 s`, scope: (v: speed), digits: 3)
 #assert(calc.abs(distance.exact - 20.555555555555557) < 0.000000000001)
@@ -42,6 +48,7 @@
 
 #speed.display \
 #converted.display \
+#requested-unit.display \
 #distance.display \
 #energy.display \
 #area.display \
