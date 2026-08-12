@@ -1,4 +1,4 @@
-// math-once v0.15.0
+// math-once v0.16.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -675,7 +675,8 @@ let canonical-unit(dims) = {
 let engineering-length-units = (
   ("Ym", 1e24), ("Zm", 1e21), ("Em", 1e18), ("Pm", 1e15),
   ("Tm", 1e12), ("Gm", 1e9), ("Mm", 1e6), ("km", 1e3),
-  ("m", 1.0), ("mm", 1e-3), ("µm", 1e-6), ("nm", 1e-9),
+  ("hm", 1e2), ("dam", 1e1), ("m", 1.0), ("dm", 1e-1),
+  ("cm", 1e-2), ("mm", 1e-3), ("µm", 1e-6), ("nm", 1e-9),
   ("pm", 1e-12), ("fm", 1e-15), ("am", 1e-18), ("zm", 1e-21),
   ("ym", 1e-24),
 )
@@ -700,10 +701,22 @@ let auto-length-unit(si-value, current-unit) = {
 let sized-output-unit(dims, size) = {
   if dims == dim(length: 1) {
     for (unit, scale) in engineering-length-units {
-      if scale == size { return unit }
+      if calc.abs(scale - size) <= calc.max(calc.abs(scale), calc.abs(size)) * 1e-12 { return unit }
     }
   }
   "(" + str(size) + ") " + canonical-unit(dims)
+}
+
+let sized-requested-unit(dims, unit, unit-scale, size) = {
+  let scale = unit-scale * size
+  let familiar = sized-output-unit(dims, scale)
+  if not familiar.starts-with("(") {
+    familiar
+  } else if size == 1 {
+    unit
+  } else {
+    "(" + str(size) + ") " + unit
+  }
 }
 
 let source-string(source) = if type(source) == str {
@@ -1267,10 +1280,9 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   if conversion-index != none and unit != none {
     return calculation-fail("use only one of `to`, `=`, or `unit`", soft: soft)
   }
-  if size != none and (conversion-index != none or unit != none) {
-    return calculation-fail("use `size` or an output unit, not both", soft: soft)
+  if size != none and conversion-index != none {
+    return calculation-fail("use `size` with the `unit` parameter, not with `to` or `=`", soft: soft)
   }
-
   let expression-tokens = if conversion-index == none { raw-tokens } else { raw-tokens.slice(0, conversion-index) }
   let target-tokens = if conversion-index != none {
     raw-tokens.slice(conversion-index + 1)
@@ -1326,8 +1338,17 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     if is-dimensionless(result) {
       return calculation-fail("size requires a result with a physical unit", soft: soft)
     }
-    output-unit = sized-output-unit(result.dims, size)
-    output-scale = size
+    if output-offset != 0 {
+      return calculation-fail("size cannot scale an affine output unit", soft: soft)
+    }
+    if target-tokens == none {
+      output-unit = sized-output-unit(result.dims, size)
+      output-scale = size
+    } else {
+      output-unit = sized-requested-unit(result.dims, output-unit, output-scale, size)
+      output-scale *= size
+      target-tokens = none
+    }
   } else if target-tokens == none and result.dims == dim(length: 1) {
     let scaled-unit = auto-length-unit(result.si-value, output-unit)
     if scaled-unit != output-unit {

@@ -10,7 +10,7 @@
 #eq(`(1 m)^0.5`)
 #eq(`1 m`, size: 0)
 #eq(`2`, size: 0.01)
-#eq(`1 m`, unit: `cm`, size: 0.01)
+#eq(`1 m to cm`, size: 0.01)
 #eq(`1 m to`)
 #eq(`1 m to cm to mm`)
 #eq(`(1 m + 2 m`)
