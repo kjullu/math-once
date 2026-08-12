@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.2
+
+- Allowed an explicit `unit:` to override opaque custom units in the input.
+  Their labels are ignored for that calculation, normal arithmetic continues,
+  and the result is assigned the requested physical unit.
+
 ## 0.18.1
 
 - Changed `equation-outline` entries to use equation references and Typst's

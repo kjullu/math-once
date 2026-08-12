@@ -1,4 +1,4 @@
-// math-once v0.18.1
+// math-once v0.18.2
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -1216,8 +1216,15 @@ let apply-function(name, argument, soft: false) = {
   )
 }
 
-let parse(tokens, scope: (:), unloaded: (), custom-units: false, soft: false) = {
+let parse(tokens, scope: (:), unloaded: (), custom-units: false, override-opaque: false, soft: false) = {
   let scope = normalize-scope(scope)
+  if override-opaque {
+    for (name, item) in scope {
+      if item.opaque.len() > 0 {
+        scope.insert(name, quantity(item.si-value))
+      }
+    }
+  }
   let precedence = ("+": 1, "-": 1, "*": 2, "/": 2, "^": 3)
 
   let parse-expression(tokens, position, minimum: 0) = {
@@ -1291,6 +1298,9 @@ let parse(tokens, scope: (:), unloaded: (), custom-units: false, soft: false) = 
           // Preserve the legacy unit: behavior: an unknown quoted output name
           // is a dimensionless label. text-unit is the unambiguous form.
           left = quantity(1.0, preferred: token)
+        } else if quoted and override-opaque {
+          // An explicit physical unit: overrides unknown input-unit labels.
+          left = quantity(1.0)
         } else if quoted {
           // Unknown quoted names are opaque user-defined units. They support
           // ordinary arithmetic, but only identical opaque dimensions are
@@ -1390,7 +1400,13 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   if expression-tokens.len() == 0 { return calculation-fail("missing expression before output conversion", soft: soft) }
   if target-tokens != none and target-tokens.len() == 0 { return calculation-fail("missing output unit", soft: soft) }
 
-  let result = parse(add-implicit-multiplication(expression-tokens), scope: scope, unloaded: unloaded, soft: soft)
+  let result = parse(
+    add-implicit-multiplication(expression-tokens),
+    scope: scope,
+    unloaded: unloaded,
+    override-opaque: unit != none,
+    soft: soft,
+  )
   if is-calculation-failure(result) { return result }
   let output-unit = result.preferred
   let output-scale = 1.0

@@ -25,3 +25,19 @@
   assert(eq().x.value == 2.0)
   assert(eq().x.custom-units == (micrometer: 1))
 }
+
+// An explicit unit: replaces opaque input units while preserving arithmetic.
+#let overridden = calculate($1 "micrometer" + 1$, unit: $m$)
+#assert(overridden.value == 2.0)
+#assert(overridden.unit == "m")
+#assert(overridden.dimensions.length == 1)
+#assert(overridden.custom-units.len() == 0)
+
+#let override-builder = calculation-builder(key: "opaque-unit-override")
+#unload($d$, key: "opaque-unit-override")
+#override-builder($d := 1 "micrometer" + 1$, unit: $m$)
+#context {
+  assert(override-builder().d.value == 2.0)
+  assert(override-builder().d.unit == "m")
+  assert(override-builder().d.dimensions.length == 1)
+}
