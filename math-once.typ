@@ -1,4 +1,4 @@
-// math-once v0.18.3
+// math-once v0.18.4
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -1054,6 +1054,24 @@ let result-tokens(result) = {
   tokens
 }
 
+let render-result(result) = {
+  if result.unit != none and result.unit.starts-with("10^(") {
+    let unit-tokens = tokenize(result.unit)
+    let source = str(result.value) + " dot " + unit-tokens.map(token => {
+      if is-quoted-unit(token) { "upright(\"" + quoted-unit-name(token) + "\")" }
+      else if is-name(token) { "upright(\"" + token + "\")" }
+      else { token }
+    }).join(" ")
+    eval(source, mode: "math").body
+  } else {
+    let body = str(result.value)
+    if result.unit != none {
+      body += h(0.2em) + render-tokens(tokenize(result.unit))
+    }
+    body
+  }
+}
+
 let expand-variables(tokens, scope) = {
   let expanded = ()
   let changed = false
@@ -1489,13 +1507,25 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
 
   let exact = (result.si-value - output-offset) / output-scale
   let value = calc.round(exact, digits: digits)
-  let display-body = render-tokens(expression-tokens, scope: scope) + h(0.25em) + math.eq + h(0.25em) + str(value)
+  let scientific-output = output-unit != none and output-unit.starts-with("10^(")
+  let display-body = render-tokens(expression-tokens, scope: scope) + h(0.25em) + math.eq + h(0.25em)
   if output-unit != none {
     let output-tokens = if target-tokens != none { target-tokens } else { tokenize(output-unit) }
-    if output-unit.starts-with("10^(") {
-      display-body += h(0.2em) + math.dot
+    if scientific-output {
+      // Generate the complete scientific value as one math expression so the
+      // multiplication dot remains a real binary operator.
+      let scientific-source = str(value) + " times " + output-tokens.map(token => {
+        if is-quoted-unit(token) { "upright(\"" + quoted-unit-name(token) + "\")" }
+        else if is-name(token) and resolve-unit(token) != none { "upright(\"" + token + "\")" }
+        else if is-name(token) { "upright(\"" + token + "\")" }
+        else { token }
+      }).join(" ")
+      display-body += eval(scientific-source, mode: "math").body
+    } else {
+      display-body += str(value) + h(0.2em) + render-tokens(output-tokens)
     }
-    display-body += h(0.2em) + render-tokens(output-tokens)
+  } else {
+    display-body += str(value)
   }
 
   (
@@ -1629,10 +1659,7 @@ let calculation-builder(
           }
           let last-visible-tokens = if has-variables { expanded } else { tokens }
           if not equivalent-tokens(last-visible-tokens, result-tokens(result)) {
-            labelled-body += h(0.25em) + math.eq + h(0.25em) + str(result.value)
-            if result.unit != none {
-              labelled-body += h(0.2em) + render-tokens(tokenize(result.unit))
-            }
+            labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result)
           }
         }
         result.insert("display", math.equation(labelled-body, block: block))
@@ -1651,10 +1678,7 @@ let calculation-builder(
         }
         let last-visible-tokens = if has-variables { expanded } else { tokens }
         if not equivalent-tokens(last-visible-tokens, result-tokens(result)) {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + str(result.value)
-          if result.unit != none {
-            labelled-body += h(0.2em) + render-tokens(tokenize(result.unit))
-          }
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result)
         }
         labelled-body
       }
