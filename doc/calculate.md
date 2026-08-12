@@ -6,7 +6,7 @@ content and a reusable result.
 ## Example
 
 ```typ
-#import "math-once.typ": calculate
+#import "math-once.typ": calculate, text-unit
 
 #let speed = calculate(`10 m/s + 1 km/h`)
 #speed.display
@@ -100,16 +100,17 @@ Typst evaluates function arguments before calling the function, so bare
 unit in math, raw text, or a string: `unit: $m/s$`, ``unit: `m/s` ``, or
 `unit: "m/s"`.
 
-Inside a math unit, an unknown quoted name is a symbolic count label. Known
-parts of the unit are still converted and dimension-checked:
+Use `text-unit` for a symbolic label with no physical dimension or conversion
+factor. Known parts of the unit are still converted and dimension-checked:
 
 ```typ
-#calculate($1 / (0.5 "mm")$, unit: $"linjer" / m$, digits: 0).display
+#calculate($1 / (0.5 "mm")$, unit: $#text-unit("linjer") / m$, digits: 0).display
 // 1/(0.5 mm) = 2000 linjer/m
 ```
 
-Use this explicit math form for custom labels. An unquoted unknown name remains
-an error, and a quoted catalog name such as `"cm"` remains centimetres. See
+This also removes ambiguity: `"cm"` remains centimetres, while
+`text-unit("cm")` is only the literal label `cm`. An unquoted unknown name
+remains an error. See
 [Custom output labels](units.md#custom-output-labels).
 
 Writing `to` or `=` in `source` performs the same conversion. Use only one of

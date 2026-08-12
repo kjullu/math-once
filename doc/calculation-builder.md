@@ -7,7 +7,7 @@ later expressions visibly substitute values stored by `:=`.
 ## Example
 
 ```typ
-#import "math-once.typ": calculation-builder
+#import "math-once.typ": calculation-builder, text-unit
 
 #let eq = calculation-builder(digits: 2)
 
@@ -278,8 +278,8 @@ Requests an output unit for this call. It behaves like the `unit` parameter of
 // x = 902/3.6; the stored value is 250.56 m/s
 ```
 
-Unknown names quoted inside a math unit can be used as symbolic count labels,
-for example `unit: $"linjer"/m$`. Known unit names retain their catalog
+Use `text-unit` inside a math unit for symbolic count labels,
+for example `unit: $#text-unit("linjer")/m$`. Known quoted unit names retain their catalog
 meaning. See [Custom output labels](units.md#custom-output-labels).
 
 ### `size`

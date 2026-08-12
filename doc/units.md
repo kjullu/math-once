@@ -34,25 +34,28 @@ Unit symbols are rendered upright, following normal mathematical typography.
 
 ## Custom output labels
 
-Quote an unknown name inside a Typst math unit to use it as a symbolic count
-label. This is useful for results such as lines per metre:
+Import `text-unit` and use it inside a Typst math unit to create a symbolic
+count label. This is useful for results such as lines per metre:
 
 ```typ
+#import "math-once.typ": calculation-builder, unload, text-unit
+
 #let eq = calculation-builder(key: "line-density", digits: 0)
 #unload($d$, key: "line-density")
 #eq($d := 0.5 "mm"$)
-#eq($1 / d$, unit: $"linjer" / m$)
+#eq($1 / d$, unit: $#text-unit("linjer") / m$)
 // 1/d = 1/(0.5 mm) = 2000 linjer/m
 ```
 
-The quoted custom part has scale one and is dimensionless, while known parts
+The custom part has scale one and is dimensionless, while known parts
 of the unit expression are still checked and converted. Consequently,
-`$"linjer"/m$` is compatible with inverse length, but not with an ordinary
+`$#text-unit("linjer")/m$` is compatible with inverse length, but not with an ordinary
 length.
 
-Use math syntax around the output unit so quoted custom names remain explicit:
-`unit: $"linjer"/m$`. A known quoted name retains its catalog meaning, so
-`unit: $"cm"/h$` still means centimetres per hour. An unquoted unknown name is
+Use `text-unit` inside math syntax to make a custom name explicit:
+`unit: $#text-unit("linjer")/m$`. A known quoted name retains its catalog meaning,
+so `unit: $"cm"/h$` still means centimetres per hour, whereas
+`unit: $#text-unit("cm")/h$` uses the literal text `cm`. An unquoted unknown name is
 an error, which helps catch misspelled units.
 
 In this example, `d` is first passed to `unload` because it is also a catalog

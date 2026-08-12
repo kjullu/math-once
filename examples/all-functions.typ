@@ -1,4 +1,6 @@
-#import "../math-once.typ": evaluate-code, calculate, calculation-builder, reset, unload, equation, equation-outline, number-labelled-equations
+#import "../math-once.typ": evaluate-code, calculate, calculation-builder, reset, unload, text-unit, equation, equation-outline, number-labelled-equations
+
+#calculate($1 / m$, unit: $#text-unit("lines") / m$).display
 
 #set text(lang: "en")
 

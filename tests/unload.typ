@@ -39,6 +39,11 @@
 #unload("m", key: "unload-custom-key")
 #custom($m := 1$)
 #custom($x := m * 2$)
-#context assert(custom().x.value == 2.0)
+#custom($lambda := 530 * 10^(-9) "m"$)
+#context {
+  assert(custom().x.value == 2.0)
+  assert(custom().lambda.si-value == 530e-9)
+  assert(custom().lambda.dimensions.length == 1)
+}
 #reset(key: "unload-custom-key")
 #context assert(custom().len() == 0)

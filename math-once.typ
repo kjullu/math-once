@@ -1,4 +1,4 @@
-// math-once v0.16.1
+// math-once v0.17.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -776,6 +776,23 @@ let variable-symbol-name(symbol) = {
 }
 
 let math-functions = ("sin", "cos", "tan")
+let text-unit-prefix = "⟦"
+let text-unit-suffix = "⟧"
+
+/// Create an explicit symbolic text label for an output unit.
+///
+/// Unlike a quoted known unit such as `"cm"`, `text-unit("cm")` has no
+/// physical dimension or conversion factor. Use it inside the `unit:` math
+/// expression, for example `unit: $#text-unit("lines") / m$`.
+let text-unit(label) = {
+  if type(label) != str or label.trim() == "" {
+    panic("math-once text-unit: label must be a non-empty string")
+  }
+  if text-unit-prefix in label or text-unit-suffix in label {
+    panic("math-once text-unit: label contains reserved characters")
+  }
+  text(text-unit-prefix + label + text-unit-suffix)
+}
 
 // Convert the supported subset of Typst math back into parser input, including
 // the builder's `:=` storage operator.
@@ -811,7 +828,13 @@ let math-source-part(value, parse, preserve-text: false) = {
   }
 
   let token = value.text.trim()
-  if value.func() == text and preserve-text {
+  if token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix) {
+    return token
+  }
+  if (value.func() == text
+    and preserve-text != false
+    and regex("^[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*$") in token
+    and (preserve-text == true or resolve-unit(token) != none)) {
     return "\"" + token + "\""
   }
   let variable-name = variable-symbol-name(token)
@@ -836,7 +859,8 @@ let input-source(source, preserve-text: false) = if type(source) == content and 
 
 let tokenize(source) = {
   let name = "[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*"
-  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|\"" + name + "\"|" + name + "|:=|[=()+*/^+\\-]")
+  let symbolic = "⟦[^⟦⟧]+⟧"
+  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|" + symbolic + "|\"" + name + "\"|" + name + "|:=|[=()+*/^+\\-]")
   let tokens = ()
   let cursor = 0
   for found in source.matches(pattern) {
@@ -857,8 +881,10 @@ let is-number(token) = regex("^(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-
 let is-name(token) = regex("^[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*$") in token
 let is-quoted-unit(token) = token.len() >= 2 and token.starts-with("\"") and token.ends-with("\"")
 let quoted-unit-name(token) = token.slice(1, token.len() - 1)
-let can-end(token) = is-number(token) or is-name(token) or is-quoted-unit(token) or token == ")"
-let can-start(token) = is-number(token) or is-name(token) or is-quoted-unit(token) or token == "("
+let is-text-unit(token) = token.len() >= 2 and token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix)
+let text-unit-name(token) = token.slice(text-unit-prefix.len(), token.len() - text-unit-suffix.len())
+let can-end(token) = is-number(token) or is-name(token) or is-quoted-unit(token) or is-text-unit(token) or token == ")"
+let can-start(token) = is-number(token) or is-name(token) or is-quoted-unit(token) or is-text-unit(token) or token == "("
 
 let add-implicit-multiplication(tokens) = {
   let result = ()
@@ -892,7 +918,9 @@ let render-tokens(tokens, scope: (:)) = {
   }
 
   let source = tokens.map(token => {
-    if is-quoted-unit(token) {
+    if is-text-unit(token) {
+      "upright(\"" + text-unit-name(token) + "\")"
+    } else if is-quoted-unit(token) {
       "upright(\"" + quoted-unit-name(token) + "\")"
     } else if is-name(token) {
       if token in math-functions {
@@ -923,7 +951,7 @@ let compact-unit-tokens(tokens) = {
   while index < tokens.len() {
     if (index + 2 < tokens.len()
       and tokens.at(index) == "("
-      and (is-name(tokens.at(index + 1)) or is-quoted-unit(tokens.at(index + 1)))
+      and (is-name(tokens.at(index + 1)) or is-quoted-unit(tokens.at(index + 1)) or is-text-unit(tokens.at(index + 1)))
       and tokens.at(index + 2) == ")") {
       result.push(tokens.at(index + 1))
       index += 3
@@ -1180,10 +1208,13 @@ let parse(tokens, scope: (:), unloaded: (), custom-units: false, soft: false) = 
     } else if is-number(token) {
       left = quantity(float(token))
       position += 1
-    } else if is-name(token) or is-quoted-unit(token) {
+    } else if is-name(token) or is-quoted-unit(token) or is-text-unit(token) {
+      let symbolic = is-text-unit(token)
       let quoted = is-quoted-unit(token)
-      let unit-name = if quoted { quoted-unit-name(token) } else { token }
-      if token in scope {
+      let unit-name = if symbolic { text-unit-name(token) } else if quoted { quoted-unit-name(token) } else { token }
+      if symbolic and custom-units {
+        left = quantity(1.0, preferred: token)
+      } else if token in scope {
         left = scope.at(token)
       } else if token in unloaded {
         return (calculation-fail("`" + token + "` is not set", soft: soft), position + 1)
@@ -1263,7 +1294,9 @@ let normalize-size(size, soft: false) = {
 let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), soft: false) = {
   let size = normalize-size(size, soft: soft)
   if is-calculation-failure(size) { return size }
-  let source = input-source(source)
+  // Preserve quoted Typst math text so `"m"` remains an explicit metre even
+  // when the bare name `m` has been unloaded for use as a variable.
+  let source = input-source(source, preserve-text: "known-units")
   let raw-tokens = tokenize(source)
   let depth = 0
   let conversion-index = none
@@ -1323,7 +1356,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
         )
       }
     }
-    output-unit = target-tokens.map(token => if is-quoted-unit(token) { quoted-unit-name(token) } else { token }).join("")
+    output-unit = target-tokens.map(token => if is-quoted-unit(token) { quoted-unit-name(token) } else if is-text-unit(token) { text-unit-name(token) } else { token }).join("")
     output-scale = if target.affine == none { target.si-value } else { target.affine.scale }
     output-offset = if target.affine == none { 0.0 } else { target.affine.offset }
   } else if output-unit == none and not is-dimensionless(result) {
@@ -1423,7 +1456,7 @@ let calculation-builder(
       return visible
     }
 
-    let source = input-source(source)
+    let source = input-source(source, preserve-text: "known-units")
     let assignment = source.match(regex("^\\s*([A-Za-z]+(?:_[A-Za-z0-9]+)*)\\s*:=\\s*(.+)$"))
     let name = if assignment == none { none } else { assignment.captures.at(0) }
     let expression = if assignment == none { source } else { assignment.captures.at(1) }
@@ -1579,8 +1612,18 @@ let unload(..names, key: "math-once-calculation") = {
   calculation-builder: calculation-builder,
   reset: reset,
   unload: unload,
+  text-unit: text-unit,
 )
 }
+
+/// Create a literal, dimensionless label for a requested output unit.
+///
+/// - `label`: Non-empty text to display upright in the unit.
+///
+/// Use it inside unit math, such as
+/// `unit: $#text-unit("lines") / m$`. A known quoted name such as `"cm"`
+/// remains centimetres; `text-unit("cm")` is literal text instead.
+#let text-unit(label) = (_engine.text-unit)(label)
 
 /// Evaluate a dimensional, unit-aware expression.
 ///

@@ -5,7 +5,7 @@ Write a calculation once, show the equation, and reuse its exact result.
 conversion, and stateful equation variables.
 
 ```typ
-#import "math-once.typ": calculation-builder
+#import "math-once.typ": calculation-builder, text-unit
 
 #let eq = calculation-builder(digits: 2)
 
@@ -16,7 +16,7 @@ conversion, and stateful equation variables.
 // v ⋅ 2 = 250.56 ⋅ 2 = 501.11
 
 #eq($distance := 0.5 "mm"$)
-#eq($1 / distance$, unit: $"lines" / m$)
+#eq($1 / distance$, unit: $#text-unit("lines") / m$)
 // 1/distance = 1/(0.5 mm) = 2000 lines/m
 ```
 
@@ -33,13 +33,13 @@ Copy [`math-once.typ`](math-once.typ) into your project and import the
 [functions](doc/README.md#functions) you need:
 
 ```typ
-#import "math-once.typ": calculate, calculation-builder, reset, unload, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "math-once.typ": calculate, calculation-builder, reset, unload, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.16.1": calculate, calculation-builder, reset, unload, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.17.0": calculate, calculation-builder, reset, unload, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst and has no runtime dependencies.

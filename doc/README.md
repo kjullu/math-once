@@ -12,6 +12,7 @@ internally in SI base units, so compatible units can be combined safely.
 | [`calculation-builder`](calculation-builder.md) | A sequence of equations with stored variables and visible substitution. |
 | [`reset`](reset.md) | Clear all or selected variables from a calculation-builder state. |
 | [`unload`](unload.md) | Temporarily use reserved unit names as builder variables. |
+| [`text-unit`](units.md#custom-output-labels) | Create an explicit symbolic output-unit label. |
 | [`equation`](equation.md) | A figure-like wrapper for per-equation captions. |
 | [`equation-outline`](equation-outline.md) | A linked list of labelled, captioned equations. |
 | [`evaluate-code`](evaluate-code.md) | Trusted Typst code where a unit is only a display label. |
