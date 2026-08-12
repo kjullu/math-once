@@ -28,6 +28,15 @@
   assert(variables.distance.unit == "µm")
 }
 
+// A hidden result is still evaluated exactly and stored for later equations.
+#let quiet = calculation-builder(key: "quiet-assignment", digits: 4)
+#quiet($lambda := 530 * 10^(-9)$, show-result: false)
+#quiet($x := lambda * 2$)
+#context {
+  assert(quiet().lambda.si-value == 530e-9)
+  assert(quiet().x.si-value == 1060e-9)
+}
+
 // Regression: unloaded unit spellings can be variables, and a calculated
 // definition must show and store its result on the same line.
 #let diffraction = calculation-builder(key: "definition-result-regression")

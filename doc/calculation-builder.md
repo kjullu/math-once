@@ -137,6 +137,7 @@ runner(
   digits: builder-digits,
   unit: none,
   size: none,
+  show-result: true,
   block: builder-block,
   label: none,
   caption: none,
@@ -153,6 +154,24 @@ An expression, display equation, or stored definition. A top-level
 `name := expression` stores the result under `name`; `name = expression` only
 renders the equation. A call without either form calculates and displays a
 result without storing a new variable. Unset variables produce a red message.
+
+### `show-result`
+
+`bool` — optional, named — default: `true`
+
+Controls whether a stored `:=` definition also shows substituted values and
+its calculated result. With `false`, the exact value is still calculated,
+stored, and available to later equations; only the written definition is
+shown.
+
+```typ
+#let eq = calculation-builder(key: "quiet-definition", digits: 12)
+#eq($lambda := 530 * 10^(-9)$, show-result: false)
+// λ = 530 ⋅ 10^(-9)
+
+#eq($lambda * 2$)
+// λ ⋅ 2 = 0.00000053 ⋅ 2 = 0.00000106
+```
 
 ```typ
 #let eq = calculation-builder(key: "source-example")
