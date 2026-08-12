@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.0
+
+- Added `text-unit("label")` for explicit symbolic output-unit labels. Quoted
+  known names such as `"cm"` retain their physical meaning, while
+  `text-unit("cm")` is literal text with no conversion factor or dimension.
+
 ## 0.16.1
 
 - Restored visible substitution and final results for calculated `:=`

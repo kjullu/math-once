@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculate, calculation-builder, reset, unload, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "../math-once.typ": calculate, calculation-builder, reset, unload, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
 
 // calculate documentation examples.
 #calculate(`1 m + 25 cm`).display
