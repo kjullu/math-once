@@ -4,6 +4,9 @@ Write a calculation once, show the equation, and reuse its exact result.
 `math-once` is a single-file Typst calculator with physical units, automatic
 conversion, and stateful equation variables.
 
+Unknown quoted unit names also work as opaque custom units. They support
+ordinary arithmetic with matching custom units, without physical conversion.
+
 ```typ
 #import "math-once.typ": calculation-builder, text-unit
 
@@ -39,7 +42,7 @@ Copy [`math-once.typ`](math-once.typ) into your project and import the
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.17.1": calculate, calculation-builder, reset, unload, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.18.0": calculate, calculation-builder, reset, unload, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst and has no runtime dependencies.

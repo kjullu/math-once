@@ -32,6 +32,34 @@ physical unit:
 
 Unit symbols are rendered upright, following normal mathematical typography.
 
+## Custom units
+
+An unknown quoted name in an input expression becomes an opaque custom unit:
+
+```typ
+#let eq = calculation-builder(key: "custom-unit-example")
+#unload($d$, key: "custom-unit-example")
+
+#eq($d := 1 "micrometer"$)
+#eq($x := d * 2$)
+// x = d ⋅ 2 = 1 micrometer ⋅ 2 = 2 micrometer
+
+#eq($d + 3 "micrometer"$)
+// d + 3 micrometer = 1 micrometer + 3 micrometer = 4 micrometer
+```
+
+Normal arithmetic works when the custom dimensions match. Different custom
+units cannot be added or subtracted, and opaque units cannot be converted to
+physical catalog units. Products, quotients, and integer powers retain their
+custom dimensions.
+
+Known quoted names still use the catalog, so `"cm"` is centimetres and can be
+converted to metres. Consequently, a misspelled quoted unit becomes a custom
+unit instead of immediately producing an unknown-unit error.
+
+`text-unit("name")` has a different purpose: it adds a dimensionless label to
+an output unit and is not accepted as a custom unit in the input calculation.
+
 ## Custom output labels
 
 Import `text-unit` and use it inside a Typst math unit to create a symbolic

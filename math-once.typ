@@ -1,4 +1,4 @@
-// math-once v0.17.1
+// math-once v0.18.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -566,11 +566,12 @@ let resolve-unit(name) = {
   none
 }
 
-let quantity(si-value, dims: zero-dim, preferred: none, affine: none) = (
+let quantity(si-value, dims: zero-dim, preferred: none, affine: none, opaque: (:)) = (
   si-value: si-value,
   dims: dims,
   preferred: preferred,
   affine: affine,
+  opaque: opaque,
 )
 
 let calculation-failure(message) = (error: message)
@@ -597,7 +598,25 @@ let dims-scale(a, factor) = {
   result
 }
 
-let is-dimensionless(q) = q.dims == zero-dim
+let opaque-add(a, b, factor: 1) = {
+  let result = a
+  for (name, value) in b {
+    let exponent = result.at(name, default: 0) + factor * value
+    if exponent == 0 { result.remove(name) } else { result.insert(name, exponent) }
+  }
+  result
+}
+
+let opaque-scale(a, factor) = {
+  let result = (:)
+  for (name, value) in a {
+    let exponent = value * factor
+    if exponent != 0 { result.insert(name, exponent) }
+  }
+  result
+}
+
+let is-dimensionless(q) = q.dims == zero-dim and q.opaque.len() == 0
 
 let dimensions-name(dims) = {
   let known = (
@@ -621,6 +640,12 @@ let dimensions-name(dims) = {
     if dims == candidate { return name }
   }
   "incompatible dimensions"
+}
+
+let unit-kind-name(q) = if q.opaque.len() > 0 {
+  "custom unit `" + q.opaque.keys().join(" ") + "`"
+} else {
+  dimensions-name(q.dims)
 }
 
 let canonical-unit(dims) = {
@@ -667,6 +692,18 @@ let canonical-unit(dims) = {
       let part = symbol + if magnitude == 1 { "" } else { "^" + str(magnitude) }
       if exponent > 0 { numerator.push(part) } else { denominator.push(part) }
     }
+  }
+  if numerator.len() == 0 { numerator.push("1") }
+  numerator.join(" ") + if denominator.len() == 0 { "" } else { "/" + denominator.join(" ") }
+}
+
+let canonical-opaque-unit(opaque) = {
+  let numerator = ()
+  let denominator = ()
+  for (name, exponent) in opaque {
+    let magnitude = calc.abs(exponent)
+    let part = name + if magnitude == 1 { "" } else { "^" + str(magnitude) }
+    if exponent > 0 { numerator.push(part) } else { denominator.push(part) }
   }
   if numerator.len() == 0 { numerator.push("1") }
   numerator.join(" ") + if denominator.len() == 0 { "" } else { "/" + denominator.join(" ") }
@@ -834,6 +871,7 @@ let math-source-part(value, parse, preserve-text: false) = {
   if (value.func() == text
     and preserve-text != false
     and regex("^[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*$") in token
+    and token not in math-functions
     and (preserve-text == true or resolve-unit(token) != none)) {
     return "\"" + token + "\""
   }
@@ -983,6 +1021,10 @@ let equivalent-tokens(left, right) = {
   for (left-token, right-token) in left.zip(right) {
     if is-number(left-token) and is-number(right-token) {
       if float(left-token) != float(right-token) { return false }
+    } else if is-quoted-unit(left-token) and quoted-unit-name(left-token) == right-token {
+      continue
+    } else if is-quoted-unit(right-token) and quoted-unit-name(right-token) == left-token {
+      continue
     } else if left-token != right-token {
       return false
     }
@@ -1053,7 +1095,12 @@ let normalize-scope(scope) = {
       )
     }
     if type(item) == dictionary and "si-value" in item and "dimensions" in item {
-      normalized.insert(name, quantity(item.si-value, dims: item.dimensions, preferred: item.unit))
+      normalized.insert(name, quantity(
+        item.si-value,
+        dims: item.dimensions,
+        preferred: item.unit,
+        opaque: item.at("custom-units", default: (:)),
+      ))
     } else if type(item) in (int, float, decimal) {
       normalized.insert(name, quantity(float(item)))
     } else {
@@ -1065,16 +1112,17 @@ let normalize-scope(scope) = {
 
 let apply-op(op, left, right, soft: false) = {
   if op == "+" or op == "-" {
-    if left.dims != right.dims {
+    if left.dims != right.dims or left.opaque != right.opaque {
       return calculation-fail(
         "cannot " + if op == "+" { "add " } else { "subtract " }
-        + dimensions-name(left.dims) + " and " + dimensions-name(right.dims),
+        + unit-kind-name(left) + " and " + unit-kind-name(right),
         soft: soft,
       )
     }
     return quantity(
       if op == "+" { left.si-value + right.si-value } else { left.si-value - right.si-value },
       dims: left.dims,
+      opaque: left.opaque,
       preferred: if left.preferred != none { left.preferred } else { right.preferred },
     )
   }
@@ -1099,6 +1147,7 @@ let apply-op(op, left, right, soft: false) = {
     return quantity(
       left.si-value * right.si-value,
       dims: dims-add(left.dims, right.dims),
+      opaque: opaque-add(left.opaque, right.opaque),
       preferred: if (left.preferred != none
         and is-dimensionless(right)
         and right.preferred == none) {
@@ -1126,6 +1175,7 @@ let apply-op(op, left, right, soft: false) = {
     return quantity(
       left.si-value / right.si-value,
       dims: dims-add(left.dims, right.dims, factor: -1),
+      opaque: opaque-add(left.opaque, right.opaque, factor: -1),
       preferred: if is-dimensionless(right) and right.preferred == none { left.preferred } else { none },
     )
   }
@@ -1143,6 +1193,7 @@ let apply-op(op, left, right, soft: false) = {
     return quantity(
       calc.pow(left.si-value, exponent),
       dims: dims-scale(left.dims, exponent),
+      opaque: opaque-scale(left.opaque, exponent),
     )
   }
   calculation-fail("unsupported operator `" + op + "`", soft: soft)
@@ -1192,7 +1243,7 @@ let parse(tokens, scope: (:), unloaded: (), custom-units: false, soft: false) = 
       let (operand, next) = parse-expression(tokens, position + 1, minimum: 3)
       if is-calculation-failure(operand) { return (operand, next) }
       left = if token == "-" {
-        quantity(-operand.si-value, dims: operand.dims, preferred: operand.preferred)
+        quantity(-operand.si-value, dims: operand.dims, preferred: operand.preferred, opaque: operand.opaque)
       } else {
         operand
       }
@@ -1214,6 +1265,11 @@ let parse(tokens, scope: (:), unloaded: (), custom-units: false, soft: false) = 
       let unit-name = if symbolic { text-unit-name(token) } else if quoted { quoted-unit-name(token) } else { token }
       if symbolic and custom-units {
         left = quantity(1.0, preferred: token)
+      } else if quoted and resolve-unit(unit-name) == none and unit-name in scope {
+        // Typst represents both quoted units and multi-letter math variables
+        // as text. An existing variable wins; otherwise the quoted name is a
+        // known or opaque unit.
+        left = scope.at(unit-name)
       } else if token in scope {
         left = scope.at(token)
       } else if token in unloaded {
@@ -1232,9 +1288,16 @@ let parse(tokens, scope: (:), unloaded: (), custom-units: false, soft: false) = 
             affine: affine,
           )
         } else if quoted and custom-units {
-          // A quoted unknown name in an output-unit expression is a symbolic
-          // count label. It has scale one and adds no physical dimension.
+          // Preserve the legacy unit: behavior: an unknown quoted output name
+          // is a dimensionless label. text-unit is the unambiguous form.
           left = quantity(1.0, preferred: token)
+        } else if quoted {
+          // Unknown quoted names are opaque user-defined units. They support
+          // ordinary arithmetic, but only identical opaque dimensions are
+          // compatible and they never convert to catalog units.
+          let opaque = (:)
+          opaque.insert(unit-name, 1)
+          left = quantity(1.0, preferred: unit-name, opaque: opaque)
         } else {
           return (calculation-fail("unknown variable or unit `" + token + "`", soft: soft), position + 1)
         }
@@ -1296,7 +1359,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   if is-calculation-failure(size) { return size }
   // Preserve quoted Typst math text so `"m"` remains an explicit metre even
   // when the bare name `m` has been unloaded for use as a variable.
-  let source = input-source(source, preserve-text: "known-units")
+  let source = input-source(source, preserve-text: true)
   let raw-tokens = tokenize(source)
   let depth = 0
   let conversion-index = none
@@ -1335,7 +1398,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   if target-tokens != none {
     let target = parse(add-implicit-multiplication(target-tokens), custom-units: true, soft: soft)
     if is-calculation-failure(target) { return target }
-    if target.dims != result.dims {
+    if target.dims != result.dims or target.opaque != result.opaque {
       if is-dimensionless(result) and not is-dimensionless(target) {
         // A requested unit on a plain number assigns that physical dimension.
         // For example, `902 / 3.6` with `unit: `m/s`` means 250.55... m/s.
@@ -1351,7 +1414,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
         )
       } else {
         return calculation-fail(
-          "cannot convert " + dimensions-name(result.dims) + " to " + dimensions-name(target.dims),
+          "cannot convert " + unit-kind-name(result) + " to " + unit-kind-name(target),
           soft: soft,
         )
       }
@@ -1359,9 +1422,11 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     output-unit = target-tokens.map(token => if is-quoted-unit(token) { quoted-unit-name(token) } else if is-text-unit(token) { text-unit-name(token) } else { token }).join("")
     output-scale = if target.affine == none { target.si-value } else { target.affine.scale }
     output-offset = if target.affine == none { 0.0 } else { target.affine.offset }
+  } else if output-unit == none and result.opaque.len() > 0 {
+    output-unit = canonical-opaque-unit(result.opaque)
   } else if output-unit == none and not is-dimensionless(result) {
     output-unit = canonical-unit(result.dims)
-  } else if output-unit != none {
+  } else if output-unit != none and result.opaque.len() == 0 {
     let preferred = parse(add-implicit-multiplication(tokenize(output-unit)))
     output-scale = if preferred.affine == none { preferred.si-value } else { preferred.affine.scale }
     output-offset = if preferred.affine == none { 0.0 } else { preferred.affine.offset }
@@ -1403,6 +1468,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     exact: exact,
     si-value: result.si-value,
     dimensions: result.dims,
+    custom-units: result.opaque,
     unit: output-unit,
     size: size,
     source: source,
@@ -1457,10 +1523,16 @@ let calculation-builder(
       return visible
     }
 
-    let source = input-source(source, preserve-text: "known-units")
-    let assignment = source.match(regex("^\\s*([A-Za-z]+(?:_[A-Za-z0-9]+)*)\\s*:=\\s*(.+)$"))
-    let name = if assignment == none { none } else { assignment.captures.at(0) }
-    let expression = if assignment == none { source } else { assignment.captures.at(1) }
+    let source = input-source(source, preserve-text: true)
+    let assignment = source.match(regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*:=\\s*(.+)$"))
+    let name = if assignment == none {
+      none
+    } else if assignment.captures.at(0) != none {
+      assignment.captures.at(0)
+    } else {
+      assignment.captures.at(1)
+    }
+    let expression = if assignment == none { source } else { assignment.captures.at(2) }
     let display-only = assignment == none and "=" in tokenize(source)
 
     if caption != none and not block {

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.18.0
+
+- Added opaque user-defined units for unknown quoted names such as
+  `1 "micrometer"`. Normal arithmetic works with matching custom units, but
+  they cannot be mixed with different custom units or converted to catalog
+  units.
+- Known quoted names such as `"cm"` retain their physical conversion rules.
+
 ## 0.17.1
 
 - Added `show-result: false` to `calculation-builder` calls. A `:=`

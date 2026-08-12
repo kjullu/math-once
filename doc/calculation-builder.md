@@ -188,6 +188,10 @@ the quotes.
 #eq($"speed" := 10 m/s$)
 ```
 
+Unknown quoted names are stored as opaque custom units. Matching custom units
+support ordinary arithmetic, but they cannot be converted to catalog units.
+See [Custom units](units.md#custom-units).
+
 Greek mathematical names are supported directly. Typst displays the symbol,
 while the stored dictionary uses its readable ASCII name:
 
