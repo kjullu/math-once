@@ -12,3 +12,15 @@
   assert(variables.distance.si-value == 0.03)
   assert(variables.distance.unit == "cm")
 }
+
+#let density = calculation-builder(key: "scientific-unit-size")
+#density(
+  $x := 1 / (2.05 * 10^(-6))$,
+  unit: $"linjer" / m$,
+  size: $10^(5)$,
+  digits: 2,
+)
+#context {
+  assert(density().x.value == 4.88)
+  assert(density().x.unit == "10^(5) linjer/m")
+}

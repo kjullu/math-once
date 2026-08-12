@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.3
+
+- Rendered power-of-ten `size:` values as scientific notation. For example,
+  `size: $10^5$` now displays `4.88 · 10^5 linjer/m` instead of
+  `4.88 (100000) linjer/m`.
+
 ## 0.18.2
 
 - Allowed an explicit `unit:` to override opaque custom units in the input.

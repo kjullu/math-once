@@ -1,4 +1,4 @@
-// math-once v0.18.2
+// math-once v0.18.3
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -744,6 +744,16 @@ let sized-output-unit(dims, size) = {
   "(" + str(size) + ") " + canonical-unit(dims)
 }
 
+let power-of-ten-exponent(value) = {
+  for exponent in range(-30, 31) {
+    let candidate = calc.pow(10.0, exponent)
+    if calc.abs(candidate - value) <= calc.max(candidate, value) * 1e-12 {
+      return exponent
+    }
+  }
+  none
+}
+
 let sized-requested-unit(dims, unit, unit-scale, size) = {
   let scale = unit-scale * size
   let familiar = sized-output-unit(dims, scale)
@@ -752,7 +762,13 @@ let sized-requested-unit(dims, unit, unit-scale, size) = {
   } else if size == 1 {
     unit
   } else {
-    "(" + str(size) + ") " + unit
+    let exponent = power-of-ten-exponent(size)
+    if exponent != none {
+      let exponent-text = if exponent < 0 { "-" + str(-exponent) } else { str(exponent) }
+      "10^(" + exponent-text + ") " + unit
+    } else {
+      "(" + str(size) + ") " + unit
+    }
   }
 }
 
@@ -1476,6 +1492,9 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   let display-body = render-tokens(expression-tokens, scope: scope) + h(0.25em) + math.eq + h(0.25em) + str(value)
   if output-unit != none {
     let output-tokens = if target-tokens != none { target-tokens } else { tokenize(output-unit) }
+    if output-unit.starts-with("10^(") {
+      display-body += h(0.2em) + math.dot
+    }
     display-body += h(0.2em) + render-tokens(output-tokens)
   }
 
