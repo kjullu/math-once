@@ -1,8 +1,13 @@
 # `equation-outline`
 
-Creates a linked list of labelled, captioned equations. Each entry contains the
+Creates a referenceable list of labelled, captioned equations. Each entry contains the
 equation's supplement and number, its caption, dot leaders, and its page number,
 similar to Typst's list of tables.
+
+The equation number is rendered with `ref`, the caption is ordinary outline
+text, and the page number uses Typst's standard `outline.entry.page()` output.
+No custom explicit `link` is inserted, so the result follows normal outline
+and reference styling and still works when page numbering is disabled.
 
 Only equations created with a per-equation `caption:` and followed by a label
 are included. Unlabelled equations, ordinary intermediate equations, and

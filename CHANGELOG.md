@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.1
+
+- Changed `equation-outline` entries to use equation references and Typst's
+  standard outline page rendering instead of custom explicit links. This
+  matches normal outline styling and also works without page numbering.
+
 ## 0.18.0
 
 - Added opaque user-defined units for unknown quoted names such as
