@@ -1,4 +1,4 @@
-// math-once v0.16.0
+// math-once v0.16.1
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -1481,6 +1481,17 @@ let calculation-builder(
         let name-scope = current
         name-scope.insert(name, 0)
         let labelled-body = render-tokens((name,), scope: name-scope) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current)
+        let (expanded, has-variables) = expand-variables(tokens, current)
+        if has-variables {
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded)
+        }
+        let last-visible-tokens = if has-variables { expanded } else { tokens }
+        if not equivalent-tokens(last-visible-tokens, result-tokens(result)) {
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + str(result.value)
+          if result.unit != none {
+            labelled-body += h(0.2em) + render-tokens(tokenize(result.unit))
+          }
+        }
         result.insert("display", math.equation(labelled-body, block: block))
         result.insert("variable", name)
         if assignment-is-unloaded { result.insert("unloaded", true) }

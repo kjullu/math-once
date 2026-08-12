@@ -10,7 +10,7 @@ conversion, and stateful equation variables.
 #let eq = calculation-builder(digits: 2)
 
 #eq($v := 902 / 3.6$)
-// v = 902/3.6
+// v = 902/3.6 = 250.56
 
 #eq($v * 2$)
 // v ⋅ 2 = 250.56 ⋅ 2 = 501.11
@@ -39,7 +39,7 @@ Copy [`math-once.typ`](math-once.typ) into your project and import the
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.16.0": calculate, calculation-builder, reset, unload, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.16.1": calculate, calculation-builder, reset, unload, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst and has no runtime dependencies.

@@ -12,7 +12,7 @@ later expressions visibly substitute values stored by `:=`.
 #let eq = calculation-builder(digits: 2)
 
 #eq($v := 902 / 3.6$)
-// v = 902/3.6
+// v = 902/3.6 = 250.56
 
 #eq($v * 2$)
 // v ⋅ 2 = 250.56 ⋅ 2 = 501.11
@@ -21,15 +21,19 @@ later expressions visibly substitute values stored by `:=`.
 Calculations use the unrounded stored value. This avoids accumulating rounding
 errors even though the substituted step shows the rounded value.
 
-The definition itself is shown without an extra result step. Its exact result
-is still stored for later expressions:
+A direct definition is not repeated when its right-hand side already equals
+the calculated result. Calculated definitions show their useful result while
+also storing the exact value:
 
 ```typ
 #eq($v := 10 m/s$)
 // v = 10 m/s
 
-#eq($v * 2$)
-// v ⋅ 2 = 10 m/s ⋅ 2 = 20 m/s
+#eq($x := v * 2$)
+// x = v ⋅ 2 = 10 m/s ⋅ 2 = 20 m/s
+
+#eq($y := 1 + 1$)
+// y = 1 + 1 = 2
 ```
 
 Use a plain equals sign for a display-only equation. It neither evaluates nor
