@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.16.0
+
+- Allowed `unit:` and `size:` to be used together. `unit:` chooses the output
+  unit and `size:` scales it, so `unit: $m$, size: 0.01` displays centimetres.
+- Familiar scaled length units use their normal SI symbols; other scaled units
+  display the scale explicitly.
+- Kept `size:` incompatible with inline `to` and output-`=` conversions; use
+  the named `unit:` parameter when both controls are needed.
+- Rejected additional scaling of affine output units such as Celsius.
+
 ## 0.15.0
 
 - Changed `calculation-builder` to render common calculation failures as

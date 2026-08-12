@@ -297,7 +297,20 @@ familiar scales use their normal prefix.
 ```
 
 The exact `si-value` is unchanged and is used by later calculations. `size`
-must be positive and cannot be combined with `unit`, `to`, or an output `=`.
+must be positive. It can be combined with the named `unit:` parameter; in that
+case it scales the requested unit:
+
+```typ
+#eq($"distance" := 1 "cm" + 2 "cm"$, unit: $m$, size: 0.01)
+// distance = 1 cm + 2 cm; the stored value is 3 cm
+
+#eq($"distance"$, unit: $m$, size: 1)
+// distance = 0.03 m
+```
+
+Use `unit:` when combining both controls. `size:` cannot be combined with
+`to` or an output `=` inside the expression, and it cannot scale affine output
+units such as Celsius.
 Bare `10^(-6)` is not valid in Typst code; use `$10^(-6)$`, `` `10^(-6)` ``,
 `"10^(-6)"`, or `calc.pow(10, -6)`.
 

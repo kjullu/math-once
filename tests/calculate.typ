@@ -29,6 +29,18 @@
 #assert(calculate(`1000 nm`, size: `10^(-6)`).value == 1.0)
 #assert(calculate(`1000 nm`, size: "10^(-6)").value == 1.0)
 #assert(calculate(`1000 nm`, size: calc.pow(10, -6)).value == 1.0)
+
+// `unit` chooses the target and `size` scales that target.
+#let centimetres = calculate(`1 cm + 2 cm`, unit: `m`, size: 0.01, digits: 2)
+#assert(centimetres.value == 3.0)
+#assert(centimetres.exact == 3.0)
+#assert(centimetres.unit == "cm")
+#let metres = calculate(`1 cm + 2 cm`, unit: `m`, size: 1, digits: 2)
+#assert(metres.value == 0.03)
+#assert(metres.unit == "m")
+#let scaled-speed = calculate(`36 km/h`, unit: `m/s`, size: 0.1, digits: 2)
+#assert(scaled-speed.value == 100.0)
+#assert(scaled-speed.unit == "(0.1) m/s")
 #assert(requested-unit.unit == "km/h")
 #assert(calc.abs(requested-unit.si-value - 3.0) < 0.000000000001)
 

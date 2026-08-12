@@ -134,9 +134,24 @@ length scales are written with their normal prefix.
 // 2047.762752 nm = 2.047762752 µm
 ```
 
-The result keeps its unchanged `si-value` for later calculations. `size`
-cannot be combined with `unit`, `to`, or an output `=` and requires a result
-with physical dimensions. Bare `10^(-6)` is invalid Typst code; equivalent
+The result keeps its unchanged `si-value` for later calculations. When `unit:`
+and `size:` are supplied together, `unit:` chooses the output unit and `size:`
+scales it. Familiar length scales use their normal SI symbols:
+
+```typ
+#calculate(`1 cm + 2 cm`, unit: $m$, size: 0.01, digits: 2).display
+// 1 cm + 2 cm = 3 cm
+
+#calculate(`1 cm + 2 cm`, unit: $m$, size: 1, digits: 2).display
+// 1 cm + 2 cm = 0.03 m
+```
+
+For example, `unit: $m/s$, size: 0.1` means tenths of a metre per second.
+Scales without a familiar symbol are displayed explicitly. `size:` requires a
+physical result and cannot scale affine output units such as Celsius.
+
+Combine `size:` with the named `unit:` parameter, not with `to` or an output
+`=` inside the expression. Bare `10^(-6)` is invalid Typst code; equivalent
 accepted forms are `$10^(-6)$`, `` `10^(-6)` ``, `"10^(-6)"`, and
 `calc.pow(10, -6)`.
 
