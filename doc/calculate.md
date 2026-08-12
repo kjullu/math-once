@@ -155,6 +155,18 @@ For example, `unit: $m/s$, size: 0.1` means tenths of a metre per second.
 Scales without a familiar symbol are displayed explicitly. `size:` requires a
 physical result and cannot scale affine output units such as Celsius.
 
+Power-of-ten scales are displayed as scientific notation:
+
+```typ
+#calculate(
+  $1 / (2.05 * 10^(-6))$,
+  unit: $"linjer" / m$,
+  size: $10^(5)$,
+  digits: 2,
+).display
+// 1/(2.05 ⋅ 10⁻⁶) = 4.88 ⋅ 10⁵ linjer/m
+```
+
 Combine `size:` with the named `unit:` parameter, not with `to` or an output
 `=` inside the expression. Bare `10^(-6)` is invalid Typst code; equivalent
 accepted forms are `$10^(-6)$`, `` `10^(-6)` ``, `"10^(-6)"`, and

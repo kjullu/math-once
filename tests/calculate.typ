@@ -40,7 +40,7 @@
 #assert(metres.unit == "m")
 #let scaled-speed = calculate(`36 km/h`, unit: `m/s`, size: 0.1, digits: 2)
 #assert(scaled-speed.value == 100.0)
-#assert(scaled-speed.unit == "(0.1) m/s")
+#assert(scaled-speed.unit == "10^(-1) m/s")
 #assert(requested-unit.unit == "km/h")
 #assert(calc.abs(requested-unit.si-value - 3.0) < 0.000000000001)
 
