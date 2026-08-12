@@ -1,4 +1,4 @@
-// math-once v0.17.0
+// math-once v0.17.1
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -1438,6 +1438,7 @@ let calculation-builder(
     digits: digits,
     unit: none,
     size: none,
+    show-result: true,
     block: block,
     label: none,
     caption: none,
@@ -1514,15 +1515,17 @@ let calculation-builder(
         let name-scope = current
         name-scope.insert(name, 0)
         let labelled-body = render-tokens((name,), scope: name-scope) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current)
-        let (expanded, has-variables) = expand-variables(tokens, current)
-        if has-variables {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded)
-        }
-        let last-visible-tokens = if has-variables { expanded } else { tokens }
-        if not equivalent-tokens(last-visible-tokens, result-tokens(result)) {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + str(result.value)
-          if result.unit != none {
-            labelled-body += h(0.2em) + render-tokens(tokenize(result.unit))
+        if show-result {
+          let (expanded, has-variables) = expand-variables(tokens, current)
+          if has-variables {
+            labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded)
+          }
+          let last-visible-tokens = if has-variables { expanded } else { tokens }
+          if not equivalent-tokens(last-visible-tokens, result-tokens(result)) {
+            labelled-body += h(0.25em) + math.eq + h(0.25em) + str(result.value)
+            if result.unit != none {
+              labelled-body += h(0.2em) + render-tokens(tokenize(result.unit))
+            }
           }
         }
         result.insert("display", math.equation(labelled-body, block: block))
@@ -1661,8 +1664,10 @@ let unload(..names, key: "math-once-calculation") = {
 /// - `supplement`: Optional reference and caption name. Default: `auto`.
 ///
 /// The returned runner accepts zero or one string, raw block, or Typst math
-/// equation plus the named `digits`, `unit`, `size`, `block`, `label`,
+/// equation plus the named `digits`, `unit`, `size`, `show-result`, `block`, `label`,
 /// `caption`, and `gap`, and `supplement` overrides.
+/// Set `show-result: false` on a `:=` definition to store the exact calculated
+/// value while showing only the written definition.
 /// A definition like `$v := 10 m/s$` stores `v`; a plain `=` only displays the
 /// equation. Later expressions show an extra step with stored variable values
 /// substituted. A label can be written after

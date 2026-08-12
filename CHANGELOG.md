@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.1
+
+- Added `show-result: false` to `calculation-builder` calls. A `:=`
+  definition still stores its exact calculated value, but only the written
+  definition is displayed.
+
 ## 0.17.0
 
 - Added `text-unit("label")` for explicit symbolic output-unit labels. Quoted
