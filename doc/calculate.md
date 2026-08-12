@@ -48,6 +48,10 @@ parentheses, and the operators `+`, `-`, `*`, `/`, and `^`.
 Input `*` is rendered as the multiplication dot `⋅`. Adjacent values imply
 multiplication, as in `2 N` or `10 m`.
 
+An unknown quoted name such as `"widget"` is an opaque custom unit. Matching
+custom units support normal arithmetic but cannot be converted to physical
+catalog units. See [Custom units](units.md#custom-units).
+
 ### `digits`
 
 `int` — optional, named — default: `4`
