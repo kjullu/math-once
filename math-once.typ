@@ -1,4 +1,4 @@
-// math-once v0.18.0
+// math-once v0.18.1
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -1833,9 +1833,9 @@ let unload(..names, key: "math-once-calculation") = {
       entry.indented(
         ref(equation.label),
         [
-          #link(equation.location(), caption)
+          #caption
           #box(width: 1fr, entry.fill)
-          #link(equation.location(), entry.page())
+          #entry.page()
         ],
       )
     }

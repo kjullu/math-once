@@ -29,4 +29,8 @@ Inline supplement without a caption:
   let entries = query(outline.entry)
   assert(entries.len() == 2)
   assert(entries.all(entry => entry.element.has("label")))
+  // Each outline entry adds one normal equation reference. No custom explicit
+  // links or page-form refs are required, so outlines work without page numbering.
+  assert(query(ref.where(target: <initial-velocity>)).len() == 3)
+  assert(query(ref.where(target: <mass-energy>)).len() == 3)
 }
