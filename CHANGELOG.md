@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.18.4
+
+- Fixed the multiplication dot between the coefficient and power of ten in
+  scientific `size:` output.
+
 ## 0.18.3
 
 - Rendered power-of-ten `size:` values as scientific notation. For example,
