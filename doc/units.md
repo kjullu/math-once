@@ -57,6 +57,19 @@ Known quoted names still use the catalog, so `"cm"` is centimetres and can be
 converted to metres. Consequently, a misspelled quoted unit becomes a custom
 unit instead of immediately producing an unknown-unit error.
 
+An explicit `unit:` overrides opaque units in that calculation. The opaque
+labels are treated as scale-one annotations, ordinary arithmetic still runs,
+and the result receives the requested physical unit:
+
+```typ
+#unload($d$)
+#eq($d := 1 "micrometer" + 1$, unit: $m$)
+// d = 1 micrometer + 1 = 2 m
+```
+
+This override applies only to opaque user-defined units. Known physical input
+units keep their real dimensions and conversion factors.
+
 `text-unit("name")` has a different purpose: it adds a dimensionless label to
 an output unit and is not accepted as a custom unit in the input calculation.
 
