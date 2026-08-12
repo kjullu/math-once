@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.1
+
+- Restored visible substitution and final results for calculated `:=`
+  definitions while still avoiding redundant output for direct values such as
+  `v := 10 m/s`.
+
 ## 0.16.0
 
 - Allowed `unit:` and `size:` to be used together. `unit:` chooses the output
