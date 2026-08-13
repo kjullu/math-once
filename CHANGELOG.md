@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.22.0
+
+- Added `sqrt(x)` and indexed `root(n, x)` calculations to `calculate` and
+  `calculation-builder`, including native Typst radical rendering.
+- Added dimension-aware roots for compatible units and red inline errors for
+  invalid indices, non-real even roots, and indivisible unit dimensions.
+
 ## 0.21.0
 
 - Changed `t` from the Danish hour abbreviation to the Qalculate-compatible

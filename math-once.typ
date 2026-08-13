@@ -1,4 +1,4 @@
-// math-once v0.21.0
+// math-once v0.22.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -832,7 +832,7 @@ let variable-symbol-name(symbol) = {
   none
 }
 
-let math-functions = ("sin", "cos", "tan")
+let math-functions = ("sin", "cos", "tan", "sqrt", "root")
 let text-unit-prefix = "⟦"
 let text-unit-suffix = "⟧"
 
@@ -868,6 +868,13 @@ let math-source-part(value, parse, preserve-text: false) = {
   }
   if value.func() == math.frac {
     return "(" + parse(value.num) + ")/(" + parse(value.denom) + ")"
+  }
+  if value.func() == math.root {
+    return if value.has("index") {
+      "root(" + parse(value.index) + "," + parse(value.radicand) + ")"
+    } else {
+      "sqrt(" + parse(value.radicand) + ")"
+    }
   }
   if value.func() == math.attach {
     let base = math-source-part(value.base, parse)
@@ -984,7 +991,7 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
     "\"" + token + "\""
   }
 
-  let source = tokens.map(token => {
+  let rendered = tokens.map(token => {
     if is-text-unit(token) {
       "upright(\"" + text-unit-name(token) + "\")"
     } else if is-quoted-unit(token) {
@@ -1014,7 +1021,14 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
     } else {
       token
     }
-  }).join(" ")
+  })
+  let source = ""
+  for (index, item) in rendered.enumerate() {
+    if index > 0 and not (tokens.at(index - 1) in math-functions and tokens.at(index) == "(") {
+      source += " "
+    }
+    source += item
+  }
   eval(source, mode: "math").body
 }
 
@@ -1481,6 +1495,38 @@ let apply-function(name, argument, soft: false) = {
   )
 }
 
+let apply-root(index, radicand, soft: false) = {
+  if not is-dimensionless(index) or index.preferred != none {
+    return calculation-fail("root index must be dimensionless", soft: soft)
+  }
+  let degree = index.si-value
+  if degree == 0 {
+    return calculation-fail("root index must not be zero", soft: soft)
+  }
+  if degree != calc.round(degree) {
+    return calculation-fail("root index must be an integer", soft: soft)
+  }
+  if radicand.si-value < 0 and calc.rem(calc.abs(degree), 2) == 0 {
+    return calculation-fail("an even root of a negative number is not real", soft: soft)
+  }
+  for (_, exponent) in radicand.dims {
+    if calc.rem(exponent, degree) != 0 {
+      return calculation-fail("unit dimensions must be divisible by the root index", soft: soft)
+    }
+  }
+  for (_, exponent) in radicand.opaque {
+    if calc.rem(exponent, degree) != 0 {
+      return calculation-fail("custom-unit dimensions must be divisible by the root index", soft: soft)
+    }
+  }
+  let magnitude = calc.pow(calc.abs(radicand.si-value), 1 / degree)
+  quantity(
+    if radicand.si-value < 0 { -magnitude } else { magnitude },
+    dims: dims-scale(radicand.dims, 1 / degree),
+    opaque: opaque-scale(radicand.opaque, 1 / degree),
+  )
+}
+
 let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, override-opaque: false, soft: false) = {
   let scope = normalize-scope(scope)
   if override-opaque {
@@ -1503,14 +1549,32 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
       if position + 1 >= tokens.len() or tokens.at(position + 1) != "(" {
         return (calculation-fail("`" + token + "` must be followed by parentheses", soft: soft), position)
       }
-      let (argument, next) = parse-expression(tokens, position + 2)
-      if is-calculation-failure(argument) { return (argument, next) }
-      if next >= tokens.len() or tokens.at(next) != ")" {
-        return (calculation-fail("missing closing parenthesis after `" + token + "`", soft: soft), next)
+      let (first, next) = parse-expression(tokens, position + 2)
+      if is-calculation-failure(first) { return (first, next) }
+      if token == "root" {
+        if next >= tokens.len() or tokens.at(next) != "," {
+          return (calculation-fail("`root` requires an index and a radicand", soft: soft), next)
+        }
+        let (radicand, closing) = parse-expression(tokens, next + 1)
+        if is-calculation-failure(radicand) { return (radicand, closing) }
+        if closing >= tokens.len() or tokens.at(closing) != ")" {
+          return (calculation-fail("missing closing parenthesis after `root`", soft: soft), closing)
+        }
+        left = apply-root(first, radicand, soft: soft)
+        if is-calculation-failure(left) { return (left, closing + 1) }
+        position = closing + 1
+      } else {
+        if next >= tokens.len() or tokens.at(next) != ")" {
+          return (calculation-fail("missing closing parenthesis after `" + token + "`", soft: soft), next)
+        }
+        left = if token == "sqrt" {
+          apply-root(quantity(2.0), first, soft: soft)
+        } else {
+          apply-function(token, first, soft: soft)
+        }
+        if is-calculation-failure(left) { return (left, next + 1) }
+        position = next + 1
       }
-      left = apply-function(token, argument, soft: soft)
-      if is-calculation-failure(left) { return (left, next + 1) }
-      position = next + 1
     } else if token == "+" or token == "-" {
       let (operand, next) = parse-expression(tokens, position + 1, minimum: 3)
       if is-calculation-failure(operand) { return (operand, next) }

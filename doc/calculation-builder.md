@@ -231,6 +231,20 @@ The current vector result cannot be assigned a single whole-vector `unit:` or
 `size:`. Put units in the individual component expressions instead. Calling a
 function with the wrong number of arguments produces a red inline error.
 
+Built-in square and indexed roots can be calculated and stored in the same
+way. The indexed form follows Typst's `root(index, radicand)` order:
+
+```typ
+#eq($sqrt(5)$)
+// √5 = 2.2361
+
+#eq($root(5, 3)$)
+// ⁵√3 = 1.2457
+
+#eq($x := sqrt(9 m^2)$)
+// x = √(9 m²) = 3 m
+```
+
 Greek mathematical names are supported directly. Typst displays the symbol,
 while the stored dictionary uses its readable ASCII name:
 

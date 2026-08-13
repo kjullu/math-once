@@ -1,4 +1,4 @@
-#import "@local/math-once:0.21.0": evaluate-code, calculate, calculation-builder, reset, unload, rename-unit, text-unit, equation, equation-outline
+#import "@local/math-once:0.22.0": evaluate-code, calculate, calculation-builder, reset, unload, rename-unit, text-unit, equation, equation-outline
 
 #let result = evaluate-code(`6 * 7`, unit: `kg`)
 #assert(result.value == 42)
