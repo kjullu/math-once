@@ -83,3 +83,7 @@ whose names were not supplied.
 Reset also restores names temporarily made available as variables by
 [`unload`](unload.md). A selective reset restores the supplied names; an empty
 reset restores every unloaded unit.
+
+For [`rename-unit`](rename-unit.md), resetting either the original spelling or
+its current alias restores the original unit and removes the complete alias
+relationship. Other stored variables remain unchanged.

@@ -1,4 +1,4 @@
-#import "@local/math-once:0.19.0": evaluate-code, calculate, calculation-builder, reset, unload, text-unit, equation, equation-outline
+#import "@local/math-once:0.20.0": evaluate-code, calculate, calculation-builder, reset, unload, rename-unit, text-unit, equation, equation-outline
 
 #let result = evaluate-code(`6 * 7`, unit: `kg`)
 #assert(result.value == 42)
@@ -25,4 +25,8 @@
 #unload("a", key: "package-import-runner")
 #run($a := 2$)
 #context assert(run().a.value == 2.0)
+#reset(key: "package-import-runner")
+#rename-unit($m$, $v$, key: "package-import-runner")
+#run($x := 2 v$)
+#context assert(run().x.si-value == 2.0)
 #reset(key: "package-import-runner")
