@@ -1,4 +1,4 @@
-// math-once v0.20.0
+// math-once v0.21.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -168,7 +168,7 @@ let units = (
   s:   (scale: 1.0, dims: dim(time: 1)),
   min: (scale: 60.0, dims: dim(time: 1)),
   h:   (scale: 3600.0, dims: dim(time: 1)),
-  t:   (scale: 3600.0, dims: dim(time: 1)), // Danish "timer".
+  t:   (scale: 1000.0, dims: dim(mass: 1)),
   g:   (scale: 0.001, dims: dim(mass: 1)),
   kg:  (scale: 1.0, dims: dim(mass: 1)),
   L:   (scale: 0.001, dims: dim(length: 3)),
@@ -486,8 +486,8 @@ for definition in qalc-unit-definitions {
 }
 
 // Project-specific compatibility aliases and named composites.
-units.insert("t", (scale: 3600.0, dims: dim(time: 1)))
-units.insert("timer", units.at("t"))
+units.insert("t", units.tonne)
+units.insert("timer", units.hour)
 units.insert("kn", units.knot)
 units.insert("Nm", (scale: 1.0, dims: dim(length: 2, mass: 1, time: -2)))
 units.insert("Ncm", (scale: 0.01, dims: units.Nm.dims))
@@ -2021,35 +2021,44 @@ let unload(..names, key: "math-once-calculation") = {
 let rename-unit(from, to, key: "math-once-calculation") = {
   let from = state-name(from, "rename-unit")
   let to = state-name(to, "rename-unit")
-  if from == to { panic("math-once rename-unit: source and destination must differ") }
   let variables = state(key, (:))
-  variables.update(old => {
+  context {
+    let old = variables.get()
     let aliases = unit-aliases(old)
     let original = aliases.at(from, default: from)
     let source-is-unloaded = from in old and is-unloaded(old.at(from)) and from not in aliases
-    if resolve-unit(original) == none or source-is-unloaded {
-      panic("math-once rename-unit: `" + from + "` is not an active unit or alias")
-    }
-    if resolve-unit(to) != none or to in aliases {
-      panic("math-once rename-unit: destination `" + to + "` is already a unit")
-    }
-    if to in old and not is-unloaded-marker(old.at(to)) and not is-unit-alias(old.at(to)) {
-      panic("math-once rename-unit: destination `" + to + "` is already a stored variable")
-    }
-    if from in aliases {
-      let _ = old.remove(from)
-    }
-    if original in old and type(old.at(original)) == dictionary and "si-value" in old.at(original) {
-      let value = old.at(original)
-      value.insert("unloaded", true)
-      value.insert("renamed-unit", true)
-      old.insert(original, value)
+    let error = if from == to {
+      "source and destination must differ"
+    } else if resolve-unit(original) == none or source-is-unloaded {
+      "`" + from + "` is not an active unit or alias"
+    } else if resolve-unit(to) != none or to in aliases {
+      "destination `" + to + "` is already a unit or alias"
+    } else if to in old and not is-unloaded-marker(old.at(to)) and not is-unit-alias(old.at(to)) {
+      "destination `" + to + "` is already a stored variable"
     } else {
-      old.insert(original, (unloaded: true, renamed-unit: true))
+      none
     }
-    old.insert(to, (unit-alias: true, original: original))
-    old
-  })
+
+    if error != none {
+      align(center, text(fill: red, [math-once: #error.]))
+    } else {
+      variables.update(old => {
+        if from in aliases {
+          let _ = old.remove(from)
+        }
+        if original in old and type(old.at(original)) == dictionary and "si-value" in old.at(original) {
+          let value = old.at(original)
+          value.insert("unloaded", true)
+          value.insert("renamed-unit", true)
+          old.insert(original, value)
+        } else {
+          old.insert(original, (unloaded: true, renamed-unit: true))
+        }
+        old.insert(to, (unit-alias: true, original: original))
+        old
+      })
+    }
+  }
 }
 
 (

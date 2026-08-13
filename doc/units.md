@@ -128,7 +128,7 @@ Prefixes are resolved generically for supported SI units. Micro accepts `µ`,
 | --- | --- |
 | SI bases | `m`/`meter`/`metre`, `g`/`kg`, `s`, `A`, `K`, `mol`, `cd` |
 | Length | `km`, `dm`, `cm`, `mm`, `µm`/`μm`/`um`, `nm`, `pm` |
-| Time | `s`/`sec`, `min`, `h`/`hr`, `t`, `day`, `week` |
+| Time | `s`/`sec`, `min`, `h`/`hr`, `timer`, `day`, `week` |
 | Volume | `L`/`l` and derived `m^3` |
 | Angles | `rad`, `sr`, `deg`, `degree`, `°` |
 | Mechanical SI | `Hz`, `N`, `Nm`, `Ncm`, `Nmm`, `Pa`, `J`, `W` |
@@ -156,12 +156,13 @@ The complete machine-checked spelling list is in `tests/qalc-units.typ`.
 `tools/audit-qalc-units.py` records how the static catalog is checked against
 the installed qalc data; qalc is not a runtime dependency.
 
-For backwards compatibility, math-once keeps `t` as the Danish abbreviation
-for hours. Qalculate uses `t` for tonnes; use `tonne` or `ton` for that unit in
-math-once.
+`t` follows Qalculate and means a metric tonne (`1000 kg`). Use `h`, `hr`,
+`hrs`, `hour`, or the Danish full spelling `timer` for hours. If another
+spelling is preferred inside a builder, it can be introduced with
+[`rename-unit`](rename-unit.md).
 
-`t` is accepted as the Danish abbreviation for hours. Arbitrary products,
-quotients, and integer powers can be built from supported units.
+Arbitrary products, quotients, and integer powers can be built from supported
+units.
 
 Unit symbols are case-sensitive. In particular:
 

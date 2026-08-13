@@ -1,11 +1,11 @@
-#import "@local/math-once:0.20.0": evaluate-code, calculate, calculation-builder, reset, unload, rename-unit, text-unit, equation, equation-outline
+#import "@local/math-once:0.21.0": evaluate-code, calculate, calculation-builder, reset, unload, rename-unit, text-unit, equation, equation-outline
 
 #let result = evaluate-code(`6 * 7`, unit: `kg`)
 #assert(result.value == 42)
 #assert(result.exact == 42)
 #result.display
 
-#let speed = calculate(`10 m/s + 1 km/t`)
+#let speed = calculate(`10 m/s + 1 km/h`)
 #assert(speed.value == 10.2778)
 #assert(speed.unit == "m/s")
 #speed.display
