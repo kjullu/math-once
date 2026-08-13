@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.20.0
+
+- Added `rename-unit(from, to)` for moving an active catalog unit spelling to
+  a custom alias within one calculation-builder state.
+- Renamed units retain their dimensions and conversion factor; the original
+  spelling becomes available as a variable until reset.
+- Added chained renames, collision checks, custom builder keys, and selective
+  reset of a complete rename relationship.
+
 ## 0.19.0
 
 - Added stored scalar functions to `calculation-builder`, using definitions

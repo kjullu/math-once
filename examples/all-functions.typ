@@ -1,4 +1,4 @@
-#import "../math-once.typ": evaluate-code, calculate, calculation-builder, reset, unload, text-unit, equation, equation-outline, number-labelled-equations
+#import "../math-once.typ": evaluate-code, calculate, calculation-builder, reset, unload, rename-unit, text-unit, equation, equation-outline, number-labelled-equations
 
 #calculate($1 / m$, unit: $#text-unit("lines") / m$).display
 
@@ -123,6 +123,15 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 #context assert(run().x.value == 5.0)
 
 // Reset clears the variables and restores the unit meanings.
+#reset(key: "all-functions-example")
+
+= `rename-unit`
+
+// Move metre to v, leaving m available as a variable until reset.
+#rename-unit($m$, $v$, key: "all-functions-example")
+#run($m := 2$)
+#run($x := 3 v$)
+#context assert(run().m.value == 2.0 and run().x.si-value == 3.0)
 #reset(key: "all-functions-example")
 
 = `number-labelled-equations`

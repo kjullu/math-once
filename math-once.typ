@@ -1,4 +1,4 @@
-// math-once v0.19.0
+// math-once v0.20.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -566,6 +566,10 @@ let resolve-unit(name) = {
   none
 }
 
+let resolve-unit-with-aliases(name, aliases: (:)) = {
+  if name in aliases { resolve-unit(aliases.at(name)) } else { resolve-unit(name) }
+}
+
 let quantity(si-value, dims: zero-dim, preferred: none, affine: none, opaque: (:)) = (
   si-value: si-value,
   dims: dims,
@@ -963,7 +967,7 @@ let add-implicit-multiplication(tokens) = {
   result
 }
 
-let render-tokens(tokens, scope: (:)) = {
+let render-tokens(tokens, scope: (:), aliases: (:)) = {
   let render-variable(token) = if "_" in token {
     let parts = token.split("_")
     let render-part(part) = if part in variable-symbols {
@@ -992,6 +996,8 @@ let render-tokens(tokens, scope: (:)) = {
         "vec"
       } else if token.starts-with("arrow_") {
         "arrow(" + render-variable(token.slice(6)) + ")"
+      } else if token in aliases {
+        "upright(\"" + token + "\")"
       } else if token in scope {
         render-variable(token)
       } else if token == "degree" {
@@ -1156,7 +1162,11 @@ let function-call-name(tokens, index) = {
 let numeric-scope(scope) = {
   let result = (:)
   for (name, value) in scope {
-    if not (type(value) == dictionary and value.at("function", default: false)) {
+    let unloaded-marker = type(value) == dictionary and value.at("unloaded", default: false) and "si-value" not in value
+    let unit-alias = type(value) == dictionary and value.at("unit-alias", default: false)
+    if (not unloaded-marker
+      and not unit-alias
+      and not (type(value) == dictionary and value.at("function", default: false))) {
       result.insert(name, value)
     }
   }
@@ -1190,7 +1200,7 @@ let vector-components(tokens) = {
   }
 }
 
-let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, unloaded) = {
+let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, unloaded, aliases) = {
   let components = vector-components(tokens)
   if components == none {
     return calculate-fn(
@@ -1201,6 +1211,7 @@ let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, u
       size: size,
       block: block,
       unloaded: unloaded,
+      aliases: aliases,
       soft: true,
     )
   }
@@ -1215,6 +1226,7 @@ let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, u
       scope: scope,
       block: false,
       unloaded: unloaded,
+      aliases: aliases,
       soft: true,
     )
     if is-calculation-failure(result) { return result }
@@ -1252,9 +1264,9 @@ let result-tokens(result) = {
   tokens
 }
 
-let render-result(result) = {
+let render-result(result, aliases: (:)) = {
   if result.at("vector", default: false) {
-    let children = result.components.map(component => render-result(component))
+    let children = result.components.map(component => render-result(component, aliases: aliases))
     return math.vec(..children)
   }
   if result.unit != none and result.unit.starts-with("10^(") {
@@ -1268,7 +1280,7 @@ let render-result(result) = {
   } else {
     let body = str(result.value)
     if result.unit != none {
-      body += h(0.2em) + render-tokens(tokenize(result.unit))
+      body += h(0.2em) + render-tokens(tokenize(result.unit), aliases: aliases)
     }
     body
   }
@@ -1278,8 +1290,13 @@ let expand-variables(tokens, scope) = {
   let expanded = ()
   let changed = false
   for (index, token) in tokens.enumerate() {
+    let item = scope.at(token, default: none)
+    let unloaded-marker = type(item) == dictionary and item.at("unloaded", default: false) and "si-value" not in item
+    let unit-alias = type(item) == dictionary and item.at("unit-alias", default: false)
     if (is-name(token)
       and token in scope
+      and not unloaded-marker
+      and not unit-alias
       and not (type(scope.at(token)) == dictionary and scope.at(token).at("function", default: false))) {
       if index > 0 and can-end(tokens.at(index - 1)) {
         expanded.push("*")
@@ -1306,8 +1323,17 @@ let expand-variables(tokens, scope) = {
 
 let is-unloaded(item) = type(item) == dictionary and item.at("unloaded", default: false) == true
 let is-unloaded-marker(item) = is-unloaded(item) and "si-value" not in item
+let is-unit-alias(item) = type(item) == dictionary and item.at("unit-alias", default: false)
 
-let missing-variables(tokens, scope, unloaded) = {
+let unit-aliases(scope) = {
+  let aliases = (:)
+  for (name, item) in scope {
+    if is-unit-alias(item) { aliases.insert(name, item.original) }
+  }
+  aliases
+}
+
+let missing-variables(tokens, scope, unloaded, aliases: (:)) = {
   let missing = ()
   for token in tokens {
     if (is-name(token)
@@ -1315,7 +1341,7 @@ let missing-variables(tokens, scope, unloaded) = {
       and token != "to"
       and token != "vec"
       and (token not in scope or is-unloaded-marker(scope.at(token, default: (:))))
-      and (resolve-unit(token) == none or token in unloaded)
+      and ((resolve-unit(token) == none and token not in aliases) or token in unloaded)
       and token not in missing) {
       missing.push(token)
     }
@@ -1326,7 +1352,7 @@ let missing-variables(tokens, scope, unloaded) = {
 let normalize-scope(scope) = {
   let normalized = (:)
   for (name, item) in scope {
-    if is-unloaded-marker(item) { continue }
+    if is-unloaded-marker(item) or is-unit-alias(item) { continue }
     if resolve-unit(name) != none and not is-unloaded(item) {
       panic(
         "math-once calculate: `" + name
@@ -1455,7 +1481,7 @@ let apply-function(name, argument, soft: false) = {
   )
 }
 
-let parse(tokens, scope: (:), unloaded: (), custom-units: false, override-opaque: false, soft: false) = {
+let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, override-opaque: false, soft: false) = {
   let scope = normalize-scope(scope)
   if override-opaque {
     for (name, item) in scope {
@@ -1511,7 +1537,7 @@ let parse(tokens, scope: (:), unloaded: (), custom-units: false, override-opaque
       let unit-name = if symbolic { text-unit-name(token) } else if quoted { quoted-unit-name(token) } else { token }
       if symbolic and custom-units {
         left = quantity(1.0, preferred: token)
-      } else if quoted and resolve-unit(unit-name) == none and unit-name in scope {
+      } else if quoted and resolve-unit-with-aliases(unit-name, aliases: aliases) == none and unit-name in scope {
         // Typst represents both quoted units and multi-letter math variables
         // as text. An existing variable wins; otherwise the quoted name is a
         // known or opaque unit.
@@ -1521,7 +1547,8 @@ let parse(tokens, scope: (:), unloaded: (), custom-units: false, override-opaque
       } else if token in unloaded {
         return (calculation-fail("`" + token + "` is not set", soft: soft), position + 1)
       } else {
-        let unit = resolve-unit(unit-name)
+        let resolved-name = aliases.at(unit-name, default: unit-name)
+        let unit = resolve-unit(resolved-name)
         if unit != none {
           let offset = unit.at("offset", default: 0.0)
           let affine = if offset == 0.0 { none } else {
@@ -1603,7 +1630,7 @@ let normalize-size(size, soft: false) = {
 /// `sin`, `cos`, `tan`, and the operators `+`, `-`, `*`, `/`, and `^`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
-let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), soft: false) = {
+let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), aliases: (:), soft: false) = {
   let size = normalize-size(size, soft: soft)
   if is-calculation-failure(size) { return size }
   // Preserve quoted Typst math text so `"m"` remains an explicit metre even
@@ -1643,6 +1670,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     add-implicit-multiplication(expression-tokens),
     scope: scope,
     unloaded: unloaded,
+    aliases: aliases,
     override-opaque: unit != none,
     soft: soft,
   )
@@ -1651,7 +1679,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   let output-scale = 1.0
   let output-offset = 0.0
   if target-tokens != none {
-    let target = parse(add-implicit-multiplication(target-tokens), custom-units: true, soft: soft)
+    let target = parse(add-implicit-multiplication(target-tokens), aliases: aliases, custom-units: true, soft: soft)
     if is-calculation-failure(target) { return target }
     if target.dims != result.dims or target.opaque != result.opaque {
       if is-dimensionless(result) and not is-dimensionless(target) {
@@ -1682,7 +1710,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   } else if output-unit == none and not is-dimensionless(result) {
     output-unit = canonical-unit(result.dims)
   } else if output-unit != none and result.opaque.len() == 0 {
-    let preferred = parse(add-implicit-multiplication(tokenize(output-unit)))
+    let preferred = parse(add-implicit-multiplication(tokenize(output-unit)), aliases: aliases)
     output-scale = if preferred.affine == none { preferred.si-value } else { preferred.affine.scale }
     output-offset = if preferred.affine == none { 0.0 } else { preferred.affine.offset }
   }
@@ -1702,7 +1730,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
       output-scale *= size
       target-tokens = none
     }
-  } else if target-tokens == none and result.dims == dim(length: 1) {
+  } else if target-tokens == none and result.dims == dim(length: 1) and output-unit not in aliases {
     let scaled-unit = auto-length-unit(result.si-value, output-unit)
     if scaled-unit != output-unit {
       output-unit = scaled-unit
@@ -1713,7 +1741,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   let exact = (result.si-value - output-offset) / output-scale
   let value = calc.round(exact, digits: digits)
   let scientific-output = output-unit != none and output-unit.starts-with("10^(")
-  let display-body = render-tokens(expression-tokens, scope: scope) + h(0.25em) + math.eq + h(0.25em)
+  let display-body = render-tokens(expression-tokens, scope: scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em)
   if output-unit != none {
     let output-tokens = if target-tokens != none { target-tokens } else { tokenize(output-unit) }
     if scientific-output {
@@ -1727,7 +1755,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
       }).join(" ")
       display-body += eval(scientific-source, mode: "math").body
     } else {
-      display-body += str(value) + h(0.2em) + render-tokens(output-tokens)
+      display-body += str(value) + h(0.2em) + render-tokens(output-tokens, aliases: aliases)
     }
   } else {
     display-body += str(value)
@@ -1788,7 +1816,7 @@ let calculation-builder(
     if source == none {
       let visible = (:)
       for (name, value) in variables.get() {
-        if not is-unloaded-marker(value) { visible.insert(name, value) }
+        if not is-unloaded-marker(value) and not is-unit-alias(value) { visible.insert(name, value) }
       }
       return visible
     }
@@ -1815,12 +1843,20 @@ let calculation-builder(
 
     let equation-body = context {
       let current = variables.get()
+      let aliases = unit-aliases(current)
       if parsed-function != none {
+        if parsed-function.name in aliases {
+          text(
+            fill: red,
+            [math-once: #raw(parsed-function.name) is a unit name and cannot be used as a function.],
+          )
+          return
+        }
         variables.update(old => {
           old.insert(parsed-function.name, parsed-function)
           old
         })
-        render-tokens(tokenize(source.replace(":=", "=")), scope: current)
+        render-tokens(tokenize(source.replace(":=", "=")), scope: current, aliases: aliases)
         return
       }
       let unloaded = ()
@@ -1828,7 +1864,7 @@ let calculation-builder(
         if is-unloaded(item) { unloaded.push(stored-name) }
       }
       let assignment-is-unloaded = name != none and name in unloaded
-      let illegal-assignment = name != none and resolve-unit(name) != none and not assignment-is-unloaded
+      let illegal-assignment = name != none and (resolve-unit(name) != none or name in aliases) and not assignment-is-unloaded
       let tokens = if display-only { tokenize(source) } else { expression-tokens(expression) }
       let evaluation-tokens = if display-only { tokens } else { tokenize(expression) }
       let function-expansion = if display-only { (evaluation-tokens, false) } else { expand-function-calls(evaluation-tokens, current) }
@@ -1842,17 +1878,19 @@ let calculation-builder(
       if not is-calculation-failure(nested-expansion) and nested-expansion.last() {
         calculation-tokens = nested-expansion.first()
       }
-      let missing = if display-only { () } else { missing-variables(tokens, current, unloaded) }
+      let missing = if display-only { () } else { missing-variables(tokens, current, unloaded, aliases: aliases) }
       let result = if illegal-assignment or display-only or missing.len() > 0 or function-error != none { none } else {
+        let calculation-scope = numeric-scope(current)
         calculate-expanded(
           calculate,
           calculation-tokens,
           digits,
-          numeric-scope(current),
+          calculation-scope,
           unit,
           size,
           block,
           unloaded,
+          aliases,
         )
       }
       let calculation-error = if is-calculation-failure(result) { result.error } else { none }
@@ -1875,19 +1913,19 @@ let calculation-builder(
           [math-once: #calculation-error.],
         )
       } else if display-only {
-        render-tokens(tokens, scope: current)
+        render-tokens(tokens, scope: current, aliases: aliases)
       } else if name != none {
         let name-scope = current
         name-scope.insert(name, 0)
-        let labelled-body = render-tokens((name,), scope: name-scope) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current)
+        let labelled-body = render-tokens((name,), scope: name-scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current, aliases: aliases)
         if show-result {
           let (expanded, has-variables) = expand-variables(tokens, current)
           if has-variables {
-            labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded)
+            labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
           }
           let last-visible-tokens = if has-variables { expanded } else { tokens }
           if not equivalent-tokens(last-visible-tokens, result-tokens(result)) {
-            labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result)
+            labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases)
           }
         }
         result.insert("display", math.equation(labelled-body, block: block))
@@ -1899,17 +1937,17 @@ let calculation-builder(
         })
         result.display.body
       } else {
-        let labelled-body = render-tokens(tokens, scope: current)
+        let labelled-body = render-tokens(tokens, scope: current, aliases: aliases)
         if function-expansion.last() and vector-components(calculation-tokens) == none {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(calculation-tokens, scope: numeric-scope(current))
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(calculation-tokens, scope: numeric-scope(current), aliases: aliases)
         }
         let (expanded, has-variables) = expand-variables(tokens, current)
         if has-variables {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded)
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
         }
         let last-visible-tokens = if has-variables { expanded } else { tokens }
         if result.at("vector", default: false) or not equivalent-tokens(last-visible-tokens, result-tokens(result)) {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result)
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases)
         }
         labelled-body
       }
@@ -1941,9 +1979,16 @@ let reset(..names, key: "math-once-calculation") = {
   let variables = state(key, (:))
   variables.update(old => {
     if selected.len() == 0 { return (:) }
+    let originals = selected.map(name => {
+      let item = old.at(name, default: none)
+      if item != none and is-unit-alias(item) { item.original } else { name }
+    })
     let kept = (:)
     for (name, value) in old {
-      if name not in selected { kept.insert(name, value) }
+      let belongs-to-selected-alias = is-unit-alias(value) and value.original in originals
+      if name not in selected and name not in originals and not belongs-to-selected-alias {
+        kept.insert(name, value)
+      }
     }
     kept
   })
@@ -1972,11 +2017,47 @@ let unload(..names, key: "math-once-calculation") = {
   })
 }
 
+/// Move an active unit spelling to a new alias until reset.
+let rename-unit(from, to, key: "math-once-calculation") = {
+  let from = state-name(from, "rename-unit")
+  let to = state-name(to, "rename-unit")
+  if from == to { panic("math-once rename-unit: source and destination must differ") }
+  let variables = state(key, (:))
+  variables.update(old => {
+    let aliases = unit-aliases(old)
+    let original = aliases.at(from, default: from)
+    let source-is-unloaded = from in old and is-unloaded(old.at(from)) and from not in aliases
+    if resolve-unit(original) == none or source-is-unloaded {
+      panic("math-once rename-unit: `" + from + "` is not an active unit or alias")
+    }
+    if resolve-unit(to) != none or to in aliases {
+      panic("math-once rename-unit: destination `" + to + "` is already a unit")
+    }
+    if to in old and not is-unloaded-marker(old.at(to)) and not is-unit-alias(old.at(to)) {
+      panic("math-once rename-unit: destination `" + to + "` is already a stored variable")
+    }
+    if from in aliases {
+      let _ = old.remove(from)
+    }
+    if original in old and type(old.at(original)) == dictionary and "si-value" in old.at(original) {
+      let value = old.at(original)
+      value.insert("unloaded", true)
+      value.insert("renamed-unit", true)
+      old.insert(original, value)
+    } else {
+      old.insert(original, (unloaded: true, renamed-unit: true))
+    }
+    old.insert(to, (unit-alias: true, original: original))
+    old
+  })
+}
+
 (
   calculate: calculate,
   calculation-builder: calculation-builder,
   reset: reset,
   unload: unload,
+  rename-unit: rename-unit,
   text-unit: text-unit,
 )
 }
@@ -2079,6 +2160,21 @@ let unload(..names, key: "math-once-calculation") = {
 /// complete state is cleared with `reset()`.
 #let unload(..names, key: "math-once-calculation") = (_engine.unload)(
   ..names,
+  key: key,
+)
+
+/// Move a unit name to a new alias until the matching reset.
+///
+/// - `from`: Active catalog unit name or alias.
+/// - `to`: New alias. It must not already be a unit or stored variable.
+/// - `key`: State key of the matching calculation builder.
+///
+/// For example, `rename-unit($m$, $v$)` makes bare `m` available as a
+/// variable and makes `v` mean metres. A later `rename-unit($v$, $"vme"$)`
+/// moves that alias again. `reset()` restores the catalog spelling.
+#let rename-unit(from, to, key: "math-once-calculation") = (_engine.rename-unit)(
+  from,
+  to,
   key: key,
 )
 
