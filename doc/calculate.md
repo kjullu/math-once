@@ -188,6 +188,24 @@ as degrees. Add `rad`, `deg`, `degree`, or `°` to select an explicit angle unit
 // approximately 1
 ```
 
+### Roots
+
+`sqrt(x)` calculates a square root. `root(n, x)` calculates the `n`th root
+of `x`, matching Typst's index-first math syntax:
+
+```typ
+#calculate($sqrt(5)$, digits: 6).display
+// √5 = 2.236068
+
+#calculate($root(5, 3)$, digits: 6).display
+// ⁵√3 = 1.245731
+```
+
+Roots preserve physical dimensions when every unit exponent is divisible by
+the root index. For example, `sqrt(9 m^2)` returns `3 m`. A non-integer or
+zero index, an even root of a negative value, or incompatible unit exponents
+produces an error.
+
 ### `block`
 
 `bool` — optional, named — default: `true`
