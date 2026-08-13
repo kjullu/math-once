@@ -192,6 +192,45 @@ Unknown quoted names are stored as opaque custom units. Matching custom units
 support ordinary arithmetic, but they cannot be converted to catalog units.
 See [Custom units](units.md#custom-units).
 
+## Functions and vectors
+
+Use `:=` to store a function. An ordinary `=` only displays it:
+
+```typ
+#let eq = calculation-builder(key: "function-example", digits: 2)
+
+#eq($f(x) := x + 1$)
+#eq($f(2)$)
+// f(2) = ((2) + 1) = 3
+
+#eq($h(x, y) := x * y + 1$)
+#eq($h(3, 4)$)
+// h(3, 4) = ((3) ⋅ (4) + 1) = 13
+```
+
+Function bodies use the same arithmetic, units, variables, and trigonometric
+functions as other builder expressions. Arguments are substituted before the
+normal unit-aware calculation:
+
+```typ
+#eq($u(x) := x * 2 m$)
+#eq($u(3)$)
+// u(3) = ((3) ⋅ 2 m) = 6 m
+```
+
+Arrow names and vector functions are supported. Vector components are
+calculated independently and may themselves contain units:
+
+```typ
+#eq($arrow(s)(t) := vec(t^3 - 3t^2 - 4t + 12, t^2 - 4)$)
+#eq($arrow(s)(2)$)
+// s⃗(2) = vec(0, 0)
+```
+
+The current vector result cannot be assigned a single whole-vector `unit:` or
+`size:`. Put units in the individual component expressions instead. Calling a
+function with the wrong number of arguments produces a red inline error.
+
 Greek mathematical names are supported directly. Typst displays the symbol,
 while the stored dictionary uses its readable ASCII name:
 

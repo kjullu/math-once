@@ -1,4 +1,4 @@
-// math-once v0.18.4
+// math-once v0.19.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -853,6 +853,15 @@ let math-items(value) = if value.has("children") { value.children } else { (valu
 
 let math-source-part(value, parse, preserve-text: false) = {
   if repr(value.func()) == "space" { return "" }
+  if repr(value.func()) == "sequence" {
+    return parse(value)
+  }
+  if repr(value.func()) == "accent" {
+    return "arrow_" + parse(value.base)
+  }
+  if value.func() == math.vec {
+    return "vec(" + value.children.map(child => parse(child)).join(",") + ")"
+  }
   if value.func() == math.frac {
     return "(" + parse(value.num) + ")/(" + parse(value.denom) + ")"
   }
@@ -914,7 +923,7 @@ let input-source(source, preserve-text: false) = if type(source) == content and 
 let tokenize(source) = {
   let name = "[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*"
   let symbolic = "⟦[^⟦⟧]+⟧"
-  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|" + symbolic + "|\"" + name + "\"|" + name + "|:=|[=()+*/^+\\-]")
+  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|" + symbolic + "|\"" + name + "\"|" + name + "|:=|[=(),+*/^+\\-]")
   let tokens = ()
   let cursor = 0
   for found in source.matches(pattern) {
@@ -979,6 +988,10 @@ let render-tokens(tokens, scope: (:)) = {
     } else if is-name(token) {
       if token in math-functions {
         token
+      } else if token == "vec" {
+        "vec"
+      } else if token.starts-with("arrow_") {
+        "arrow(" + render-variable(token.slice(6)) + ")"
       } else if token in scope {
         render-variable(token)
       } else if token == "degree" {
@@ -1030,6 +1043,191 @@ let expression-tokens(source) = {
   tokens
 }
 
+let split-top-level(tokens, separator: ",") = {
+  let parts = ()
+  let part = ()
+  let depth = 0
+  for token in tokens {
+    if token == "(" { depth += 1 }
+    if token == ")" { depth -= 1 }
+    if token == separator and depth == 0 {
+      parts.push(part)
+      part = ()
+    } else {
+      part.push(token)
+    }
+  }
+  parts.push(part)
+  parts
+}
+
+let function-definition(source) = {
+  let matched = source.match(regex("^\\s*([A-Za-z]+(?:_[A-Za-z0-9]+)*)\\s*\\(([^()]*)\\)\\s*:=\\s*(.+)$"))
+  if matched == none { return none }
+  let parameters = matched.captures.at(1).split(",").map(item => item.trim())
+  if parameters.len() == 0 or parameters.any(item => not is-name(item)) {
+    return none
+  }
+  let body = matched.captures.at(2).trim()
+  let body-tokens = tokenize(body)
+  let vector = body-tokens.len() >= 3 and body-tokens.first() == "vec" and body-tokens.at(1) == "(" and body-tokens.last() == ")"
+  (
+    function: true,
+    name: matched.captures.at(0),
+    parameters: parameters,
+    body: body,
+    body-tokens: body-tokens,
+    vector: vector,
+  )
+}
+
+let substitute-function(definition, arguments) = {
+  if arguments.len() != definition.parameters.len() {
+    return calculation-failure(
+      "function `" + definition.name + "` expects " + str(definition.parameters.len())
+      + " argument" + if definition.parameters.len() == 1 { "" } else { "s" },
+    )
+  }
+  let substitutions = (:)
+  for (parameter, argument) in definition.parameters.zip(arguments) {
+    substitutions.insert(parameter, argument)
+  }
+  let result = ()
+  for token in definition.body-tokens {
+    if token in substitutions {
+      result.push("(")
+      result += substitutions.at(token)
+      result.push(")")
+    } else {
+      result.push(token)
+    }
+  }
+  result
+}
+
+let expand-function-calls(tokens, scope) = {
+  let result = ()
+  let changed = false
+  let index = 0
+  while index < tokens.len() {
+    let token = tokens.at(index)
+    let definition = scope.at(token, default: none)
+    if (type(definition) == dictionary
+      and definition.at("function", default: false)
+      and index + 1 < tokens.len()
+      and tokens.at(index + 1) == "(") {
+      let depth = 1
+      let closing = index + 2
+      while closing < tokens.len() and depth > 0 {
+        if tokens.at(closing) == "(" { depth += 1 }
+        if tokens.at(closing) == ")" { depth -= 1 }
+        closing += 1
+      }
+      if depth != 0 { return calculation-failure("missing closing parenthesis in function call") }
+      let arguments = split-top-level(tokens.slice(index + 2, closing - 1))
+      let expanded = substitute-function(definition, arguments)
+      if is-calculation-failure(expanded) { return expanded }
+      result.push("(")
+      result += expanded
+      result.push(")")
+      changed = true
+      index = closing
+    } else {
+      result.push(token)
+      index += 1
+    }
+  }
+  (result, changed)
+}
+
+let function-call-name(tokens, index) = {
+  if index + 1 < tokens.len() and tokens.at(index + 1) == "(" {
+    return (tokens.at(index), index + 1)
+  }
+  if (index + 2 < tokens.len()
+    and tokens.at(index) == "arrow"
+    and tokens.at(index + 1) == "_"
+    and is-name(tokens.at(index + 2))) {
+    return ("arrow_" + tokens.at(index + 2), index + 3)
+  }
+  none
+}
+
+let numeric-scope(scope) = {
+  let result = (:)
+  for (name, value) in scope {
+    if not (type(value) == dictionary and value.at("function", default: false)) {
+      result.insert(name, value)
+    }
+  }
+  result
+}
+
+let unwrap-tokens(tokens) = {
+  while tokens.len() >= 2 and tokens.first() == "(" and tokens.last() == ")" {
+    let depth = 0
+    let closes-at-end = true
+    for (index, token) in tokens.enumerate() {
+      if token == "(" { depth += 1 }
+      if token == ")" { depth -= 1 }
+      if depth == 0 and index < tokens.len() - 1 { closes-at-end = false; break }
+    }
+    if not closes-at-end { break }
+    tokens = tokens.slice(1, tokens.len() - 1)
+  }
+  tokens
+}
+
+let vector-components(tokens) = {
+  tokens = unwrap-tokens(tokens)
+  if (tokens.len() >= 3
+  and tokens.first() == "vec"
+  and tokens.at(1) == "("
+  and tokens.last() == ")") {
+    split-top-level(tokens.slice(2, tokens.len() - 1))
+  } else {
+    none
+  }
+}
+
+let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, unloaded) = {
+  let components = vector-components(tokens)
+  if components == none {
+    return calculate-fn(
+      tokens.join(" "),
+      digits: digits,
+      scope: scope,
+      unit: unit,
+      size: size,
+      block: block,
+      unloaded: unloaded,
+      soft: true,
+    )
+  }
+  if unit != none or size != none {
+    return calculation-failure("unit and size are not supported for a whole vector result")
+  }
+  let results = ()
+  for component in components {
+    let result = calculate-fn(
+      component.join(" "),
+      digits: digits,
+      scope: scope,
+      block: false,
+      unloaded: unloaded,
+      soft: true,
+    )
+    if is-calculation-failure(result) { return result }
+    results.push(result)
+  }
+  (
+    vector: true,
+    components: results,
+    values: results.map(result => result.value),
+    source: tokens.join(" "),
+  )
+}
+
 let equivalent-tokens(left, right) = {
   left = compact-unit-tokens(left)
   right = compact-unit-tokens(right)
@@ -1055,6 +1253,10 @@ let result-tokens(result) = {
 }
 
 let render-result(result) = {
+  if result.at("vector", default: false) {
+    let children = result.components.map(component => render-result(component))
+    return math.vec(..children)
+  }
   if result.unit != none and result.unit.starts-with("10^(") {
     let unit-tokens = tokenize(result.unit)
     let source = str(result.value) + " dot " + unit-tokens.map(token => {
@@ -1076,7 +1278,9 @@ let expand-variables(tokens, scope) = {
   let expanded = ()
   let changed = false
   for (index, token) in tokens.enumerate() {
-    if is-name(token) and token in scope {
+    if (is-name(token)
+      and token in scope
+      and not (type(scope.at(token)) == dictionary and scope.at(token).at("function", default: false))) {
       if index > 0 and can-end(tokens.at(index - 1)) {
         expanded.push("*")
       }
@@ -1109,6 +1313,7 @@ let missing-variables(tokens, scope, unloaded) = {
     if (is-name(token)
       and token not in math-functions
       and token != "to"
+      and token != "vec"
       and (token not in scope or is-unloaded-marker(scope.at(token, default: (:))))
       and (resolve-unit(token) == none or token in unloaded)
       and token not in missing) {
@@ -1589,6 +1794,7 @@ let calculation-builder(
     }
 
     let source = input-source(source, preserve-text: true)
+    let parsed-function = function-definition(source)
     let assignment = source.match(regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*:=\\s*(.+)$"))
     let name = if assignment == none {
       none
@@ -1609,6 +1815,14 @@ let calculation-builder(
 
     let equation-body = context {
       let current = variables.get()
+      if parsed-function != none {
+        variables.update(old => {
+          old.insert(parsed-function.name, parsed-function)
+          old
+        })
+        render-tokens(tokenize(source.replace(":=", "=")), scope: current)
+        return
+      }
       let unloaded = ()
       for (stored-name, item) in current {
         if is-unloaded(item) { unloaded.push(stored-name) }
@@ -1616,17 +1830,29 @@ let calculation-builder(
       let assignment-is-unloaded = name != none and name in unloaded
       let illegal-assignment = name != none and resolve-unit(name) != none and not assignment-is-unloaded
       let tokens = if display-only { tokenize(source) } else { expression-tokens(expression) }
+      let evaluation-tokens = if display-only { tokens } else { tokenize(expression) }
+      let function-expansion = if display-only { (evaluation-tokens, false) } else { expand-function-calls(evaluation-tokens, current) }
+      let function-error = if is-calculation-failure(function-expansion) { function-expansion.error } else { none }
+      let calculation-tokens = if function-error == none { function-expansion.first() } else { tokens }
+      let nested-expansion = if function-error == none and function-expansion.last() {
+        expand-function-calls(calculation-tokens, current)
+      } else {
+        (calculation-tokens, false)
+      }
+      if not is-calculation-failure(nested-expansion) and nested-expansion.last() {
+        calculation-tokens = nested-expansion.first()
+      }
       let missing = if display-only { () } else { missing-variables(tokens, current, unloaded) }
-      let result = if illegal-assignment or display-only or missing.len() > 0 { none } else {
-        calculate(
-          expression,
-          digits: digits,
-          scope: current,
-          unit: unit,
-          size: size,
-          block: block,
-          unloaded: unloaded,
-          soft: true,
+      let result = if illegal-assignment or display-only or missing.len() > 0 or function-error != none { none } else {
+        calculate-expanded(
+          calculate,
+          calculation-tokens,
+          digits,
+          numeric-scope(current),
+          unit,
+          size,
+          block,
+          unloaded,
         )
       }
       let calculation-error = if is-calculation-failure(result) { result.error } else { none }
@@ -1641,6 +1867,8 @@ let calculation-builder(
           fill: red,
           [math-once: #raw(missing.first()) is not set.],
         )
+      } else if function-error != none {
+        text(fill: red, [math-once: #function-error.])
       } else if calculation-error != none {
         text(
           fill: red,
@@ -1672,12 +1900,15 @@ let calculation-builder(
         result.display.body
       } else {
         let labelled-body = render-tokens(tokens, scope: current)
+        if function-expansion.last() and vector-components(calculation-tokens) == none {
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(calculation-tokens, scope: numeric-scope(current))
+        }
         let (expanded, has-variables) = expand-variables(tokens, current)
         if has-variables {
           labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded)
         }
         let last-visible-tokens = if has-variables { expanded } else { tokens }
-        if not equivalent-tokens(last-visible-tokens, result-tokens(result)) {
+        if result.at("vector", default: false) or not equivalent-tokens(last-visible-tokens, result-tokens(result)) {
           labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result)
         }
         labelled-body
@@ -1799,6 +2030,9 @@ let unload(..names, key: "math-once-calculation") = {
 /// `caption`, and `gap`, and `supplement` overrides.
 /// Set `show-result: false` on a `:=` definition to store the exact calculated
 /// value while showing only the written definition.
+/// Scalar and vector functions can also be stored with `:=`, such as
+/// `$f(x) := x + 1$` and `$arrow(s)(t) := vec(t, t^2)$`, then evaluated by
+/// calling `$f(2)$` or `$arrow(s)(2)$`.
 /// A definition like `$v := 10 m/s$` stores `v`; a plain `=` only displays the
 /// equation. Later expressions show an extra step with stored variable values
 /// substituted. A label can be written after
