@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.19.0
+
+- Added stored scalar functions to `calculation-builder`, using definitions
+  such as `f(x) := x + 1` and later calls such as `f(2)`.
+- Added multiple function parameters, unit-aware component calculations, arrow
+  function names, and vector functions written with `vec(...)`.
+- Kept ordinary `f(x) = ...` equations display-only, consistent with scalar
+  variable assignment semantics.
+- Added friendly inline errors for incorrect function argument counts.
+
 ## 0.18.4
 
 - Fixed the multiplication dot between the coefficient and power of ten in
