@@ -191,7 +191,8 @@ def emit_typst(successes, failures):
     print("// tools/audit-qalc-units.py. Runtime use remains dependency-free.")
     print("let qalc-unit-definitions = (")
     for names, scale, dims, offset in successes:
-        # Keep math-once's established Danish `t` (hours); tonne and ton remain.
+        # Add Qalculate's `t` tonne alias explicitly with the compatibility
+        # aliases below, rather than duplicating it in the generated catalog.
         names = [name for name in names if name != "t"]
         quoted = ", ".join(repr(name).replace("'", '"') for name in names)
         if len(names) == 1:
@@ -208,8 +209,8 @@ def emit_typst(successes, failures):
     print("}")
     print("")
     print("// Project-specific compatibility aliases and named composites.")
-    print('units.insert("t", (scale: 3600.0, dims: dim(time: 1)))')
-    print('units.insert("timer", units.at("t"))')
+    print('units.insert("t", units.tonne)')
+    print('units.insert("timer", units.hour)')
     print('units.insert("kn", units.knot)')
     print('units.insert("Nm", (scale: 1.0, dims: dim(length: 2, mass: 1, time: -2)))')
     print('units.insert("Ncm", (scale: 0.01, dims: units.Nm.dims))')
@@ -227,8 +228,6 @@ def emit_tests(successes):
     print("#let qalc-unit-cases = (")
     for names, scale, _dims, offset in successes:
         for name in names:
-            if name == "t":
-                continue
             expected = scale + offset
             print(f"  ({json.dumps(name, ensure_ascii=False)}, {typst_number(expected)}),")
     print(")")
