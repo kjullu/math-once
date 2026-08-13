@@ -1,7 +1,7 @@
 #import "../math-once.typ": calculate, calculation-builder
 
-// Automatic conversion during addition: 1 km/t = 0.2777... m/s.
-#let speed = calculate(`10 m/s + 1 km/t`)
+// Automatic conversion during addition: 1 km/h = 0.2777... m/s.
+#let speed = calculate(`10 m/s + 1 km/h`)
 #assert(calc.abs(speed.exact - 10.277777777777779) < 0.000000000001)
 #assert(speed.value == 10.2778)
 #assert(speed.unit == "m/s")
@@ -9,9 +9,9 @@
 #assert(calculate(`1 m`, block: false).display.block == false)
 
 // Explicit output conversion.
-#let converted = calculate(`10 m/s to km/t`, digits: 2)
+#let converted = calculate(`10 m/s to km/h`, digits: 2)
 #assert(converted.value == 36.0)
-#assert(converted.unit == "km/t")
+#assert(converted.unit == "km/h")
 
 // The named `unit` argument is an alternative to writing `to`.
 #let requested-unit = calculate(`(1 m/s + 2 m/s)`, unit: `km/h`, digits: 1)
@@ -90,7 +90,7 @@
 
 // Stateful reusable variables.
 #let run = calculation-builder()
-#run(`v := 10 m/s + 1 km/t`)
+#run(`v := 10 m/s + 1 km/h`)
 #run(`x := v * 2 s`, digits: 3)
 #context {
   let variables = run()

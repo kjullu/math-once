@@ -34,7 +34,7 @@
 = `calculate`
 
 // Automatic compatible-unit conversion and centered output.
-#let speed = calculate(`10 m/s + 1 km/t`)
+#let speed = calculate(`10 m/s + 1 km/h`)
 #speed.display
 
 // `unit` selects the output unit; `digits` controls display rounding.
@@ -77,7 +77,7 @@ Inline: #calculate(`100 cm to m`, block: false).display.
 )
 
 // Definitions store full dimensioned results for later calls.
-#run(`v := 10 m/s + 1 km/t`)
+#run(`v := 10 m/s + 1 km/h`)
 #run(`x := factor * v * 2 s`, unit: `m`, digits: 3)
 
 // A call without a definition calculates without adding a variable. Per-call

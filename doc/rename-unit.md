@@ -37,7 +37,7 @@ Aliases may be moved again. Quote multi-letter names in Typst math:
 #eq($d := 4 "vme"$)
 ```
 
-`rename-unit` renders no visible output. Calls take effect at their position
+Successful calls render no visible output. Calls take effect at their position
 in the document because the alias is stored in Typst state.
 
 ## Parameters
@@ -84,8 +84,7 @@ Unrelated variables remain stored after a selective reset.
 
 ## Errors
 
-The call reports an error if the source is not an active unit or alias, the
-source and destination are identical, or the destination collides with a
-catalog unit or stored variable. These configuration errors stop compilation;
-the red inline calculation errors produced by `calculation-builder` apply to
-equation evaluation, not state-management calls.
+The call shows a centered red error in the document if the source is not an
+active unit or alias, the source and destination are identical, or the
+destination collides with a catalog unit, active alias, or stored variable.
+The rename is not applied, so the existing unit and variables remain intact.

@@ -16,20 +16,20 @@ Den præcise, ikke-afrundede værdi er også gemt: #a.exact.
 
 = Automatisk enhedsregning
 
-#let fart = calculate(`10 m/s + 1 km/t`)
+#let fart = calculate(`10 m/s + 1 km/h`)
 #fart.display
 
 #let afstand = calculate(`fart * 2 s`, scope: (fart: fart), digits: 3)
 #afstand.display
 
-#calculate(`10 m/s to km/t`, digits: 2).display
+#calculate(`10 m/s to km/h`, digits: 2).display
 
 #calculate(`(1 m/s + 2 m/s)`, unit: `km/h`, digits: 1).display
 
 = Genbrugelige variabler
 
 #let run = calculation-builder()
-#run(`v := 10 m/s + 1 km/t`)
+#run(`v := 10 m/s + 1 km/h`)
 #run(`x := v * 2 s`, digits: 3)
 
 #context {

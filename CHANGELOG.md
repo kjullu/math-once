@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.21.0
+
+- Changed `t` from the Danish hour abbreviation to the Qalculate-compatible
+  metric tonne (`1000 kg`). `timer` remains available for hours.
+- Changed common `rename-unit` configuration failures into centered red
+  document messages. A failed rename leaves the builder state unchanged.
+
 ## 0.20.0
 
 - Added `rename-unit(from, to)` for moving an active catalog unit spelling to
