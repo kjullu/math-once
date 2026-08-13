@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Fixed the Qalculate audit generator so `t` remains the metric-tonne alias,
+  `timer` remains the hour alias, and generated unit tests cover `t`.
+
 ## 0.22.0
 
 - Added `sqrt(x)` and indexed `root(n, x)` calculations to `calculate` and
