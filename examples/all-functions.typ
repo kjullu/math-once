@@ -104,15 +104,7 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 `reset()` is the broad operation. The focused reset functions in the following
 section preserve unrelated builder state.
 
-// Selected names are removed from the matching builder state.
-#reset("x", key: "all-functions-example")
-#context {
-  let variables = run()
-  assert("x" not in variables)
-  assert("v" in variables)
-}
-
-// No names clears the entire matching state, including initial values.
+// Reset clears the entire matching state, including initial values.
 #reset(key: "all-functions-example")
 #context assert(run().len() == 0)
 

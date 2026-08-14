@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculation-builder, reset, unload
+#import "../math-once.typ": calculation-builder, reset, restore-units, unload
 
 #let eq = calculation-builder()
 
@@ -21,7 +21,7 @@
 }
 
 // Selective reset restores only that unit name.
-#reset("a")
+#restore-units("a")
 #eq($a := 4$) // red error: `a` is the are unit again
 #context {
   let variables = eq()

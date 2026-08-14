@@ -1,4 +1,4 @@
-// math-once v0.25.0
+// math-once v0.26.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -487,7 +487,6 @@ for definition in qalc-unit-definitions {
 
 // Project-specific compatibility aliases and named composites.
 units.insert("t", units.tonne)
-units.insert("timer", units.hour)
 units.insert("kn", units.knot)
 units.insert("Nm", (scale: 1.0, dims: dim(length: 2, mass: 1, time: -2)))
 units.insert("Ncm", (scale: 0.01, dims: units.Nm.dims))
@@ -2165,25 +2164,10 @@ let state-name(value, action) = {
   name
 }
 
-/// Clear all or selected variables from a calculation-builder state.
-let reset(..names, key: "math-once-calculation") = {
-  let selected = names.pos().map(value => state-name(value, "reset"))
+/// Clear the complete calculation-builder state.
+let reset(key: "math-once-calculation") = {
   let variables = state(key, (:))
-  variables.update(old => {
-    if selected.len() == 0 { return (:) }
-    let originals = selected.map(name => {
-      let item = old.at(name, default: none)
-      if item != none and is-unit-alias(item) { item.original } else { name }
-    })
-    let kept = (:)
-    for (name, value) in old {
-      let belongs-to-selected-alias = is-unit-alias(value) and value.original in originals
-      if name not in selected and name not in originals and not belongs-to-selected-alias {
-        kept.insert(name, value)
-      }
-    }
-    kept
-  })
+  variables.update(_ => (:))
 }
 
 /// Clear selected or all stored values while preserving builder configuration.
@@ -2445,21 +2429,18 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   supplement: supplement,
 )
 
-/// Clear the complete or selected parts of a `calculation-builder` state.
+/// Clear the complete `calculation-builder` state.
 ///
 /// You may want `reset-variables` to keep unit configuration, `reset-functions`
 /// to remove stored functions, `restore-units` to undo `unload`, or
 /// `reset-unit-aliases` to undo `rename-unit` instead.
 ///
-/// - `names`: Optional state names as strings, raw text, or Typst math.
-///   With no names, the complete state is cleared.
 /// - `key`: The state key of the matching calculation builder. Default:
 ///   `"math-once-calculation"`.
 ///
-/// Use `reset("height", "width")` to clear selected variables or `reset()`
-/// to clear the entire default builder state. The function renders no output.
-#let reset(..names, key: "math-once-calculation") = (_engine.reset)(
-  ..names,
+/// Use `reset()` to clear the entire default builder state. The function
+/// renders no output.
+#let reset(key: "math-once-calculation") = (_engine.reset)(
   key: key,
 )
 

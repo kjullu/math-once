@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.26.0
+
+- Changed `reset` into an unambiguous complete-state operation with only the
+  optional named `key:` parameter. Older selective calls must use
+  `reset-variables`, `reset-functions`, `restore-units`, or
+  `reset-unit-aliases` according to the state being changed.
+- Removed the Danish `timer` alias for hours from the built-in unit catalog.
+  The catalog now keeps English unit names; translated builder spellings can
+  be introduced explicitly with `rename-unit`, such as renaming `h` to
+  `timer`.
+
 ## 0.25.0
 
 - Added `reset-variables` for clearing selected or all stored values while

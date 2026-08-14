@@ -1,4 +1,4 @@
-#import "@local/math-once:0.25.0": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline
+#import "@local/math-once:0.26.0": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline
 
 #let result = evaluate-code(`6 * 7`, unit: `kg`)
 #assert(result.value == 42)
@@ -20,7 +20,7 @@
   assert(variables.x.value == 20.0)
   assert(variables.x.unit == "m")
 }
-#reset("x", key: "package-import-runner")
+#reset-variables("x", key: "package-import-runner")
 #context assert("x" not in run())
 #run($f(t) := t + 1$)
 #unload("a", key: "package-import-runner")

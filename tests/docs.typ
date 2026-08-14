@@ -68,7 +68,7 @@ Inline: #inline(`x := 2 + 2`).
 #let resettable = calculation-builder(key: "docs-reset")
 #resettable(`height := 10 m`)
 #resettable(`width := 5 m`)
-#reset("height", key: "docs-reset")
+#reset-variables("height", key: "docs-reset")
 #context assert("height" not in resettable() and "width" in resettable())
 #reset(key: "docs-reset")
 #context assert(resettable().len() == 0)
