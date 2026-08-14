@@ -34,6 +34,7 @@ ordinary arithmetic with matching custom units, without physical conversion.
   calculator. Its unit handling *inspired* math-once. (Terminal and GUI tool)
 - [eqrun](https://github.com/snlxnet/eqrun) is a well-designed calculator for
   Typst and the original inspiration for this project. (Typst plugin)
+- [typcas](https://github.com/sihooleebd/typCAS) For the cas functions, we integrate them, please look at it (Typst plugin)
 
 ## Install
 
