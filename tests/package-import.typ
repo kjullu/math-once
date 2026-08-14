@@ -1,4 +1,4 @@
-#import "@local/math-once:0.26.0": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline
+#import "@local/math-once:0.27.0": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline
 
 #let result = evaluate-code(`6 * 7`, unit: `kg`)
 #assert(result.value == 42)
@@ -35,3 +35,8 @@
 #context assert(run().x.si-value == 2.0)
 #reset-unit-aliases(key: "package-import-runner")
 #reset(key: "package-import-runner")
+
+#let symbolic = calculation-builder(key: "package-import-symbolic")
+#symbolic(`f := simplify(x^2 + 2*x + 1)`)
+#symbolic(`df := diff(f, x)`)
+#context assert(symbolic().df.symbolic-kind == "expression")

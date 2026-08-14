@@ -1,8 +1,9 @@
 # math-once
 
 Write a calculation once, show the equation, and reuse its exact result.
-`math-once` is a single-file Typst calculator with physical units, automatic
-conversion, and stateful equation variables.
+`math-once` is a Typst calculator with physical units, automatic conversion,
+stateful equation variables, and symbolic calculations through
+[typCAS](https://github.com/sihooleebd/typCAS).
 
 Unknown quoted unit names also work as opaque custom units. They support
 ordinary arithmetic with matching custom units, without physical conversion.
@@ -21,6 +22,10 @@ ordinary arithmetic with matching custom units, without physical conversion.
 #eq($distance := 0.5 "mm"$)
 #eq($1 / distance$, unit: $#text-unit("lines") / m$)
 // 1/distance = 1/(0.5 mm) = 2000 lines/m
+
+#eq(`f := simplify(x^2 + 2*x + 1)`)
+#eq(`df := diff(f, x)`)
+// df = diff(f, x) = 2x + 2
 ```
 
 ## Acknowledgements and alternatives
@@ -29,6 +34,8 @@ ordinary arithmetic with matching custom units, without physical conversion.
   calculator. Its unit handling *inspired* math-once. (Terminal and GUI tool)
 - [eqrun](https://github.com/snlxnet/eqrun) is a well-designed calculator for
   Typst and the original inspiration for this project. (Typst plugin)
+- [typCAS](https://github.com/sihooleebd/typCAS) provides math-once's symbolic
+  algebra. It is an MIT-licensed Typst package by Benjamin Lee.
 
 ## Install
 
@@ -42,10 +49,12 @@ Copy [`math-once.typ`](math-once.typ) into your project and import the
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.26.0": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.27.0": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
-The package is implemented entirely in Typst and has no runtime dependencies.
+The package is implemented entirely in Typst. Symbolic builder operations use
+the pinned `@preview/typcas:0.2.3` dependency, which Typst downloads and caches
+through the normal package system. See [third-party notices](THIRD-PARTY.md).
 
 Common calculation mistakes passed through `calculation-builder` are shown as
 centered red messages in the document instead of stopping compilation. Direct

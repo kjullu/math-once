@@ -58,6 +58,67 @@ symbolic equations such as `$f(x) = x + 1$` remain display-only. A simple
 equation whose right-hand side contains unknown names also remains symbolic
 instead of producing an unset-variable error.
 
+## Symbolic calculations
+
+The builder recognizes these top-level CAS operations:
+
+```text
+simplify(expression)
+diff(expression, variable)
+integrate(expression, variable)
+solve(expression, variable)
+solve(left, right, variable)
+factor(expression[, variable])
+limit(expression, variable, target)
+taylor(expression, variable, center, order)
+```
+
+They are powered by the pinned MIT-licensed
+[typCAS](https://github.com/sihooleebd/typCAS) package. Use `:=` to store the
+symbolic result just like a numeric result. The stored expression tree can be
+passed to a later operation:
+
+```typ
+#let eq = calculation-builder(key: "symbolic-example")
+
+#eq(`f := simplify(x^2 + 2*x + 1)`)
+// f = simplify(x² + 2x + 1) = x² + 2x + 1
+
+#eq(`df := diff(f, x)`)
+// df = diff(f, x) = 2x + 2
+
+#eq(`roots := solve(x^2 - 4, x)`)
+// roots = solve(x² - 4, x) = 2, -2
+```
+
+Unknown names such as `x` stay symbolic. Existing stored, dimensionless
+numeric values are substituted before the CAS operation. Values with physical
+or custom units remain the responsibility of the unit-aware evaluator and
+produce a red inline error if referenced by a CAS operation. `unit:` and
+`size:` are therefore not accepted for symbolic calls.
+
+A solved root set is stored with `symbolic-kind: "roots"`; it cannot be reused
+where one expression is required. Other operations store
+`symbolic-kind: "expression"` and an `expression` AST. Advanced code can use
+that AST with typCAS directly:
+
+```typ
+#import "@preview/typcas:0.2.3": cas
+
+#context {
+  let derivative = eq().df.expression
+  let evaluated = cas.eval(derivative, bindings: (x: 2))
+  assert(cas.value-of(evaluated) == 6)
+}
+```
+
+Raw input is the simplest CAS form. In Typst math content, both multi-letter
+variable names and multi-letter operation names must be quoted:
+
+```typ
+#eq($"identity" := "simplify"(sin(x)^2 + cos(x)^2)$)
+```
+
 ## Signature
 
 ```typ

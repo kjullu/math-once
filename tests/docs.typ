@@ -64,6 +64,17 @@ Inline: #inline(`x := 2 + 2`).
 #dimensioned($v := 10 m/s + 1 "km"/h$)
 #dimensioned($x := v * 2 s$, digits: 3)
 
+// Symbolic calculation-builder documentation examples.
+#let symbolic = calculation-builder(key: "docs-symbolic")
+#symbolic(`f := simplify(x^2 + 2*x + 1)`)
+#symbolic(`df := diff(f, x)`)
+#symbolic(`roots := solve(x^2 - 4, x)`)
+#context {
+  assert(symbolic().f.symbolic-kind == "expression")
+  assert(symbolic().df.operation == "diff")
+  assert(symbolic().roots.symbolic-kind == "roots")
+}
+
 // reset documentation examples.
 #let resettable = calculation-builder(key: "docs-reset")
 #resettable(`height := 10 m`)
