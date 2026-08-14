@@ -23,6 +23,8 @@ ordinary arithmetic with matching custom units, without physical conversion.
 #eq($1 / distance$, unit: $#text-unit("lines") / m$)
 // 1/distance = 1/(0.5 mm) = 2000 lines/m
 
+// Use raw backticks for CAS input. Plain $...$ only works when
+// multi-letter names are quoted.
 #eq(`f := simplify(x^2 + 2*x + 1)`)
 #eq(`df := diff(f, x)`)
 // df = diff(f, x) = 2x + 2

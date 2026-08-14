@@ -3,7 +3,8 @@
 ## Unreleased
 
 - Clarified why unquoted `$...$` math content cannot contain CAS operations
-  and documented raw, string, and quoted-math input alternatives.
+  and documented raw, string, and quoted-math input alternatives, including
+  guidance directly beside the copyable README example.
 
 ## 0.27.1
 
