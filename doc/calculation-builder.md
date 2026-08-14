@@ -394,6 +394,18 @@ case it scales the requested unit:
 // distance = 0.03 m
 ```
 
+Power-of-ten scales remain scientific with either automatic or requested
+units. A compound scale preserves its written factor while still being
+evaluated numerically:
+
+```typ
+#eq($force := 3.5439 * 10^22 N$, size: $10^22$)
+// force = 3.5439 ⋅ 10²² N
+
+#eq($other := 6000 N$, size: $2 * 10^3$)
+// other = 3 ⋅ (2 ⋅ 10³) N
+```
+
 Use `unit:` when combining both controls. `size:` cannot be combined with
 `to` or an output `=` inside the expression, and it cannot scale affine output
 units such as Celsius.

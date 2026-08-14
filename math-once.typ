@@ -1,4 +1,4 @@
-// math-once v0.23.0
+// math-once v0.23.1
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -739,15 +739,6 @@ let auto-length-unit(si-value, current-unit) = {
   current-unit
 }
 
-let sized-output-unit(dims, size) = {
-  if dims == dim(length: 1) {
-    for (unit, scale) in engineering-length-units {
-      if calc.abs(scale - size) <= calc.max(calc.abs(scale), calc.abs(size)) * 1e-12 { return unit }
-    }
-  }
-  "(" + str(size) + ") " + canonical-unit(dims)
-}
-
 let power-of-ten-exponent(value) = {
   for exponent in range(-30, 31) {
     let candidate = calc.pow(10.0, exponent)
@@ -758,18 +749,39 @@ let power-of-ten-exponent(value) = {
   none
 }
 
-let sized-requested-unit(dims, unit, unit-scale, size) = {
+let scientific-size-expression(size, notation: none) = {
+  if notation != none { return notation }
+  let exponent = power-of-ten-exponent(size)
+  if exponent == none { return none }
+  let exponent-text = if exponent < 0 { "-" + str(-exponent) } else { str(exponent) }
+  "10^(" + exponent-text + ")"
+}
+
+let sized-output-unit(dims, size, notation: none) = {
+  if dims == dim(length: 1) {
+    for (unit, scale) in engineering-length-units {
+      if calc.abs(scale - size) <= calc.max(calc.abs(scale), calc.abs(size)) * 1e-12 { return unit }
+    }
+  }
+  let expression = scientific-size-expression(size, notation: notation)
+  if expression != none {
+    expression + " " + canonical-unit(dims)
+  } else {
+    "(" + str(size) + ") " + canonical-unit(dims)
+  }
+}
+
+let sized-requested-unit(dims, unit, unit-scale, size, notation: none) = {
   let scale = unit-scale * size
   let familiar = sized-output-unit(dims, scale)
-  if not familiar.starts-with("(") {
+  if not familiar.starts-with("(") and "10^(" not in familiar {
     familiar
   } else if size == 1 {
     unit
   } else {
-    let exponent = power-of-ten-exponent(size)
-    if exponent != none {
-      let exponent-text = if exponent < 0 { "-" + str(-exponent) } else { str(exponent) }
-      "10^(" + exponent-text + ") " + unit
+    let expression = scientific-size-expression(size, notation: notation)
+    if expression != none {
+      expression + " " + unit
     } else {
       "(" + str(size) + ") " + unit
     }
@@ -1308,12 +1320,17 @@ let display-number-tokens(value, exact: none) = {
   (str(coefficient), "*", "10", "^", "(") + exponent-tokens + (")",)
 }
 
+let is-scientific-size-unit(unit) = unit != none and "10^(" in unit
+
 let result-tokens(result) = {
   let tokens = display-number-tokens(
     result.value,
     exact: result.at("exact", default: result.value),
   )
-  if result.unit != none { tokens += tokenize(result.unit) }
+  if result.unit != none {
+    if is-scientific-size-unit(result.unit) { tokens.push("*") }
+    tokens += tokenize(result.unit)
+  }
   tokens
 }
 
@@ -1322,14 +1339,14 @@ let render-result(result, aliases: (:)) = {
     let children = result.components.map(component => render-result(component, aliases: aliases))
     return math.vec(..children)
   }
-  if result.unit != none and result.unit.starts-with("10^(") {
-    let unit-tokens = tokenize(result.unit)
-    let source = str(result.value) + " dot " + unit-tokens.map(token => {
-      if is-quoted-unit(token) { "upright(\"" + quoted-unit-name(token) + "\")" }
-      else if is-name(token) { "upright(\"" + token + "\")" }
-      else { token }
-    }).join(" ")
-    eval(source, mode: "math").body
+  if is-scientific-size-unit(result.unit) {
+    render-tokens(
+      display-number-tokens(
+        result.value,
+        exact: result.at("exact", default: result.value),
+      ) + ("*",) + tokenize(result.unit),
+      aliases: aliases,
+    )
   } else {
     let body = render-tokens(display-number-tokens(
       result.value,
@@ -1717,13 +1734,28 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
 
 let normalize-size(size, soft: false) = {
   if size == none { return none }
+  let notation = none
   let value = if type(size) in (int, float, decimal) {
     float(size)
   } else if type(size) in (str, content) {
-    let parsed = parse(add-implicit-multiplication(tokenize(input-source(size))), soft: soft)
+    let source = input-source(size)
+    let parsed = parse(add-implicit-multiplication(tokenize(source)), soft: soft)
     if is-calculation-failure(parsed) { return parsed }
     if not is-dimensionless(parsed) {
       return calculation-fail("size must not contain a physical unit", soft: soft)
+    }
+    let compact = source.replace(regex("\\s+"), "")
+    let scientific = compact.match(regex(
+      "^(?:([0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)\\*)?10\\^\\(?(-?[0-9]+)\\)?$",
+    ))
+    if scientific != none {
+      let coefficient = scientific.captures.at(0)
+      let exponent = scientific.captures.at(1)
+      notation = if coefficient == none or float(coefficient) == 1 {
+        "10^(" + exponent + ")"
+      } else {
+        "(" + coefficient + "*10^(" + exponent + "))"
+      }
     }
     parsed.si-value
   } else {
@@ -1732,7 +1764,7 @@ let normalize-size(size, soft: false) = {
   if value <= 0 {
     return calculation-fail("size must be greater than zero", soft: soft)
   }
-  value
+  (value: value, notation: notation)
 }
 
 /// Evaluate a unit-aware expression containing numbers, units, variables,
@@ -1740,8 +1772,10 @@ let normalize-size(size, soft: false) = {
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
 let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), aliases: (:), soft: false) = {
-  let size = normalize-size(size, soft: soft)
-  if is-calculation-failure(size) { return size }
+  let normalized-size = normalize-size(size, soft: soft)
+  if is-calculation-failure(normalized-size) { return normalized-size }
+  let size = if normalized-size == none { none } else { normalized-size.value }
+  let size-notation = if normalized-size == none { none } else { normalized-size.notation }
   // Preserve quoted Typst math text so `"m"` remains an explicit metre even
   // when the bare name `m` has been unloaded for use as a variable.
   let source = input-source(source, preserve-text: true)
@@ -1832,10 +1866,16 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
       return calculation-fail("size cannot scale an affine output unit", soft: soft)
     }
     if target-tokens == none {
-      output-unit = sized-output-unit(result.dims, size)
+      output-unit = sized-output-unit(result.dims, size, notation: size-notation)
       output-scale = size
     } else {
-      output-unit = sized-requested-unit(result.dims, output-unit, output-scale, size)
+      output-unit = sized-requested-unit(
+        result.dims,
+        output-unit,
+        output-scale,
+        size,
+        notation: size-notation,
+      )
       output-scale *= size
       target-tokens = none
     }
@@ -1849,20 +1889,15 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
 
   let exact = (result.si-value - output-offset) / output-scale
   let value = calc.round(exact, digits: digits)
-  let scientific-output = output-unit != none and output-unit.starts-with("10^(")
+  let scientific-output = is-scientific-size-unit(output-unit)
   let display-body = render-tokens(expression-tokens, scope: scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em)
   if output-unit != none {
     let output-tokens = if target-tokens != none { target-tokens } else { tokenize(output-unit) }
     if scientific-output {
-      // Generate the complete scientific value as one math expression so the
-      // multiplication dot remains a real binary operator.
-      let scientific-source = str(value) + " times " + output-tokens.map(token => {
-        if is-quoted-unit(token) { "upright(\"" + quoted-unit-name(token) + "\")" }
-        else if is-name(token) and resolve-unit(token) != none { "upright(\"" + token + "\")" }
-        else if is-name(token) { "upright(\"" + token + "\")" }
-        else { token }
-      }).join(" ")
-      display-body += eval(scientific-source, mode: "math").body
+      display-body += render-tokens(
+        display-number-tokens(value, exact: exact) + ("*",) + output-tokens,
+        aliases: aliases,
+      )
     } else {
       let rendered-value = render-tokens(display-number-tokens(value, exact: exact))
       display-body += rendered-value + h(0.2em) + render-tokens(output-tokens, aliases: aliases)

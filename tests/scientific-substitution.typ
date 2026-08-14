@@ -7,12 +7,13 @@
 #eq($pi := 3.1415926536$, show-result: false)
 #eq($M_S := 1.989 * 10^(30) "kg"$, show-result: false)
 #eq($m_J := 5.976 * 10^(24) "kg"$, show-result: false)
-#eq($G := 6.6726 * 10^(-11)$)
+#eq($G := 6.6726 * 10^(-11) m^3 / ("kg" s^2)$)
 #eq($r := 149600000 "km"$)
-#eq($F_g := G * (m_J * M_S) / (r)^2$, size: $2 * 10^(3)$)
+#eq($F_g := G * (m_J * M_S) / (r)^2$, size: $10^22$)
 
 #context {
   let variables = eq()
   assert(variables.G.exact == 6.6726e-11)
-  assert(variables.F_g.exact > 1.771e19)
+  assert(calc.abs(variables.F_g.exact - 3.543865869) < 0.000000001)
+  assert(variables.F_g.unit == "10^(22) N")
 }
