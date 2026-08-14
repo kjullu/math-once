@@ -3,12 +3,13 @@
 Moves an active physical unit spelling to a different name within one
 [`calculation-builder`](calculation-builder.md) state. The new spelling keeps
 the original unit's dimensions and conversion factor. The old spelling is
-then free for use as a variable until [`reset`](reset.md).
+then free for use as a variable until
+[`reset-unit-aliases`](reset-unit-aliases.md) or [`reset`](reset.md).
 
 ## Import
 
 ```typ
-#import "math-once.typ": calculation-builder, rename-unit, reset, unload
+#import "math-once.typ": calculation-builder, rename-unit, reset, reset-unit-aliases, unload
 ```
 
 ## Signature
@@ -26,7 +27,7 @@ rename-unit(from, to, key: "math-once-calculation") -> content
 #eq($m := 2$)       // m is now a variable
 #eq($d := 3 v$)     // v means metre; d = 3 m
 
-#reset()
+#reset-unit-aliases()
 ```
 
 Aliases may be moved again. Quote multi-letter names in Typst math:
@@ -78,17 +79,18 @@ Must match the associated builder:
 #eq($d := 3 v$)
 ```
 
-## Reset
+## Resetting aliases
 
-`reset()` clears every variable and restores all original unit spellings.
-Selective reset accepts either side of a rename and removes that complete
-relationship:
+`reset-unit-aliases()` restores all original unit spellings without clearing
+unrelated values or functions. A selective call accepts either side of a
+rename and removes that complete relationship:
 
 ```typ
-#reset($v$) // restores m and removes v as its alias
+#reset-unit-aliases($v$) // restores m and removes v as its alias
 ```
 
-Unrelated variables remain stored after a selective reset.
+Unrelated variables remain stored. The broader `reset()` function also removes
+aliases, but clears the rest of the builder state at the same time.
 
 ## Errors
 

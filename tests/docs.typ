@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculate, calculation-builder, reset, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "../math-once.typ": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
 
 // calculate documentation examples.
 #calculate(`1 m + 25 cm`).display
@@ -72,6 +72,20 @@ Inline: #inline(`x := 2 + 2`).
 #context assert("height" not in resettable() and "width" in resettable())
 #reset(key: "docs-reset")
 #context assert(resettable().len() == 0)
+
+// Focused reset documentation examples.
+#let focused = calculation-builder(key: "docs-focused-reset", initial-state: (factor: 2))
+#unload("a", key: "docs-focused-reset")
+#rename-unit($m$, $v$, key: "docs-focused-reset")
+#focused($a := 3$)
+#focused($f(x) := x + 1$)
+#focused(`distance := factor * a`)
+#reset-variables(key: "docs-focused-reset")
+#context assert(focused().factor == 2 and focused().f.function)
+#reset-functions("f", key: "docs-focused-reset")
+#restore-units("a", key: "docs-focused-reset")
+#reset-unit-aliases("v", key: "docs-focused-reset")
+#context assert(focused().factor == 2)
 
 // unload documentation examples.
 #unload($a$, $b$, key: "docs-reset")

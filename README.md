@@ -36,13 +36,13 @@ Copy [`math-once.typ`](math-once.typ) into your project and import the
 [functions](doc/README.md#functions) you need:
 
 ```typ
-#import "math-once.typ": calculate, calculation-builder, reset, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "math-once.typ": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.24.1": calculate, calculation-builder, reset, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.25.0": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst and has no runtime dependencies.
@@ -56,7 +56,11 @@ centered red messages in the document instead of stopping compilation. Direct
 - [Documentation overview](doc/README.md)
 - [`calculate`](doc/calculate.md) — evaluate one unit-aware expression
 - [`calculation-builder`](doc/calculation-builder.md) — store and reuse equation variables
-- [`reset`](doc/reset.md) — clear all or selected stored variables
+- [`reset`](doc/reset.md) — clear the complete builder state
+- [`reset-variables`](doc/reset-variables.md) — clear values while keeping builder configuration
+- [`reset-functions`](doc/reset-functions.md) — clear stored function definitions
+- [`restore-units`](doc/restore-units.md) — undo `unload` without resetting other state
+- [`reset-unit-aliases`](doc/reset-unit-aliases.md) — undo `rename-unit` relationships
 - [`unload`](doc/unload.md) — temporarily use unit names as variables
 - [`rename-unit`](doc/rename-unit.md) — move a unit spelling to a custom alias
 - [`equation`](doc/equation.md) — add a caption directly to an equation

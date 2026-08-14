@@ -1,4 +1,4 @@
-#import "../math-once.typ": evaluate-code, calculate, calculation-builder, reset, unload, rename-unit, text-unit, equation, equation-outline, number-labelled-equations
+#import "../math-once.typ": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, number-labelled-equations
 
 #calculate($1 / m$, unit: $#text-unit("lines") / m$).display
 
@@ -101,6 +101,9 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 
 = `reset`
 
+`reset()` is the broad operation. The focused reset functions in the following
+section preserve unrelated builder state.
+
 // Selected names are removed from the matching builder state.
 #reset("x", key: "all-functions-example")
 #context {
@@ -112,6 +115,29 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 // No names clears the entire matching state, including initial values.
 #reset(key: "all-functions-example")
 #context assert(run().len() == 0)
+
+= Focused resets
+
+#let focused = calculation-builder(
+  key: "all-functions-focused-reset",
+  initial-state: (factor: 2),
+)
+#unload("a", key: "all-functions-focused-reset")
+#rename-unit($m$, $v$, key: "all-functions-focused-reset")
+#focused($a := 3$)
+#focused($f(x) := x + 1$)
+#focused(`distance := factor * a`)
+
+// Clear calculated values while restoring initial-state and retaining the
+// stored function, unloaded name, and unit alias.
+#reset-variables(key: "all-functions-focused-reset")
+#context assert(focused().factor == 2 and focused().f.function)
+
+// Each remaining category can be reset independently.
+#reset-functions("f", key: "all-functions-focused-reset")
+#restore-units("a", key: "all-functions-focused-reset")
+#reset-unit-aliases("v", key: "all-functions-focused-reset")
+#context assert(focused().factor == 2)
 
 = `unload`
 

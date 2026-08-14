@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.25.0
+
+- Added `reset-variables` for clearing selected or all stored values while
+  preserving functions, unloaded unit names, and unit aliases. Values supplied
+  through `initial-state` are restored to their configured defaults.
+- Added `reset-functions` for independently clearing stored scalar and vector
+  function definitions.
+- Added `restore-units` for undoing selected or all `unload` settings without
+  resetting unrelated builder state.
+- Added `reset-unit-aliases` for undoing selected or all `rename-unit`
+  relationships without resetting unrelated values or functions.
+- Kept `reset()` as the backward-compatible complete reset and documented the
+  focused alternatives directly at the top of its reference page.
+
 ## 0.24.1
 
 - Allowed `rename-unit` to use an explicitly unloaded catalog spelling as its
