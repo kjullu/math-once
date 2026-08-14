@@ -34,8 +34,6 @@ ordinary arithmetic with matching custom units, without physical conversion.
   calculator. Its unit handling *inspired* math-once. (Terminal and GUI tool)
 - [eqrun](https://github.com/snlxnet/eqrun) is a well-designed calculator for
   Typst and the original inspiration for this project. (Typst plugin)
-- [typCAS](https://github.com/sihooleebd/typCAS) provides math-once's symbolic
-  algebra. It is an MIT-licensed Typst package by Benjamin Lee.
 
 ## Install
 
@@ -65,6 +63,7 @@ centered red messages in the document instead of stopping compilation. Direct
 - [Documentation overview](doc/README.md)
 - [`calculate`](doc/calculate.md) — evaluate one unit-aware expression
 - [`calculation-builder`](doc/calculation-builder.md) — store and reuse equation variables
+- [Symbolic calculations](doc/symbolic-calculations.md) — simplify, differentiate, solve, and reuse CAS results
 - [`reset`](doc/reset.md) — clear the complete builder state
 - [`reset-variables`](doc/reset-variables.md) — clear values while keeping builder configuration
 - [`reset-functions`](doc/reset-functions.md) — clear stored function definitions

@@ -60,6 +60,11 @@ instead of producing an unset-variable error.
 
 ## Symbolic calculations
 
+For the complete guide, see
+[Symbolic calculations](symbolic-calculations.md). The short version is that
+CAS calls use the same `:=` storage and `=` non-storage rules as numeric
+calculations.
+
 The builder recognizes these top-level CAS operations:
 
 ```text

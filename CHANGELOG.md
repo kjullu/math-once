@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added a dedicated symbolic-calculations guide covering CAS syntax, storage,
+  result reuse, roots, units, input forms, and direct typCAS API access.
+
 ## 0.27.0
 
 - Added symbolic algebra to `calculation-builder` through the pinned
