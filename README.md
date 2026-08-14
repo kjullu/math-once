@@ -88,7 +88,7 @@ A compilable example covering the complete public API is available in
 
 You can find all the supported units [here](doc/supported-units.md)
 
-See the [changelog](CHANGELOG.md) when upgrading from `0.1.x`.
+See the [changelog](CHANGELOG.md) when upgrading.
 
 ## License
 
