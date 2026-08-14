@@ -1,4 +1,4 @@
-// math-once v0.23.1
+// math-once v0.24.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -1922,9 +1922,9 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
 /// Create a stateful equation runner with reusable variables.
 ///
 /// Definitions such as `v := 10 m/s` are stored and automatically made
-/// available to later calls. A plain `v = 10 m/s` is only displayed. Call the
-/// runner without an expression inside a context block to retrieve its
-/// dictionary of results.
+/// available to later calls. A simple `v = expression` is calculated and
+/// displayed without storing `v`. Call the runner without an expression inside
+/// a context block to retrieve its dictionary of results.
 let calculation-builder(
   initial-state: (:),
   key: "math-once-calculation",
@@ -1968,7 +1968,14 @@ let calculation-builder(
 
     let source = input-source(source, preserve-text: true)
     let parsed-function = function-definition(source)
-    let assignment = source.match(regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*:=\\s*(.+)$"))
+    let stored-assignment = source.match(regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*:=\\s*(.+)$"))
+    let calculated-assignment = if stored-assignment == none {
+      source.match(regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*=\\s*(.+)$"))
+    } else {
+      none
+    }
+    let assignment = if stored-assignment != none { stored-assignment } else { calculated-assignment }
+    let stores-result = stored-assignment != none
     let name = if assignment == none {
       none
     } else if assignment.captures.at(0) != none {
@@ -2008,8 +2015,8 @@ let calculation-builder(
       for (stored-name, item) in current {
         if is-unloaded(item) { unloaded.push(stored-name) }
       }
-      let assignment-is-unloaded = name != none and name in unloaded
-      let illegal-assignment = name != none and (resolve-unit(name) != none or name in aliases) and not assignment-is-unloaded
+      let assignment-is-unloaded = stores-result and name != none and name in unloaded
+      let illegal-assignment = stores-result and name != none and (resolve-unit(name) != none or name in aliases) and not assignment-is-unloaded
       let tokens = if display-only { tokenize(source) } else { expression-tokens(expression) }
       let evaluation-tokens = if display-only { tokens } else { tokenize(expression) }
       let function-expansion = if display-only { (evaluation-tokens, false) } else { expand-function-calls(evaluation-tokens, current) }
@@ -2045,6 +2052,10 @@ let calculation-builder(
           fill: red,
           [math-once: #raw(name) is a unit name and cannot be used as a variable.],
         )
+      } else if missing.len() > 0 and calculated-assignment != none {
+        // Preserve ordinary symbolic equations when their right-hand side
+        // cannot be evaluated from known variables, numbers, and units.
+        render-tokens(tokenize(source), scope: current, aliases: aliases)
       } else if missing.len() > 0 {
         text(
           fill: red,
@@ -2073,14 +2084,18 @@ let calculation-builder(
             labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases)
           }
         }
-        result.insert("display", math.equation(labelled-body, block: block))
-        result.insert("variable", name)
-        if assignment-is-unloaded { result.insert("unloaded", true) }
-        variables.update(old => {
-          old.insert(name, result)
-          old
-        })
-        result.display.body
+        if stores-result {
+          result.insert("display", math.equation(labelled-body, block: block))
+          result.insert("variable", name)
+          if assignment-is-unloaded { result.insert("unloaded", true) }
+          variables.update(old => {
+            old.insert(name, result)
+            old
+          })
+          result.display.body
+        } else {
+          labelled-body
+        }
       } else {
         let labelled-body = render-tokens(tokens, scope: current, aliases: aliases)
         if function-expansion.last() and vector-components(calculation-tokens) == none {
@@ -2268,9 +2283,10 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// Scalar and vector functions can also be stored with `:=`, such as
 /// `$f(x) := x + 1$` and `$arrow(s)(t) := vec(t, t^2)$`, then evaluated by
 /// calling `$f(2)$` or `$arrow(s)(2)$`.
-/// A definition like `$v := 10 m/s$` stores `v`; a plain `=` only displays the
-/// equation. Later expressions show an extra step with stored variable values
-/// substituted. A label can be written after
+/// A definition like `$v := 10 m/s$` stores `v`; `$v = 10 m/s$` calculates and
+/// displays the result without storing `v`. Other equations that do not have a
+/// simple variable on the left remain display-only. Later expressions show an
+/// extra step with stored variable values substituted. A label can be written after
 /// the call as `#runner(...) <name>` or passed with `label: <name>`. Calling
 /// the runner without an expression returns its result dictionary and must
 /// happen in a `context` block. `caption` adds text below a block equation;

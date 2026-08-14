@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.24.0
+
+- Made simple `name = expression` builder equations calculate and display
+  substituted values and their result without storing `name`.
+- Kept `name := expression` as the explicit storing form and kept non-simple
+  equations or equations with unknown symbolic names display-only.
+
 ## 0.23.1
 
 - Fixed scientific `size:` rendering without an explicit `unit:`, so
