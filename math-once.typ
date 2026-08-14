@@ -1,4 +1,4 @@
-// math-once v0.24.0
+// math-once v0.24.1
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -2187,11 +2187,12 @@ let rename-unit(from, to, key: "math-once-calculation") = {
     let aliases = unit-aliases(old)
     let original = aliases.at(from, default: from)
     let source-is-unloaded = from in old and is-unloaded(old.at(from)) and from not in aliases
+    let destination-is-unloaded = to in old and is-unloaded-marker(old.at(to))
     let error = if from == to {
       "source and destination must differ"
     } else if resolve-unit(original) == none or source-is-unloaded {
       "`" + from + "` is not an active unit or alias"
-    } else if resolve-unit(to) != none or to in aliases {
+    } else if (resolve-unit(to) != none or to in aliases) and not destination-is-unloaded {
       "destination `" + to + "` is already a unit or alias"
     } else if to in old and not is-unloaded-marker(old.at(to)) and not is-unit-alias(old.at(to)) {
       "destination `" + to + "` is already a stored variable"
@@ -2336,7 +2337,8 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// Move a unit name to a new alias until the matching reset.
 ///
 /// - `from`: Active catalog unit name or alias.
-/// - `to`: New alias. It must not already be a unit or stored variable.
+/// - `to`: New alias. It must not already be an active unit or stored variable.
+///   A catalog spelling made available with `unload` may be reused.
 /// - `key`: State key of the matching calculation builder.
 ///
 /// For example, `rename-unit($m$, $v$)` makes bare `m` available as a

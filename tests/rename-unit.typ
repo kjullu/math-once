@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculation-builder, rename-unit, reset
+#import "../math-once.typ": calculation-builder, rename-unit, reset, unload
 
 #let eq = calculation-builder(key: "rename-unit-test")
 
@@ -28,3 +28,15 @@
 
 #reset(key: "rename-unit-test")
 #context assert(eq().len() == 0)
+
+// An explicitly unloaded catalog spelling can become the destination alias.
+#let time = calculation-builder(key: "rename-unit-unloaded-destination")
+#unload("T", "t", key: "rename-unit-unloaded-destination")
+#rename-unit($h$, $t$, key: "rename-unit-unloaded-destination")
+#time($T := 8t + 30 "min"$)
+#context {
+  assert(time().T.value == 8.5)
+  assert(time().T.exact == 8.5)
+  assert(time().T.si-value == 30600.0)
+  assert(time().T.unit == "t")
+}

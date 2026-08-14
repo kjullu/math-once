@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.24.1
+
+- Allowed `rename-unit` to use an explicitly unloaded catalog spelling as its
+  destination, enabling workflows such as unloading tonne `t` and renaming
+  hour `h` to `t`.
+
 ## 0.24.0
 
 - Made simple `name = expression` builder equations calculate and display

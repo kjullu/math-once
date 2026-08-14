@@ -8,7 +8,7 @@ then free for use as a variable until [`reset`](reset.md).
 ## Import
 
 ```typ
-#import "math-once.typ": calculation-builder, rename-unit, reset
+#import "math-once.typ": calculation-builder, rename-unit, reset, unload
 ```
 
 ## Signature
@@ -54,9 +54,17 @@ spelling no longer denotes the unit and can be assigned with `:=`.
 
 `str`, raw, or math content — required, positional
 
-The new unit spelling. It must not already be a catalog unit, active alias, or
-stored variable. Names contain letters and may have one underscore subscript
-containing letters or digits.
+The new unit spelling. It must not already be an active catalog unit, alias, or
+stored variable. A catalog spelling explicitly made available with `unload`
+can be reused as the destination. Names contain letters and may have one
+underscore subscript containing letters or digits.
+
+```typ
+#let eq = calculation-builder()
+#unload("T", "t")
+#rename-unit($h$, $t$)
+#eq($T := 8t + 30 "min"$) // T = 8.5 t
+```
 
 ### `key`
 
@@ -86,5 +94,5 @@ Unrelated variables remain stored after a selective reset.
 
 The call shows a centered red error in the document if the source is not an
 active unit or alias, the source and destination are identical, or the
-destination collides with a catalog unit, active alias, or stored variable.
+destination collides with an active catalog unit, alias, or stored variable.
 The rename is not applied, so the existing unit and variables remain intact.
