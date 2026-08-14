@@ -210,7 +210,6 @@ def emit_typst(successes, failures):
     print("")
     print("// Project-specific compatibility aliases and named composites.")
     print('units.insert("t", units.tonne)')
-    print('units.insert("timer", units.hour)')
     print('units.insert("kn", units.knot)')
     print('units.insert("Nm", (scale: 1.0, dims: dim(length: 2, mass: 1, time: -2)))')
     print('units.insert("Ncm", (scale: 0.01, dims: units.Nm.dims))')

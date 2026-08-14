@@ -21,14 +21,13 @@ entries below. Products, quotients, and integer powers such as `m/s`,
 
 | Purpose | Accepted names |
 | --- | --- |
-| Danish hours | `timer` |
 | Metric tonne abbreviation | `t` |
 | Knot abbreviation | `kn` |
 | Newton metre | `Nm`, `Ncm`, `Nmm` |
 | Watt-hour | `Wh` |
 
-`t`, `tonne`, and `ton` all mean a metric tonne. Use `h`, `hr`, `hrs`,
-`hour`, or `timer` for hours.
+`t`, `tonne`, and `ton` all mean a metric tonne. Use `h`, `hr`, `hrs`, or
+`hour` for hours.
 
 ## Qalculate-compatible catalog
 

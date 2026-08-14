@@ -128,7 +128,7 @@ Prefixes are resolved generically for supported SI units. Micro accepts `µ`,
 | --- | --- |
 | SI bases | `m`/`meter`/`metre`, `g`/`kg`, `s`, `A`, `K`, `mol`, `cd` |
 | Length | `km`, `dm`, `cm`, `mm`, `µm`/`μm`/`um`, `nm`, `pm` |
-| Time | `s`/`sec`, `min`, `h`/`hr`, `timer`, `day`, `week` |
+| Time | `s`/`sec`, `min`, `h`/`hr`, `day`, `week` |
 | Volume | `L`/`l` and derived `m^3` |
 | Angles | `rad`, `sr`, `deg`, `degree`, `°` |
 | Mechanical SI | `Hz`, `N`, `Nm`, `Ncm`, `Nmm`, `Pa`, `J`, `W` |
@@ -157,9 +157,9 @@ The complete machine-checked spelling list is in `tests/qalc-units.typ`.
 the installed qalc data; qalc is not a runtime dependency.
 
 `t` follows Qalculate and means a metric tonne (`1000 kg`). Use `h`, `hr`,
-`hrs`, `hour`, or the Danish full spelling `timer` for hours. If another
-spelling is preferred inside a builder, it can be introduced with
-[`rename-unit`](rename-unit.md).
+`hrs`, or `hour` for hours. The built-in catalog uses English names. Other
+languages can introduce their preferred spelling inside a builder with
+[`rename-unit`](rename-unit.md), for example `rename-unit($h$, $"timer"$)`.
 
 Arbitrary products, quotients, and integer powers can be built from supported
 units.
