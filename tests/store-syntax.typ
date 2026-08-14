@@ -2,7 +2,7 @@
 
 #let eq = calculation-builder(key: "store-syntax-test")
 
-// `=` is display-only and does not create state.
+// A simple `=` calculation shows its result but does not create state.
 #eq($x = 1 + 1$)
 #context assert(eq().len() == 0)
 
@@ -27,6 +27,22 @@
 #units($a = 1 + 1$)
 #context assert(units().len() == 0)
 #units($a + 1$)
+
 #units($a := 1 + 1$)
 #context assert(units().a.value == 2.0)
 #units($a + 1$)
+
+// A calculated equals expression substitutes stored variables without storing
+// its own left-hand name.
+#let display = calculation-builder(key: "calculated-equals")
+#unload($d$, key: "calculated-equals")
+#display($d := 5262 "km"$)
+#display($r = d / 2$)
+#context {
+  assert(display().d.value == 5262.0)
+  assert("r" not in display())
+}
+
+// A symbolic equation with unknown right-hand names remains display-only.
+#display($E = q z$)
+#context assert("E" not in display())

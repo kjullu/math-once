@@ -36,8 +36,8 @@ dimensions and reject incompatible operations such as `10 m + 2 s`.
 #eq($x := v * 2$)
 ```
 
-In a calculation builder, `:=` stores a variable while an ordinary `=` only
-displays the written equation.
+In a calculation builder, `:=` calculates and stores a variable. A simple
+`name = expression` calculates and displays the result without storing it.
 
 ## Input forms
 

@@ -1,8 +1,9 @@
 # `calculation-builder`
 
 Creates a stateful equation calculator. Definitions written with `:=` store
-their complete unit-aware results. A plain `=` only displays an equation, and
-later expressions visibly substitute values stored by `:=`.
+their complete unit-aware results. A simple `name = expression` calculates and
+displays its result without storing `name`, and later expressions visibly
+substitute values stored by `:=`.
 
 ## Example
 
@@ -42,16 +43,20 @@ also storing the exact value:
 // y = 1 + 1 = 2
 ```
 
-Use a plain equals sign for a display-only equation. It neither evaluates nor
-stores its left-hand name:
+Use a plain equals sign to calculate without storing the left-hand name:
 
 ```typ
 #eq($x = 1 + 1$)
-// x = 1 + 1
+// x = 1 + 1 = 2
 
 #eq($x + 1$)
 // red: math-once: x is not set.
 ```
+
+Only a simple variable name on the left enables this calculation. General
+symbolic equations such as `$f(x) = x + 1$` remain display-only. A simple
+equation whose right-hand side contains unknown names also remains symbolic
+instead of producing an unset-variable error.
 
 ## Signature
 
@@ -157,9 +162,10 @@ runner(
 `str` or `raw` or math `content` — optional, positional
 
 An expression, display equation, or stored definition. A top-level
-`name := expression` stores the result under `name`; `name = expression` only
-renders the equation. A call without either form calculates and displays a
-result without storing a new variable. Unset variables produce a red message.
+`name := expression` stores the result under `name`; a simple
+`name = expression` calculates without storing it. A call without either form
+calculates and displays a result without storing a new variable. Unset
+variables produce a red message.
 
 ### `show-result`
 
