@@ -1,7 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.23.0
 
+- Displayed very large and very small calculation values in compact scientific
+  notation, including stored-variable substitutions. Exact stored values and
+  calculation precision remain unchanged.
+- Kept long substituted calculation chains within ordinary page widths by
+  avoiding expanded decimal forms such as `1989000000000000200000000000000`.
 - Fixed the Qalculate audit generator so `t` remains the metric-tonne alias,
   `timer` remains the hour alias, and generated unit tests cover `t`.
 

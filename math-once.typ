@@ -1,4 +1,4 @@
-// math-once v0.22.0
+// math-once v0.23.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -1272,8 +1272,47 @@ let equivalent-tokens(left, right) = {
   true
 }
 
+// Keep very large and very small displayed values readable. Calculations still
+// retain and use their complete exact value; this only changes equation output.
+let display-number-tokens(value, exact: none) = {
+  if exact == none { exact = value }
+  let magnitude = calc.abs(float(exact))
+  if magnitude == 0 or (magnitude >= 0.0001 and magnitude < 1000000000) {
+    return (str(value),)
+  }
+
+  let normalized = magnitude
+  let exponent = 0
+  while normalized >= 10 {
+    normalized /= 10
+    exponent += 1
+  }
+  while normalized < 1 {
+    normalized *= 10
+    exponent -= 1
+  }
+  if exact < 0 { normalized = -normalized }
+
+  // Ten coefficient decimals suppress floating-point noise while retaining
+  // substantially more precision than the normal four displayed decimals.
+  let coefficient = calc.round(normalized, digits: 10)
+  if calc.abs(coefficient) >= 10 {
+    coefficient /= 10
+    exponent += 1
+  }
+  let exponent-tokens = if exponent < 0 {
+    ("-", str(-exponent))
+  } else {
+    (str(exponent),)
+  }
+  (str(coefficient), "*", "10", "^", "(") + exponent-tokens + (")",)
+}
+
 let result-tokens(result) = {
-  let tokens = (str(result.value),)
+  let tokens = display-number-tokens(
+    result.value,
+    exact: result.at("exact", default: result.value),
+  )
   if result.unit != none { tokens += tokenize(result.unit) }
   tokens
 }
@@ -1292,7 +1331,10 @@ let render-result(result, aliases: (:)) = {
     }).join(" ")
     eval(source, mode: "math").body
   } else {
-    let body = str(result.value)
+    let body = render-tokens(display-number-tokens(
+      result.value,
+      exact: result.at("exact", default: result.value),
+    ))
     if result.unit != none {
       body += h(0.2em) + render-tokens(tokenize(result.unit), aliases: aliases)
     }
@@ -1317,7 +1359,10 @@ let expand-variables(tokens, scope) = {
       }
       let item = scope.at(token)
       if type(item) == dictionary and "value" in item {
-        expanded.push(str(item.value))
+        expanded += display-number-tokens(
+          item.value,
+          exact: item.at("exact", default: item.value),
+        )
         if item.unit != none { expanded += tokenize(item.unit) }
       } else {
         expanded.push(str(item))
@@ -1819,10 +1864,11 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
       }).join(" ")
       display-body += eval(scientific-source, mode: "math").body
     } else {
-      display-body += str(value) + h(0.2em) + render-tokens(output-tokens, aliases: aliases)
+      let rendered-value = render-tokens(display-number-tokens(value, exact: exact))
+      display-body += rendered-value + h(0.2em) + render-tokens(output-tokens, aliases: aliases)
     }
   } else {
-    display-body += str(value)
+    display-body += render-tokens(display-number-tokens(value, exact: exact))
   }
 
   (
