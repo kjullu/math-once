@@ -40,9 +40,11 @@
 
 // Solve stores a root set rather than pretending that it is one expression.
 #eq(`roots := solve(x^2 - 4, x)`)
+#eq(`shifted_roots := solve(x + 1, 3, x)`)
 #context {
   assert(eq().roots.symbolic-kind == "roots")
   assert(eq().roots.roots.len() == 2)
+  assert(eq().shifted_roots.roots.len() == 1)
 }
 
 #eq(`not_scalar := simplify(roots + 1)`)

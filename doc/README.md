@@ -10,6 +10,7 @@ internally in SI base units, so compatible units can be combined safely.
 | --- | --- |
 | [`calculate`](calculate.md) | One unit-aware calculation with a reusable result. |
 | [`calculation-builder`](calculation-builder.md) | A sequence of equations with stored variables and visible substitution. |
+| [Symbolic calculations](symbolic-calculations.md) | CAS operations, stored expressions, roots, and direct typCAS access. |
 | [`reset`](reset.md) | Clear the complete calculation-builder state. |
 | [`reset-variables`](reset-variables.md) | Clear values while preserving functions and unit configuration. |
 | [`reset-functions`](reset-functions.md) | Clear stored scalar and vector functions. |
@@ -42,6 +43,8 @@ dimensions and reject incompatible operations such as `10 m + 2 s`.
 
 In a calculation builder, `:=` calculates and stores a variable. A simple
 `name = expression` calculates and displays the result without storing it.
+Top-level CAS calls use the same rules; see
+[Symbolic calculations](symbolic-calculations.md).
 
 ## Input forms
 
