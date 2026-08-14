@@ -21,6 +21,12 @@ later expressions visibly substitute values stored by `:=`.
 Calculations use the unrounded stored value. This avoids accumulating rounding
 errors even though the substituted step shows the rounded value.
 
+Very large values (`>= 10^9`) and very small nonzero values (`< 10^(-4)`) are
+shown in scientific notation when substituted or rendered as results. Their
+stored exact values are unchanged. For example, a stored mass of
+`1.989 * 10^30 kg` is substituted as $1.989 dot 10^30 "kg"$ instead of a long
+decimal expansion.
+
 A direct definition is not repeated when its right-hand side already equals
 the calculated result. Calculated definitions show their useful result while
 also storing the exact value:
