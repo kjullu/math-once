@@ -28,6 +28,9 @@ ordinary arithmetic with matching custom units, without physical conversion.
 #eq(`f := simplify(x^2 + 2*x + 1)`)
 #eq(`df := diff(f, x)`)
 // df = diff(f, x) = 2x + 2
+
+// Alternatively, quote multi-letter variables and CAS operations in $...$:
+#eq($"identity" := "simplify"(sin(x)^2 + cos(x)^2)$)
 ```
 
 ## Acknowledgements and alternatives

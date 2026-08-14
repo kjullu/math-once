@@ -22,6 +22,9 @@ Create the same builder used for unit-aware calculations:
 // multi-letter names are quoted.
 #eq(`f := simplify(x^2 + 2*x + 1)`)
 #eq(`df := diff(f, x)`)
+
+// Alternatively, quote multi-letter variables and CAS operations in $...$:
+#eq($"identity" := "simplify"(sin(x)^2 + cos(x)^2)$)
 ```
 
 This displays equations equivalent to:
