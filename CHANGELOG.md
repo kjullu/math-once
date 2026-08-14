@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## Not tagged, on github
 
 - Clarified why unquoted `$...$` math content cannot contain CAS operations
   and documented raw, string, and quoted-math input alternatives, including
