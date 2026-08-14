@@ -1,4 +1,4 @@
-// math-once v0.24.1
+// math-once v0.25.0
 // Reusable calculations with a unit-aware evaluator.
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
@@ -1190,9 +1190,12 @@ let numeric-scope(scope) = {
   for (name, value) in scope {
     let unloaded-marker = type(value) == dictionary and value.at("unloaded", default: false) and "si-value" not in value
     let unit-alias = type(value) == dictionary and value.at("unit-alias", default: false)
+    let initial-state-marker = type(value) == dictionary and value.at("initial-state-marker", default: false)
+    let stored-function = type(value) == dictionary and value.at("function", default: false)
     if (not unloaded-marker
       and not unit-alias
-      and not (type(value) == dictionary and value.at("function", default: false))) {
+      and not initial-state-marker
+      and not stored-function) {
       result.insert(name, value)
     }
   }
@@ -1400,6 +1403,30 @@ let expand-variables(tokens, scope) = {
 let is-unloaded(item) = type(item) == dictionary and item.at("unloaded", default: false) == true
 let is-unloaded-marker(item) = is-unloaded(item) and "si-value" not in item
 let is-unit-alias(item) = type(item) == dictionary and item.at("unit-alias", default: false)
+let is-stored-function(item) = type(item) == dictionary and item.at("function", default: false)
+let is-renamed-unit(item) = is-unloaded(item) and type(item) == dictionary and item.at("renamed-unit", default: false)
+let initial-state-marker-name = "math-once--initial-state"
+let is-initial-state-marker(item) = type(item) == dictionary and item.at("initial-state-marker", default: false)
+let is-stored-variable(item) = (
+  not is-unloaded-marker(item)
+  and not is-unit-alias(item)
+  and not is-stored-function(item)
+  and not is-initial-state-marker(item)
+)
+
+let state-initial-values(scope) = {
+  let marker = scope.at(initial-state-marker-name, default: none)
+  if marker != none and is-initial-state-marker(marker) { marker.values } else { (:) }
+}
+
+let builder-initial-state(initial) = {
+  let result = initial
+  result.insert(initial-state-marker-name, (
+    initial-state-marker: true,
+    values: initial,
+  ))
+  result
+}
 
 let unit-aliases(scope) = {
   let aliases = (:)
@@ -1428,7 +1455,7 @@ let missing-variables(tokens, scope, unloaded, aliases: (:)) = {
 let normalize-scope(scope) = {
   let normalized = (:)
   for (name, item) in scope {
-    if is-unloaded-marker(item) or is-unit-alias(item) { continue }
+    if is-unloaded-marker(item) or is-unit-alias(item) or is-initial-state-marker(item) { continue }
     if resolve-unit(name) != none and not is-unloaded(item) {
       panic(
         "math-once calculate: `" + name
@@ -1933,6 +1960,9 @@ let calculation-builder(
   supplement: auto,
 ) = {
   for (name, _) in initial-state {
+    if name == initial-state-marker-name {
+      panic("math-once calculation-builder: reserved initial-state key")
+    }
     if resolve-unit(name) != none {
       panic(
         "math-once calculation-builder: `" + name
@@ -1940,7 +1970,7 @@ let calculation-builder(
       )
     }
   }
-  let variables = state(key, initial-state)
+  let variables = state(key, builder-initial-state(initial-state))
 
   (
     ..args,
@@ -1961,7 +1991,9 @@ let calculation-builder(
     if source == none {
       let visible = (:)
       for (name, value) in variables.get() {
-        if not is-unloaded-marker(value) and not is-unit-alias(value) { visible.insert(name, value) }
+        if not is-unloaded-marker(value) and not is-unit-alias(value) and not is-initial-state-marker(value) {
+          visible.insert(name, value)
+        }
       }
       return visible
     }
@@ -2154,6 +2186,108 @@ let reset(..names, key: "math-once-calculation") = {
   })
 }
 
+/// Clear selected or all stored values while preserving builder configuration.
+let reset-variables(..names, key: "math-once-calculation") = {
+  let selected = names.pos().map(value => state-name(value, "reset-variables"))
+  let variables = state(key, (:))
+  variables.update(old => {
+    let initial = state-initial-values(old)
+    let kept = old
+    let targets = if selected.len() == 0 { old.keys() } else { selected }
+    for name in targets {
+      let item = kept.at(name, default: none)
+      if item == none or is-stored-variable(item) {
+        if item != none and is-unloaded(item) {
+          let marker = (unloaded: true)
+          if is-renamed-unit(item) { marker.insert("renamed-unit", true) }
+          kept.insert(name, marker)
+        } else if item != none {
+          let _ = kept.remove(name)
+        }
+        if name in initial and name not in kept {
+          kept.insert(name, initial.at(name))
+        }
+      }
+    }
+    if selected.len() == 0 {
+      for (name, value) in initial {
+        if name not in kept { kept.insert(name, value) }
+      }
+    }
+    kept
+  })
+}
+
+/// Clear selected or all stored function definitions.
+let reset-functions(..names, key: "math-once-calculation") = {
+  let selected = names.pos().map(value => state-name(value, "reset-functions"))
+  let variables = state(key, (:))
+  variables.update(old => {
+    let initial = state-initial-values(old)
+    let kept = old
+    for (name, value) in old {
+      if is-stored-function(value) and (selected.len() == 0 or name in selected) {
+        let _ = kept.remove(name)
+        if name in initial { kept.insert(name, initial.at(name)) }
+      }
+    }
+    kept
+  })
+}
+
+/// Restore selected or all unit names made available with unload.
+let restore-units(..names, key: "math-once-calculation") = {
+  let selected = names.pos().map(value => state-name(value, "restore-units"))
+  let variables = state(key, (:))
+  variables.update(old => {
+    let kept = old
+    for (name, value) in old {
+      if (is-unloaded(value)
+        and not is-renamed-unit(value)
+        and (selected.len() == 0 or name in selected)) {
+        let _ = kept.remove(name)
+      }
+    }
+    kept
+  })
+}
+
+/// Remove selected or all rename-unit relationships.
+let reset-unit-aliases(..names, key: "math-once-calculation") = {
+  let selected = names.pos().map(value => state-name(value, "reset-unit-aliases"))
+  let variables = state(key, (:))
+  variables.update(old => {
+    let originals = ()
+    if selected.len() == 0 {
+      for (_, value) in old {
+        if is-unit-alias(value) and value.original not in originals {
+          originals.push(value.original)
+        }
+      }
+    } else {
+      for name in selected {
+        let item = old.at(name, default: none)
+        let original = if item != none and is-unit-alias(item) {
+          item.original
+        } else if item != none and is-renamed-unit(item) {
+          name
+        } else {
+          none
+        }
+        if original != none and original not in originals { originals.push(original) }
+      }
+    }
+    let kept = (:)
+    for (name, value) in old {
+      let belongs-to-reset-alias = is-unit-alias(value) and value.original in originals
+      if name not in originals and not belongs-to-reset-alias {
+        kept.insert(name, value)
+      }
+    }
+    kept
+  })
+}
+
 /// Temporarily make unit names available as builder variable names.
 let unload(..names, key: "math-once-calculation") = {
   let selected = names.pos().map(value => state-name(value, "unload"))
@@ -2226,6 +2360,10 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   calculate: calculate,
   calculation-builder: calculation-builder,
   reset: reset,
+  reset-variables: reset-variables,
+  reset-functions: reset-functions,
+  restore-units: restore-units,
+  reset-unit-aliases: reset-unit-aliases,
   unload: unload,
   rename-unit: rename-unit,
   text-unit: text-unit,
@@ -2307,10 +2445,14 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   supplement: supplement,
 )
 
-/// Clear variables stored by `calculation-builder`.
+/// Clear the complete or selected parts of a `calculation-builder` state.
 ///
-/// - `names`: Optional variable names as strings, raw text, or Typst math.
-///   With no names, all variables are cleared.
+/// You may want `reset-variables` to keep unit configuration, `reset-functions`
+/// to remove stored functions, `restore-units` to undo `unload`, or
+/// `reset-unit-aliases` to undo `rename-unit` instead.
+///
+/// - `names`: Optional state names as strings, raw text, or Typst math.
+///   With no names, the complete state is cleared.
 /// - `key`: The state key of the matching calculation builder. Default:
 ///   `"math-once-calculation"`.
 ///
@@ -2321,14 +2463,41 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   key: key,
 )
 
+/// Clear selected or all stored values while preserving functions and unit
+/// configuration. Values from `initial-state` are restored instead of removed.
+#let reset-variables(..names, key: "math-once-calculation") = (_engine.reset-variables)(
+  ..names,
+  key: key,
+)
+
+/// Clear selected or all stored scalar and vector function definitions.
+#let reset-functions(..names, key: "math-once-calculation") = (_engine.reset-functions)(
+  ..names,
+  key: key,
+)
+
+/// Restore selected or all catalog unit names made available with `unload`.
+/// Any stored variable using a restored unit name is removed.
+#let restore-units(..names, key: "math-once-calculation") = (_engine.restore-units)(
+  ..names,
+  key: key,
+)
+
+/// Remove selected or all `rename-unit` relationships and restore their
+/// original catalog unit spellings.
+#let reset-unit-aliases(..names, key: "math-once-calculation") = (_engine.reset-unit-aliases)(
+  ..names,
+  key: key,
+)
+
 /// Temporarily make unit names available as calculation-builder variables.
 ///
 /// - `names`: One or more known unit names as strings, raw text, or Typst math.
 /// - `key`: The state key of the matching calculation builder. Default:
 ///   `"math-once-calculation"`.
 ///
-/// The unload lasts until that name is removed with `reset(name)` or the
-/// complete state is cleared with `reset()`.
+/// The unload lasts until `restore-units(name)` restores that catalog spelling
+/// or the complete state is cleared with `reset()`.
 #let unload(..names, key: "math-once-calculation") = (_engine.unload)(
   ..names,
   key: key,
@@ -2343,7 +2512,8 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 ///
 /// For example, `rename-unit($m$, $v$)` makes bare `m` available as a
 /// variable and makes `v` mean metres. A later `rename-unit($v$, $"vme"$)`
-/// moves that alias again. `reset()` restores the catalog spelling.
+/// moves that alias again. `reset-unit-aliases()` restores catalog spellings
+/// without clearing unrelated values.
 #let rename-unit(from, to, key: "math-once-calculation") = (_engine.rename-unit)(
   from,
   to,

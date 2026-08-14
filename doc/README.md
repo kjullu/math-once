@@ -10,7 +10,11 @@ internally in SI base units, so compatible units can be combined safely.
 | --- | --- |
 | [`calculate`](calculate.md) | One unit-aware calculation with a reusable result. |
 | [`calculation-builder`](calculation-builder.md) | A sequence of equations with stored variables and visible substitution. |
-| [`reset`](reset.md) | Clear all or selected variables from a calculation-builder state. |
+| [`reset`](reset.md) | Clear the complete or selected parts of a calculation-builder state. |
+| [`reset-variables`](reset-variables.md) | Clear values while preserving functions and unit configuration. |
+| [`reset-functions`](reset-functions.md) | Clear stored scalar and vector functions. |
+| [`restore-units`](restore-units.md) | Restore catalog names made available with `unload`. |
+| [`reset-unit-aliases`](reset-unit-aliases.md) | Remove `rename-unit` relationships. |
 | [`unload`](unload.md) | Temporarily use reserved unit names as builder variables. |
 | [`rename-unit`](rename-unit.md) | Move an active unit spelling to a custom alias. |
 | [`text-unit`](units.md#custom-output-labels) | Create an explicit symbolic output-unit label. |
