@@ -4,7 +4,7 @@
 
 - Clarified why unquoted `$...$` math content cannot contain CAS operations
   and documented raw, string, and quoted-math input alternatives, including
-  guidance directly beside the copyable README example.
+  guidance directly beside the copyable README and symbolic-guide examples.
 
 ## 0.27.1
 

@@ -18,6 +18,8 @@ Create the same builder used for unit-aware calculations:
 
 #let eq = calculation-builder(key: "symbolic-example")
 
+// Use raw backticks for CAS input. Plain $...$ only works when
+// multi-letter names are quoted.
 #eq(`f := simplify(x^2 + 2*x + 1)`)
 #eq(`df := diff(f, x)`)
 ```
