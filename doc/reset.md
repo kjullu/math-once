@@ -13,7 +13,7 @@ state at its position in the document and renders no visible output.
 ## Import
 
 ```typ
-#import "math-once.typ": calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases
+#import "math-once.typ": calculation-builder, reset
 ```
 
 ## Signature
