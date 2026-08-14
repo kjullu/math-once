@@ -1,9 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.27.1
 
 - Added a dedicated symbolic-calculations guide covering CAS syntax, storage,
   result reuse, roots, units, input forms, and direct typCAS API access.
+- Added typCAS to the README acknowledgements.
 
 ## 0.27.0
 

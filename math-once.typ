@@ -1,4 +1,4 @@
-// math-once v0.27.0
+// math-once v0.27.1
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
