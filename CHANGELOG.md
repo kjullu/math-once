@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.23.1
+
+- Fixed scientific `size:` rendering without an explicit `unit:`, so
+  `size: $10^22$` displays `3.5439 · 10^22 N` instead of
+  `3.5439 (10000000000000000000000) N`.
+- Preserved compound scientific scale notation such as `size: $2 * 10^3$`
+  and `size: $3 * 10^(-4)$` while continuing to evaluate the numerical scale.
+
 ## 0.23.0
 
 - Displayed very large and very small calculation values in compact scientific

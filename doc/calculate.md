@@ -155,7 +155,9 @@ For example, `unit: $m/s$, size: 0.1` means tenths of a metre per second.
 Scales without a familiar symbol are displayed explicitly. `size:` requires a
 physical result and cannot scale affine output units such as Celsius.
 
-Power-of-ten scales are displayed as scientific notation:
+Power-of-ten scales are displayed as scientific notation with both automatic
+and explicitly requested output units. Compound scientific scales retain their
+written form instead of expanding to a decimal number:
 
 ```typ
 #calculate(
@@ -165,6 +167,9 @@ Power-of-ten scales are displayed as scientific notation:
   digits: 2,
 ).display
 // 1/(2.05 ⋅ 10⁻⁶) = 4.88 ⋅ 10⁵ linjer/m
+
+#calculate(`6000 N`, size: $2 * 10^3$, digits: 2).display
+// 6000 N = 3 ⋅ (2 ⋅ 10³) N
 ```
 
 Combine `size:` with the named `unit:` parameter, not with `to` or an output
