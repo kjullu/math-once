@@ -185,21 +185,49 @@ use CAS for dimensionless algebra.
 
 ## Raw and Typst math input
 
-Raw input is recommended because multi-letter names need no special quoting:
+Plain, unquoted `$...$` input cannot be used for CAS calls such as this:
+
+```typ
+// This does not work:
+#eq($identity := simplify(sin(x)^2 + cos(x)^2)$)
+```
+
+Typst parses and evaluates math content before `calculation-builder` receives
+it. In math content, multi-letter words such as `identity` and `simplify` are
+treated as Typst identifiers rather than plain mathematical names. Typst
+therefore reports an unknown-variable error before math-once can recognize the
+CAS operation.
+
+Use one of these input forms instead.
+
+### Raw input (recommended)
+
+Raw input uses backticks. Multi-letter names need no special quoting:
 
 ```typ
 #eq(`identity := simplify(sin(x)^2 + cos(x)^2)`)
 ```
 
-Typst math content requires quotes around multi-letter variable and operation
-names:
+### String input
+
+An ordinary Typst string follows the same CAS syntax:
+
+```typ
+#eq("identity := simplify(sin(x)^2 + cos(x)^2)")
+```
+
+### Quoted Typst math input
+
+`$...$` can only be used when multi-letter variable names and CAS operation
+names are quoted so Typst treats them as text:
 
 ```typ
 #eq($"identity" := "simplify"(sin(x)^2 + cos(x)^2)$)
 ```
 
 Single-letter mathematical variables such as `x` and built-in mathematical
-functions such as `sin` can be written normally in either form.
+functions such as `sin` can still be written normally inside the quoted math
+form.
 
 ## Errors and limitations
 
