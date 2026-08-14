@@ -117,8 +117,17 @@ that AST with typCAS directly:
 }
 ```
 
-Raw input is the simplest CAS form. In Typst math content, both multi-letter
-variable names and multi-letter operation names must be quoted:
+Plain `$...$` CAS input with unquoted multi-letter names does not work because
+Typst evaluates those identifiers before the builder receives the content.
+Use raw input or a string instead:
+
+```typ
+#eq(`identity := simplify(sin(x)^2 + cos(x)^2)`)
+#eq("identity := simplify(sin(x)^2 + cos(x)^2)")
+```
+
+Alternatively, `$...$` works when both multi-letter variable names and CAS
+operation names are quoted:
 
 ```typ
 #eq($"identity" := "simplify"(sin(x)^2 + cos(x)^2)$)

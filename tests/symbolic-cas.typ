@@ -20,6 +20,10 @@
 #eq($"identity" := "simplify"(sin(x)^2 + cos(x)^2)$)
 #context assert(eq().identity.symbolic)
 
+// Ordinary strings use the same syntax as raw input.
+#eq("string_identity := simplify(sin(x)^2 + cos(x)^2)")
+#context assert(eq().string_identity.symbolic)
+
 // Existing dimensionless builder values are substituted into CAS input.
 #eq(`coefficient := 3`)
 #eq(`scaled := simplify(coefficient*x + coefficient*x)`)

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Clarified why unquoted `$...$` math content cannot contain CAS operations
+  and documented raw, string, and quoted-math input alternatives.
+
 ## 0.27.1
 
 - Added a dedicated symbolic-calculations guide covering CAS syntax, storage,
