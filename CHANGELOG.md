@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.27.0
+
+- Added symbolic algebra to `calculation-builder` through the pinned
+  MIT-licensed `@preview/typcas:0.2.3` dependency. Top-level `simplify`,
+  `diff`, `integrate`, `solve`, `factor`, `limit`, and `taylor` calls can now
+  be displayed and stored with the existing `:=` syntax.
+- Stored reusable symbolic expression trees in the same builder state as
+  numeric variables, so later CAS calls can consume earlier results. Existing
+  stored dimensionless numbers are substituted into symbolic input.
+- Kept CAS expressions dimensionless and separate from the unit-aware
+  evaluator. Unit-bearing inputs, `unit:`, `size:`, and attempts to use a
+  solution set as one scalar expression now produce focused inline errors.
+- Documented typCAS attribution, its separate API, and the shape of stored
+  symbolic results in `THIRD-PARTY.md` and the builder reference.
+
 ## 0.26.0
 
 - Changed `reset` into an unambiguous complete-state operation with only the

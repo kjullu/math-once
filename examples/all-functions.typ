@@ -99,6 +99,18 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 #eq($v := 902 / 3.6$)
 #eq($x := v * 2$)
 
+= Symbolic builder operations
+
+// CAS expressions use the same := storage and can feed later CAS calls.
+#let symbolic = calculation-builder(key: "all-functions-symbolic")
+#symbolic(`f := simplify(x^2 + 2*x + 1)`)
+#symbolic(`df := diff(f, x)`)
+#symbolic(`roots := solve(x^2 - 4, x)`)
+#context {
+  assert(symbolic().df.symbolic-kind == "expression")
+  assert(symbolic().roots.symbolic-kind == "roots")
+}
+
 = `reset`
 
 `reset()` is the broad operation. The focused reset functions in the following

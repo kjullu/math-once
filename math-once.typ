@@ -1,5 +1,7 @@
-// math-once v0.26.0
+// math-once v0.27.0
 // Reusable calculations with a unit-aware evaluator.
+
+#import "@preview/typcas:0.2.3": cas
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
 /// return both the rounded and exact values.
@@ -843,7 +845,9 @@ let variable-symbol-name(symbol) = {
   none
 }
 
+let cas-functions = ("simplify", "diff", "integrate", "solve", "factor", "limit", "taylor")
 let math-functions = ("sin", "cos", "tan", "sqrt", "root")
+let source-functions = math-functions + cas-functions
 let text-unit-prefix = "⟦"
 let text-unit-suffix = "⟧"
 
@@ -918,7 +922,7 @@ let math-source-part(value, parse, preserve-text: false) = {
   if (value.func() == text
     and preserve-text != false
     and regex("^[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*$") in token
-    and token not in math-functions
+    and token not in source-functions
     and (preserve-text == true or resolve-unit(token) != none)) {
     return "\"" + token + "\""
   }
@@ -1002,13 +1006,17 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
     "\"" + token + "\""
   }
 
-  let rendered = tokens.map(token => {
+  let rendered = tokens.enumerate().map(((index, token)) => {
     if is-text-unit(token) {
       "upright(\"" + text-unit-name(token) + "\")"
     } else if is-quoted-unit(token) {
       "upright(\"" + quoted-unit-name(token) + "\")"
     } else if is-name(token) {
-      if token in math-functions {
+      if (token in cas-functions
+        and index + 1 < tokens.len()
+        and tokens.at(index + 1) == "(") {
+        "op(\"" + token + "\")"
+      } else if token in math-functions {
         token
       } else if token == "vec" {
         "vec"
@@ -1035,7 +1043,8 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
   })
   let source = ""
   for (index, item) in rendered.enumerate() {
-    if index > 0 and not (tokens.at(index - 1) in math-functions and tokens.at(index) == "(") {
+    if (index > 0
+      and not (tokens.at(index - 1) in source-functions and tokens.at(index) == "(")) {
       source += " "
     }
     source += item
@@ -1191,10 +1200,12 @@ let numeric-scope(scope) = {
     let unit-alias = type(value) == dictionary and value.at("unit-alias", default: false)
     let initial-state-marker = type(value) == dictionary and value.at("initial-state-marker", default: false)
     let stored-function = type(value) == dictionary and value.at("function", default: false)
+    let symbolic-result = type(value) == dictionary and value.at("symbolic", default: false)
     if (not unloaded-marker
       and not unit-alias
       and not initial-state-marker
-      and not stored-function) {
+      and not stored-function
+      and not symbolic-result) {
       result.insert(name, value)
     }
   }
@@ -1368,10 +1379,12 @@ let expand-variables(tokens, scope) = {
     let item = scope.at(token, default: none)
     let unloaded-marker = type(item) == dictionary and item.at("unloaded", default: false) and "si-value" not in item
     let unit-alias = type(item) == dictionary and item.at("unit-alias", default: false)
+    let symbolic-result = type(item) == dictionary and item.at("symbolic", default: false)
     if (is-name(token)
       and token in scope
       and not unloaded-marker
       and not unit-alias
+      and not symbolic-result
       and not (type(scope.at(token)) == dictionary and scope.at(token).at("function", default: false))) {
       if index > 0 and can-end(tokens.at(index - 1)) {
         expanded.push("*")
@@ -1403,6 +1416,8 @@ let is-unloaded(item) = type(item) == dictionary and item.at("unloaded", default
 let is-unloaded-marker(item) = is-unloaded(item) and "si-value" not in item
 let is-unit-alias(item) = type(item) == dictionary and item.at("unit-alias", default: false)
 let is-stored-function(item) = type(item) == dictionary and item.at("function", default: false)
+let is-symbolic-result(item) = type(item) == dictionary and item.at("symbolic", default: false)
+let is-symbolic-expression(item) = is-symbolic-result(item) and item.at("symbolic-kind", default: none) == "expression"
 let is-renamed-unit(item) = is-unloaded(item) and type(item) == dictionary and item.at("renamed-unit", default: false)
 let initial-state-marker-name = "math-once--initial-state"
 let is-initial-state-marker(item) = type(item) == dictionary and item.at("initial-state-marker", default: false)
@@ -1412,6 +1427,206 @@ let is-stored-variable(item) = (
   and not is-stored-function(item)
   and not is-initial-state-marker(item)
 )
+
+// Recognize the deliberately small, task-oriented CAS surface accepted by the
+// builder. CAS expressions are dimensionless; unit-aware arithmetic continues
+// to use the native evaluator below.
+let symbolic-call(tokens) = {
+  if (tokens.len() < 3
+    or tokens.first() not in cas-functions
+    or tokens.at(1) != "("
+    or tokens.last() != ")") { return none }
+
+  let depth = 0
+  for (index, token) in tokens.slice(1).enumerate() {
+    if token == "(" { depth += 1 }
+    if token == ")" { depth -= 1 }
+    if depth < 0 or (depth == 0 and index < tokens.len() - 2) { return none }
+  }
+  if depth != 0 { return none }
+
+  (
+    operation: tokens.first(),
+    arguments: split-top-level(tokens.slice(2, tokens.len() - 1)),
+    tokens: tokens,
+  )
+}
+
+let symbolic-token-name(token) = if is-quoted-unit(token) {
+  quoted-unit-name(token)
+} else {
+  token
+}
+
+let symbolic-source(tokens) = {
+  let normalized = tokens.map(symbolic-token-name)
+  let result = ()
+  for (index, token) in normalized.enumerate() {
+    if (index > 0
+      and can-end(normalized.at(index - 1))
+      and can-start(token)
+      and not (is-name(normalized.at(index - 1)) and token == "(")) {
+      result.push("*")
+    }
+    result.push(token)
+  }
+  result.join(" ")
+}
+
+let symbolic-name-argument(tokens, operation) = {
+  if tokens.len() != 1 or not is-name(symbolic-token-name(tokens.first())) {
+    return calculation-failure(operation + ": the variable must be a single name")
+  }
+  symbolic-token-name(tokens.first())
+}
+
+let symbolic-expression(tokens, scope) = {
+  if tokens.len() == 0 {
+    return calculation-failure("CAS arguments must not be empty")
+  }
+
+  let names = tokens.map(symbolic-token-name)
+  let expression = cas.parse(symbolic-source(tokens))
+  for (name, item) in scope {
+    if name not in names { continue }
+
+    let replacement = none
+    if is-symbolic-expression(item) {
+      replacement = item.expression
+    } else if is-symbolic-result(item) {
+      return calculation-failure(
+        "`" + name + "` is a set of solutions and cannot be used as one expression",
+      )
+    } else if type(item) in (int, float) {
+      replacement = item
+    } else if type(item) == decimal {
+      replacement = float(item)
+    } else if type(item) == dictionary and "exact" in item {
+      if (item.at("dimensions", default: zero-dim) != zero-dim
+        or item.at("custom-units", default: (:)).len() > 0
+        or item.at("unit", default: none) != none) {
+        return calculation-failure(
+          "`" + name + "` has a unit; CAS expressions must be dimensionless",
+        )
+      }
+      replacement = float(item.exact)
+    }
+
+    if replacement != none {
+      let substituted = cas.substitute(expression, name, replacement)
+      if not cas.ok(substituted) {
+        return calculation-failure("CAS substitution failed: " + cas.error-message(substituted))
+      }
+      expression = cas.expr-of(substituted)
+    }
+  }
+  expression
+}
+
+let symbolic-result(call, scope) = {
+  let operation = call.operation
+  let arguments = call.arguments
+  let expected = if operation in ("simplify",) {
+    "one expression"
+  } else if operation in ("diff", "integrate") {
+    "an expression and a variable"
+  } else if operation == "solve" {
+    "an expression and a variable, or a left side, right side, and variable"
+  } else if operation == "factor" {
+    "an expression and optionally a variable"
+  } else if operation == "limit" {
+    "an expression, a variable, and a target"
+  } else {
+    "an expression, a variable, a center, and a non-negative integer order"
+  }
+  let valid-arity = if operation == "simplify" { arguments.len() == 1 }
+    else if operation in ("diff", "integrate") { arguments.len() == 2 }
+    else if operation == "solve" { arguments.len() in (2, 3) }
+    else if operation == "factor" { arguments.len() in (1, 2) }
+    else if operation == "limit" { arguments.len() == 3 }
+    else { arguments.len() == 4 }
+  if not valid-arity or arguments.any(argument => argument.len() == 0) {
+    return calculation-failure(operation + " expects " + expected)
+  }
+
+  let input = symbolic-expression(arguments.first(), scope)
+  if is-calculation-failure(input) { return input }
+
+  let result = if operation == "simplify" {
+    cas.simplify(input)
+  } else if operation in ("diff", "integrate") {
+    let variable = symbolic-name-argument(arguments.at(1), operation)
+    if is-calculation-failure(variable) { return variable }
+    if operation == "diff" { cas.diff(input, variable) } else { cas.integrate(input, variable) }
+  } else if operation == "solve" {
+    let variable-tokens = arguments.last()
+    let variable = symbolic-name-argument(variable-tokens, operation)
+    if is-calculation-failure(variable) { return variable }
+    let right = if arguments.len() == 3 {
+      symbolic-expression(arguments.at(1), scope)
+    } else {
+      0
+    }
+    if is-calculation-failure(right) { return right }
+    cas.solve(input, rhs: right, var: variable)
+  } else if operation == "factor" {
+    let variable = if arguments.len() == 2 {
+      symbolic-name-argument(arguments.at(1), operation)
+    } else {
+      "x"
+    }
+    if is-calculation-failure(variable) { return variable }
+    cas.factor(input, variable)
+  } else if operation == "limit" {
+    let variable = symbolic-name-argument(arguments.at(1), operation)
+    if is-calculation-failure(variable) { return variable }
+    let target = symbolic-expression(arguments.at(2), scope)
+    if is-calculation-failure(target) { return target }
+    cas.limit(input, variable, target)
+  } else {
+    let variable = symbolic-name-argument(arguments.at(1), operation)
+    if is-calculation-failure(variable) { return variable }
+    let center = symbolic-expression(arguments.at(2), scope)
+    if is-calculation-failure(center) { return center }
+    let order-source = symbolic-source(arguments.at(3))
+    if regex("^[0-9]+$") not in order-source {
+      return calculation-failure("taylor: the order must be a non-negative integer")
+    }
+    cas.taylor(input, variable, center, int(order-source))
+  }
+
+  if not cas.ok(result) {
+    return calculation-failure("CAS " + operation + " failed: " + cas.error-message(result))
+  }
+  let roots = cas.roots-of(result)
+  let expression = cas.expr-of(result)
+  if operation != "solve" and expression == none {
+    return calculation-failure("CAS " + operation + " returned no expression")
+  }
+  (
+    symbolic: true,
+    symbolic-kind: if operation == "solve" { "roots" } else { "expression" },
+    expression: expression,
+    roots: roots,
+    operation: operation,
+    source: symbolic-source(call.tokens),
+    restrictions: result.at("restrictions", default: ()),
+    warnings: result.at("warnings", default: ()),
+  )
+}
+
+let render-symbolic-result(result) = {
+  if result.symbolic-kind == "expression" {
+    return cas.display(result.expression)
+  }
+  if result.roots.len() == 0 { return math.emptyset }
+  let body = []
+  for (index, root) in result.roots.enumerate() {
+    if index > 0 { body += math.comma + h(0.25em) }
+    body += cas.display(root)
+  }
+  body
+}
 
 let state-initial-values(scope) = {
   let marker = scope.at(initial-state-marker-name, default: none)
@@ -1454,7 +1669,11 @@ let missing-variables(tokens, scope, unloaded, aliases: (:)) = {
 let normalize-scope(scope) = {
   let normalized = (:)
   for (name, item) in scope {
-    if is-unloaded-marker(item) or is-unit-alias(item) or is-initial-state-marker(item) { continue }
+    if (is-unloaded-marker(item)
+      or is-unit-alias(item)
+      or is-initial-state-marker(item)
+      or is-stored-function(item)
+      or is-symbolic-result(item)) { continue }
     if resolve-unit(name) != none and not is-unloaded(item) {
       panic(
         "math-once calculate: `" + name
@@ -2050,6 +2269,58 @@ let calculation-builder(
       let illegal-assignment = stores-result and name != none and (resolve-unit(name) != none or name in aliases) and not assignment-is-unloaded
       let tokens = if display-only { tokenize(source) } else { expression-tokens(expression) }
       let evaluation-tokens = if display-only { tokens } else { tokenize(expression) }
+      let cas-call = if display-only { none } else { symbolic-call(evaluation-tokens) }
+      if (cas-call != none
+        and cas-call.operation in current
+        and is-stored-function(current.at(cas-call.operation))) {
+        cas-call = none
+      }
+      if cas-call != none {
+        if illegal-assignment {
+          text(
+            fill: red,
+            [math-once: #raw(name) is a unit name and cannot be used as a variable.],
+          )
+          return
+        }
+        if unit != none or size != none {
+          text(fill: red, [math-once: symbolic calculations do not accept unit or size.])
+          return
+        }
+
+        let result = symbolic-result(cas-call, current)
+        if is-calculation-failure(result) {
+          text(fill: red, [math-once: #result.error.])
+          return
+        }
+
+        let written = render-tokens(evaluation-tokens, scope: current, aliases: aliases)
+        let labelled-body = if name != none {
+          let name-scope = current
+          name-scope.insert(name, 0)
+          (render-tokens((name,), scope: name-scope, aliases: aliases)
+            + h(0.25em) + math.eq + h(0.25em) + written)
+        } else {
+          written
+        }
+        if (name == none or not stores-result or show-result) {
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-symbolic-result(result)
+        }
+
+        if stores-result {
+          result.insert("display", math.equation(labelled-body, block: block))
+          result.insert("variable", name)
+          if assignment-is-unloaded { result.insert("unloaded", true) }
+          variables.update(old => {
+            old.insert(name, result)
+            old
+          })
+          result.display.body
+        } else {
+          labelled-body
+        }
+        return
+      }
       let function-expansion = if display-only { (evaluation-tokens, false) } else { expand-function-calls(evaluation-tokens, current) }
       let function-error = if is-calculation-failure(function-expansion) { function-expansion.error } else { none }
       let calculation-tokens = if function-error == none { function-expansion.first() } else { tokens }
