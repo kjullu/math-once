@@ -42,7 +42,7 @@ ordinary arithmetic with matching custom units, without physical conversion.
   calculator. Its unit handling *inspired* math-once. (Terminal and GUI tool)
 - [eqrun](https://github.com/snlxnet/eqrun) is a well-designed calculator for
   Typst and the original inspiration for this project. (Typst plugin)
-- [typcas](https://github.com/sihooleebd/typCAS) For the cas functions, we integrate them, please look at it (Typst plugin)
+- [typcas](https://github.com/sihooleebd/typCAS) For the cas functions, as we integrate them into math-one (Typst plugin)
 
 ## Install
 
@@ -92,6 +92,13 @@ A compilable example covering the complete public API is available in
 You can find all the supported units [here](doc/supported-units.md)
 
 See the [changelog](CHANGELOG.md) when upgrading.
+
+## Why is it called Math-once
+The plugin originally started as just `typst-math` (still the name of the folder on my pc).
+
+But was later renamed, but codex, to `math-once`, idk why My guess is because my first prompt for this plugin was: "*Make it like [eqrun](https://github.com/snlxnet/eqrun), but where I can save variabels, so I only have to do the math once*", and when I asked it to then create a little README.md for the docs, it started with the same headder as it does now, `math-once`.
+
+And it is still the name today because I have gotten to used to typing (autocompleteing) `github.com/kjullu/math-once` in the adresses bare in my browser (and I don't have a better name).
 
 ## License
 
