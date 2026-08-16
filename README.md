@@ -93,7 +93,7 @@ You can find all the supported units [here](doc/supported-units.md)
 
 See the [changelog](CHANGELOG.md) when upgrading.
 
-## Why is it called Math-once
+## Why is it called `math-once`?
 The plugin originally started as just `typst-math` (still the name of the folder on my pc).
 
 But was later renamed, but codex, to `math-once`, idk why My guess is because my first prompt for this plugin was: "*Make it like [eqrun](https://github.com/snlxnet/eqrun), but where I can save variabels, so I only have to do the math once*", and when I asked it to then create a little README.md for the docs, it started with the same headder as it does now, `math-once`.
