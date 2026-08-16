@@ -133,6 +133,26 @@ operation names are quoted:
 #eq($"identity" := "simplify"(sin(x)^2 + cos(x)^2)$)
 ```
 
+## Paired plus/minus signs
+
+Typst's `plus.minus` ($plus.minus$) and `minus.plus` ($minus.plus$) symbols are
+supported in display-only equations:
+
+```typ
+#eq($x = 1 plus.minus 2$)
+#eq(`result = alpha plus.minus beta minus.plus gamma`)
+```
+
+Raw and string input accept both the spelled forms and the Unicode `±` and `∓`
+characters. The signs remain paired: the upper branch of
+`alpha ± beta ∓ gamma` is `alpha + beta - gamma`, and the lower branch is
+`alpha - beta + gamma`.
+
+These expressions are intentionally symbolic. They cannot be evaluated as one
+numeric value or stored with `:=`, because they represent two correlated
+results. Use an ordinary `=` equation to display them; an attempted numerical
+calculation or stored definition produces a focused error.
+
 ## Signature
 
 ```typ

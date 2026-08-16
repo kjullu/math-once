@@ -53,7 +53,7 @@ Copy [`math-once.typ`](math-once.typ) into your project and import the
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.27.1": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.28.0": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst. Symbolic builder operations use

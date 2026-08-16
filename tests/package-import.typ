@@ -1,4 +1,4 @@
-#import "@local/math-once:0.27.1": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline
+#import "@local/math-once:0.28.0": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline
 
 #let result = evaluate-code(`6 * 7`, unit: `kg`)
 #assert(result.value == 42)
@@ -40,3 +40,7 @@
 #symbolic(`f := simplify(x^2 + 2*x + 1)`)
 #symbolic(`df := diff(f, x)`)
 #context assert(symbolic().df.symbolic-kind == "expression")
+
+#let paired = calculation-builder(key: "package-import-paired-signs")
+#paired($x = 1 plus.minus 2$)
+#context assert(paired().len() == 0)

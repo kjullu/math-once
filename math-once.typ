@@ -1,4 +1,4 @@
-// math-once v0.27.1
+// math-once v0.28.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -949,14 +949,20 @@ let input-source(source, preserve-text: false) = if type(source) == content and 
 let tokenize(source) = {
   let name = "[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*"
   let symbolic = "⟦[^⟦⟧]+⟧"
-  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|" + symbolic + "|\"" + name + "\"|" + name + "|:=|[=(),+*/^+\\-]")
+  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|" + symbolic + "|\"" + name + "\"|plus\\.minus|minus\\.plus|[±∓]|" + name + "|:=|[=(),+*/^+\\-]")
   let tokens = ()
   let cursor = 0
   for found in source.matches(pattern) {
     if source.slice(cursor, found.start).trim() != "" {
       panic("math-once calculate: unsupported syntax near `" + source.slice(cursor, found.start) + "`")
     }
-    tokens.push(found.text)
+    tokens.push(if found.text == "plus.minus" {
+      "±"
+    } else if found.text == "minus.plus" {
+      "∓"
+    } else {
+      found.text
+    })
     cursor = found.end
   }
   if source.slice(cursor).trim() != "" {
@@ -1037,6 +1043,10 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
       }
     } else if token == "*" {
       "dot"
+    } else if token == "±" {
+      "plus.minus"
+    } else if token == "∓" {
+      "minus.plus"
     } else {
       token
     }
@@ -2025,6 +2035,12 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   // when the bare name `m` has been unloaded for use as a variable.
   let source = input-source(source, preserve-text: true)
   let raw-tokens = tokenize(source)
+  if raw-tokens.any(token => token in ("±", "∓")) {
+    return calculation-fail(
+      "plus/minus expressions have two paired results and cannot be evaluated as one value",
+      soft: soft,
+    )
+  }
   let depth = 0
   let conversion-index = none
   for (index, token) in raw-tokens.enumerate() {
@@ -2269,6 +2285,28 @@ let calculation-builder(
       let illegal-assignment = stores-result and name != none and (resolve-unit(name) != none or name in aliases) and not assignment-is-unloaded
       let tokens = if display-only { tokenize(source) } else { expression-tokens(expression) }
       let evaluation-tokens = if display-only { tokens } else { tokenize(expression) }
+      let has-paired-sign = evaluation-tokens.any(token => token in ("±", "∓"))
+      if has-paired-sign {
+        if illegal-assignment {
+          text(
+            fill: red,
+            [math-once: #raw(name) is a unit name and cannot be used as a variable.],
+          )
+        } else if stores-result {
+          text(
+            fill: red,
+            [math-once: plus/minus expressions have two paired results and cannot be stored as one value.],
+          )
+        } else {
+          let visible-tokens = if calculated-assignment != none {
+            tokenize(source)
+          } else {
+            tokens
+          }
+          render-tokens(visible-tokens, scope: current, aliases: aliases)
+        }
+        return
+      }
       let cas-call = if display-only { none } else { symbolic-call(evaluation-tokens) }
       if (cas-call != none
         and cas-call.operation in current
