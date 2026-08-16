@@ -96,7 +96,7 @@ See the [changelog](CHANGELOG.md) when upgrading.
 ## Why is it called `math-once`?
 The plugin originally started as just `typst-math` (still the name of the folder on my pc).
 
-But was later renamed, by codex, to `math-once`, idk why My guess is because my first prompt for this plugin was something along the lines of: "*make a typst plugin like [eqrun](https://github.com/snlxnet/eqrun), but where I can save variabels, so I only have to do the math once*", and when I asked it to then create a little README.md for the docs and so I could share it with my friends, the name `math-once` was in the header (you can look at the blame and see it).
+But was later renamed, by codex, to `math-once`, idk why. My guess is because my first prompt for this plugin was something along the lines of: "*make a typst plugin like [eqrun](https://github.com/snlxnet/eqrun), but where I can save variabels, so I only have to do the math once*", and when I asked it to then create a little README.md for the docs and so I could share it with my friends, the name `math-once` was in the header (you can look at the blame and see it).
 
 And it is still the name today because I have gotten to used to typing (autocompleteing) `github.com/kjullu/math-once` in the adresses bare in my browser (and I don't have a better name).
 
