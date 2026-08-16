@@ -136,11 +136,17 @@ operation names are quoted:
 ## Paired plus/minus signs
 
 Typst's `plus.minus` ($plus.minus$) and `minus.plus` ($minus.plus$) symbols are
-supported in display-only equations:
+evaluated as two correlated branches when their operands are known:
 
 ```typ
-#eq($x = 1 plus.minus 2$)
+#eq($10 plus.minus 2$)
+// 10 ± 2 = 12 ∨ 8
+
+#eq($x = 10 plus.minus 2$)
+// x = 10 ± 2 = 12 ∨ 8
+
 #eq(`result = alpha plus.minus beta minus.plus gamma`)
+// remains symbolic because alpha, beta, and gamma are unknown
 ```
 
 Raw and string input accept both the spelled forms and the Unicode `±` and `∓`
@@ -148,10 +154,13 @@ characters. The signs remain paired: the upper branch of
 `alpha ± beta ∓ gamma` is `alpha + beta - gamma`, and the lower branch is
 `alpha - beta + gamma`.
 
-These expressions are intentionally symbolic. They cannot be evaluated as one
-numeric value or stored with `:=`, because they represent two correlated
-results. Use an ordinary `=` equation to display them; an attempted numerical
-calculation or stored definition produces a focused error.
+The two calculated values are separated by Typst's logical-or symbol `∨`.
+Units, conversions, precedence, and stored scalar operands are applied to both
+branches independently. Expressions with unknown operands remain symbolic.
+
+The result cannot be stored with `:=`, because an ordinary math-once variable
+contains one scalar value. Use a plain `=` when you want a label without
+storing it.
 
 ## Other mathematical symbols
 

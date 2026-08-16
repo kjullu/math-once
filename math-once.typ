@@ -1,4 +1,4 @@
-// math-once v0.29.0
+// math-once v0.30.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3502,6 +3502,11 @@ let vector-components(tokens) = {
   }
 }
 
+let paired-sign-branches(tokens) = (
+  tokens.map(token => if token == "±" { "+" } else if token == "∓" { "-" } else { token }),
+  tokens.map(token => if token == "±" { "-" } else if token == "∓" { "+" } else { token }),
+)
+
 let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, unloaded, aliases) = {
   let components = vector-components(tokens)
   if components == none {
@@ -3532,6 +3537,9 @@ let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, u
       soft: true,
     )
     if is-calculation-failure(result) { return result }
+    if result.at("alternatives", default: false) {
+      return calculation-failure("paired plus/minus results are not supported inside a vector")
+    }
     results.push(result)
   }
   (
@@ -3611,6 +3619,11 @@ let result-tokens(result) = {
 }
 
 let render-result(result, aliases: (:)) = {
+  if result.at("alternatives", default: false) {
+    return result.branches.map(branch => render-result(branch, aliases: aliases)).join(
+      h(0.25em) + render-tokens((math-symbol-token("or"),)) + h(0.25em),
+    )
+  }
   if result.at("vector", default: false) {
     let children = result.components.map(component => render-result(component, aliases: aliases))
     return math.vec(..children)
@@ -4276,7 +4289,8 @@ let normalize-size(size, soft: false) = {
 }
 
 /// Evaluate a unit-aware expression containing numbers, units, variables,
-/// `sin`, `cos`, `tan`, and the operators `+`, `-`, `*`, `/`, and `^`.
+/// `sin`, `cos`, `tan`, and the operators `+`, `-`, `*`, `/`, `^`, `±`, and
+/// `∓`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
 let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), aliases: (:), soft: false) = {
@@ -4288,12 +4302,6 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   // when the bare name `m` has been unloaded for use as a variable.
   let source = input-source(source, preserve-text: true)
   let raw-tokens = tokenize(source)
-  if raw-tokens.any(token => token in ("±", "∓")) {
-    return calculation-fail(
-      "plus/minus expressions have two paired results and cannot be evaluated as one value",
-      soft: soft,
-    )
-  }
   if raw-tokens.any(is-math-symbol) {
     return calculation-fail(
       "display-only mathematical symbols cannot be evaluated as one numeric value",
@@ -4328,6 +4336,40 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   }
   if expression-tokens.len() == 0 { return calculation-fail("missing expression before output conversion", soft: soft) }
   if target-tokens != none and target-tokens.len() == 0 { return calculation-fail("missing output unit", soft: soft) }
+
+  if expression-tokens.any(token => token in ("±", "∓")) {
+    let branches = ()
+    for branch-tokens in paired-sign-branches(raw-tokens) {
+      let branch = calculate(
+        branch-tokens.join(" "),
+        digits: digits,
+        scope: scope,
+        unit: unit,
+        size: size,
+        block: false,
+        unloaded: unloaded,
+        aliases: aliases,
+        soft: true,
+      )
+      if is-calculation-failure(branch) {
+        return calculation-fail(branch.error, soft: soft)
+      }
+      branches.push(branch)
+    }
+    let result = (
+      alternatives: true,
+      branches: branches,
+      values: branches.map(branch => branch.value),
+      exacts: branches.map(branch => branch.exact),
+      si-values: branches.map(branch => branch.si-value),
+      units: branches.map(branch => branch.unit),
+      source: source,
+    )
+    let body = render-tokens(expression-tokens, scope: scope, aliases: aliases)
+    body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases)
+    result.insert("display", math.equation(body, block: block))
+    return result
+  }
 
   let result = parse(
     add-implicit-multiplication(expression-tokens),
@@ -4545,25 +4587,11 @@ let calculation-builder(
       let tokens = if display-only { tokenize(source) } else { expression-tokens(expression) }
       let evaluation-tokens = if display-only { tokens } else { tokenize(expression) }
       let has-paired-sign = evaluation-tokens.any(token => token in ("±", "∓"))
-      if has-paired-sign {
-        if illegal-assignment {
-          text(
-            fill: red,
-            [math-once: #raw(name) is a unit name and cannot be used as a variable.],
-          )
-        } else if stores-result {
-          text(
-            fill: red,
-            [math-once: plus/minus expressions have two paired results and cannot be stored as one value.],
-          )
-        } else {
-          let visible-tokens = if calculated-assignment != none {
-            tokenize(source)
-          } else {
-            tokens
-          }
-          render-tokens(visible-tokens, scope: current, aliases: aliases)
-        }
+      if has-paired-sign and stores-result and not illegal-assignment {
+        text(
+          fill: red,
+          [math-once: plus/minus expressions have two paired results and cannot be stored as one value.],
+        )
         return
       }
       let has-display-symbol = evaluation-tokens.any(is-math-symbol)
@@ -4673,7 +4701,7 @@ let calculation-builder(
           fill: red,
           [math-once: #raw(name) is a unit name and cannot be used as a variable.],
         )
-      } else if missing.len() > 0 and calculated-assignment != none {
+      } else if missing.len() > 0 and (calculated-assignment != none or has-paired-sign) {
         // Preserve ordinary symbolic equations when their right-hand side
         // cannot be evaluated from known variables, numbers, and units.
         render-tokens(tokenize(source), scope: current, aliases: aliases)
@@ -4701,7 +4729,8 @@ let calculation-builder(
             labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
           }
           let last-visible-tokens = if has-variables { expanded } else { tokens }
-          if not equivalent-tokens(last-visible-tokens, result-tokens(result)) {
+          if (result.at("alternatives", default: false)
+            or not equivalent-tokens(last-visible-tokens, result-tokens(result))) {
             labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases)
           }
         }
@@ -4727,7 +4756,9 @@ let calculation-builder(
           labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
         }
         let last-visible-tokens = if has-variables { expanded } else { tokens }
-        if result.at("vector", default: false) or not equivalent-tokens(last-visible-tokens, result-tokens(result)) {
+        if (result.at("vector", default: false)
+          or result.at("alternatives", default: false)
+          or not equivalent-tokens(last-visible-tokens, result-tokens(result))) {
           labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases)
         }
         labelled-body
@@ -4957,7 +4988,8 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 ///
 /// - `source`: A trusted string, raw block, or Typst math equation containing
 ///   numbers, units, variables, parentheses, `sin`, `cos`, `tan`, `+`, `-`,
-///   `*`, `/`, `^`, and optionally `to` or `=` for output conversion.
+///   `*`, `/`, `^`, `±`, `∓`, and optionally `to` or `=` for output
+///   conversion.
 /// - `digits`: Decimal places used for the visible `value`. Default: `4`.
 /// - `scope`: Numbers or earlier calculate results available as variables.
 ///   Unit names are reserved and cannot be used as variable names.
@@ -4970,6 +5002,8 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 ///
 /// Returns a dictionary with `display`, `value`, `exact`, `si-value`,
 /// `dimensions`, `unit`, `size`, and `source`.
+/// A paired-sign expression instead returns `alternatives: true`, `display`,
+/// and tuples named `branches`, `values`, `exacts`, `si-values`, and `units`.
 #let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true) = (_engine.calculate)(
   source,
   digits: digits,

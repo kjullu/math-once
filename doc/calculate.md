@@ -37,7 +37,7 @@ calculate(
 `str` or `raw` or math `content` — required, positional
 
 The expression to evaluate. It can contain numbers, variables, units,
-parentheses, and the operators `+`, `-`, `*`, `/`, and `^`.
+parentheses, and the operators `+`, `-`, `*`, `/`, `^`, `±`, and `∓`.
 
 ```typ
 #calculate(`1 m + 25 cm`).display
@@ -47,6 +47,20 @@ parentheses, and the operators `+`, `-`, `*`, `/`, and `^`.
 
 Input `*` is rendered as the multiplication dot `⋅`. Adjacent values imply
 multiplication, as in `2 N` or `10 m`.
+
+Paired `plus.minus` (`±`) and `minus.plus` (`∓`) signs evaluate both
+correlated branches and display them with `∨` between the results:
+
+```typ
+#let alternatives = calculate(`10 plus.minus 3 minus.plus 1`)
+#alternatives.display
+// 10 ± 3 ∓ 1 = 12 ∨ 8
+#assert(alternatives.values == (12.0, 8.0))
+```
+
+For every paired sign, the first branch selects the upper operator and the
+second selects the lower operator. See [Result](#result) for the returned
+multi-value fields.
 
 An unknown quoted name such as `"widget"` is an opaque custom unit. Matching
 custom units support normal arithmetic but cannot be converted to physical
@@ -237,8 +251,22 @@ Returns a dictionary with these fields:
 | `size` | number or `none` | The requested SI display scale. |
 | `source` | `str` | The normalized source expression. |
 
-Use `display` to show the equation and pass the full result through `scope`
-when another calculation needs it:
+A paired `±`/`∓` calculation instead returns `alternatives: true`, `display`,
+and these tuple fields:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `branches` | tuple of dictionaries | The two complete scalar calculation results. |
+| `values` | tuple of numbers | The two rounded displayed values. |
+| `exacts` | tuple of numbers | The two unrounded values in their output units. |
+| `si-values` | tuple of floats | The two unrounded SI values. |
+| `units` | tuple | The displayed unit of each branch. |
+
+It deliberately has no singular `value`: use `values.first()`,
+`values.last()`, or one of the complete `branches` explicitly.
+
+Use `display` to show the equation. A normal scalar result can be passed
+through `scope` when another calculation needs it:
 
 ```typ
 #let length = calculate(`250 cm to m`)
@@ -252,7 +280,7 @@ when another calculation needs it:
 ## Supported syntax
 
 - Decimal and scientific notation, such as `1.2e3`.
-- `+`, `-`, `*`, `/`, and right-associative `^`.
+- `+`, `-`, `*`, `/`, right-associative `^`, and paired `±`/`∓`.
 - Parentheses and implicit multiplication.
 - Unit products, quotients, prefixes, and integer powers.
 - Output conversion through `to`, `=`, or `unit:`.
