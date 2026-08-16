@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.29.0
+
+- Added general pass-through support for Typst's mathematical symbols in
+  builder equations, including named, Unicode, and `$...$` input forms.
+- Kept ordinary arithmetic symbols evaluatable while treating relations, set
+  operators, calculus marks, logic signs, geometry signs, and other
+  non-scalar symbols as display-only instead of reporting parser errors.
+- Added a generated catalog pinned to Typst 0.14.2's codex 0.2.0 symbol data
+  and exhaustive coverage of its 312 warning-free concrete mathematical
+  symbol paths. The generator verifies catalog counts and variation selectors.
+- Rejected attempts to store a display-only symbol expression with `:=`, since
+  it does not represent one numeric result.
+
 ## 0.28.0
 
 - Added display support for Typst's paired `plus.minus` (`±`) and `minus.plus`
