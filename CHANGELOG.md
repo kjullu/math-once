@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.30.0
+
+- Evaluated numeric `plus.minus` (`±`) and `minus.plus` (`∓`) expressions as
+  two correlated branches, displayed with the logical-or symbol `∨` between
+  their results.
+- Added paired-result dictionaries with `branches`, `values`, `exacts`,
+  `si-values`, and `units`, including unit-aware calculations and conversions.
+- Kept `:=` restricted to one scalar value; paired results can be calculated
+  directly or labelled with plain `=` but cannot be stored as one variable.
+
 ## 0.29.0
 
 - Added general pass-through support for Typst's mathematical symbols in
