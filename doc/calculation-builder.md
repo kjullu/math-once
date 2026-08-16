@@ -153,6 +153,35 @@ numeric value or stored with `:=`, because they represent two correlated
 results. Use an ordinary `=` equation to display them; an attempted numerical
 calculation or stored definition produces a focused error.
 
+## Other mathematical symbols
+
+The builder also preserves Typst's other mathematical symbols in display-only
+equations. This covers relations, set operators, calculus, logic, geometry,
+arrows, and symbol variants:
+
+```typ
+#eq($A subset.eq B$)
+#eq($f: A arrow.r B$)
+#eq(`x eq.not infinity`)
+#eq("p = q arrow.r r")
+```
+
+Named symbols, their Unicode characters, and symbols already parsed inside
+`$...$` are accepted. Ordinary `+`, `-`, multiplication, division, and powers
+keep their numeric meaning. Other symbols are deliberately display-only:
+math-once can typeset `x ∈ A` or `f → g`, but does not pretend that a relation,
+integral sign, or arrow is one number that can be stored with `:=`.
+
+Typst resolves `$...$` symbol names to glyphs before math-once receives them.
+When two names share the same glyph, that original distinction is therefore
+unavailable. In particular, `ast.op` and `convolve` both resolve to `∗`, which
+math-once already accepts as multiplication in `$...$`. Use raw or string input
+to preserve the display-only `convolve` name:
+
+```typ
+#eq(`f = a convolve b`)
+```
+
 ## Signature
 
 ```typ
