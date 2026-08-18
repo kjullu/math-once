@@ -22,8 +22,8 @@ ordinary arithmetic with matching custom units, without physical conversion.
 #eq($10 plus.minus 2$)
 // 10 ± 2 = 12 ∨ 8
 
-#eq($distance := 0.5 "mm"$)
-#eq($1 / distance$, unit: $#text-unit("lines") / m$)
+#eq($"distance" := 0.5 "mm"$)
+#eq($1 / "distance"$, unit: $#text-unit("lines") / m$)
 // 1/distance = 1/(0.5 mm) = 2000 lines/m
 
 // Use raw backticks for CAS input. Plain $...$ only works when
