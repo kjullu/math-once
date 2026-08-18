@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.32.1
+
+- Fixed the README's spaced-math example so an output unit containing
+  `text-unit(...)` no longer appears to change the source equation's layout.
+- Documented and tested that only the source expression controls automatic
+  inline/block layout; content in `unit:` does not affect it.
+- Made `result-only: true` inline by default, including for raw/CAS input, with
+  `block: true` still available for explicitly centered result-only output.
+- Documented `block: false` as the inline override for ordinary raw/CAS input,
+  which cannot carry Typst's `$...$` spacing metadata.
+
 ## 0.32.0
 
 - Added `result-only: true` to calculation-builder calls for rendering only

@@ -254,6 +254,10 @@ delimiters on separate lines produce a centered block equation. Raw and string
 input remain centered by default because they do not carry Typst layout
 metadata.
 
+Content in other arguments does not affect that choice. For example,
+`unit: $#text-unit("lines") / m$` can be compact while a spaced source such as
+`$ 1 / d $` remains a centered block equation.
+
 Set a boolean on the builder to force one layout by default. An individual
 call can still override it:
 
@@ -266,6 +270,9 @@ Inline: #automatic($1 + 1$).
 
 #automatic($ 1 + 1 $)
 // centered, like Typst's own spaced math syntax
+
+Inline CAS: #automatic(`diff(f, x)`, block: false)
+// raw input has no $...$ metadata, so use an explicit override for inline CAS
 ```
 
 ### `supplement`
@@ -346,6 +353,11 @@ conversion, rounding, and scientific-notation rules:
 The minimum evasion velocity is: #eq($v_0$, result-only: true)
 // The minimum evasion velocity is: 11.1822 km/s
 ```
+
+`result-only: true` is inline by default because it is intended for inserting
+a result into prose. This also makes raw/CAS results compact even though raw
+input has no `$...$` layout metadata. Pass `block: true` explicitly to center
+the result instead.
 
 It also works for an expression or a paired result:
 

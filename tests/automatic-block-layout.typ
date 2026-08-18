@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculation-builder
+#import "../math-once.typ": calculation-builder, text-unit
 
 #let eq = calculation-builder(key: "automatic-block-layout")
 
@@ -16,6 +16,13 @@ $)
 // Raw and string input have no layout metadata and retain centered output.
 #assert(eq(`1 + 1`).block == true)
 #assert(eq("1 + 1").block == true)
+#assert(eq(`1 + 1`, block: false).block == false)
+
+// Content embedded in the output unit must not make a spaced source compact.
+#assert(eq(
+  $ 1 / "distance" $,
+  unit: $#text-unit("lines") / m$,
+).block == true)
 
 // Builder and per-call booleans remain explicit overrides.
 #let forced-inline = calculation-builder(
@@ -31,3 +38,6 @@ $)
 Inline before #eq($2 + 2$) inline after.
 
 #eq($ 2 + 2 $)
+
+// A compact unit argument does not pull a spaced source out of block layout.
+#eq($ 1 / (0.5 "mm") $, unit: $#text-unit("lines") / m$)

@@ -7,11 +7,16 @@
 // Compact math input remains inline and displays only the stored result.
 Conclusion: #eq($v_0$, result-only: true).
 #assert(eq($v_0$, result-only: true).block == false)
+#assert(eq($ v_0 $, result-only: true).block == false)
+#assert(eq($v_0$, result-only: true, block: true).block == true)
 
 // The option applies to ordinary expressions, conversions, and paired values.
 Twice: #eq($v_0 * 2$, result-only: true).
 Converted: #eq($v_0$, unit: $m/s$, result-only: true).
 Alternatives: #eq($10 plus.minus 2$, result-only: true).
+
+CAS: #eq(`simplify(x^2 + 2*x + 1)`, result-only: true).
+#assert(eq(`simplify(x^2 + 2*x + 1)`, result-only: true).block == false)
 
 // It may also store a definition while only rendering the resulting value.
 #eq($"distance" := 1 "km" + 250 m$, result-only: true)
