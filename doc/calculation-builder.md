@@ -294,6 +294,7 @@ runner(
   unit: none,
   size: none,
   show-result: true,
+  result-only: false,
   block: builder-block,
   label: none,
   caption: none,
@@ -329,6 +330,35 @@ shown.
 #eq($lambda * 2$)
 // λ ⋅ 2 = 0.00000053 ⋅ 2 = 0.00000106
 ```
+
+### `result-only`
+
+`bool` — optional, named — default: `false`
+
+Shows only the final calculated value, without repeating the variable or the
+expression. The calculation still uses the stored exact value, units,
+conversion, rounding, and scientific-notation rules:
+
+```typ
+#let eq = calculation-builder(key: "conclusion-example", digits: 4)
+#eq($v_0 := 11.1822 "km"/s$)
+
+The minimum evasion velocity is: #eq($v_0$, result-only: true)
+// The minimum evasion velocity is: 11.1822 km/s
+```
+
+It also works for an expression or a paired result:
+
+```typ
+#eq($v_0 * 2$, result-only: true)
+// 22.3644 km/s
+
+#eq($10 plus.minus 2$, result-only: true)
+// 12 ∨ 8
+```
+
+An unset or display-only symbolic expression has no calculated result and
+therefore produces a focused inline error with `result-only: true`.
 
 ```typ
 #let eq = calculation-builder(key: "source-example")

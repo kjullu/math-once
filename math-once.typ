@@ -1,4 +1,4 @@
-// math-once v0.31.0
+// math-once v0.32.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -4516,6 +4516,7 @@ let calculation-builder(
     unit: none,
     size: none,
     show-result: true,
+    result-only: false,
     block: block,
     label: none,
     caption: none,
@@ -4524,6 +4525,9 @@ let calculation-builder(
   ) => {
     if args.pos().len() > 1 {
       panic("math-once calculate: the runner accepts at most one expression")
+    }
+    if type(result-only) != bool {
+      panic("math-once calculation-builder: result-only must be a boolean")
     }
     let source = args.pos().at(0, default: none)
     if source == none {
@@ -4580,6 +4584,10 @@ let calculation-builder(
       let current = variables.get()
       let aliases = unit-aliases(current)
       if parsed-function != none {
+        if result-only {
+          text(fill: red, [math-once: a function definition has no calculated result to show by itself.])
+          return
+        }
         if parsed-function.name in aliases {
           text(
             fill: red,
@@ -4622,6 +4630,8 @@ let calculation-builder(
             fill: red,
             [math-once: display-only mathematical symbols cannot be stored as one numeric value.],
           )
+        } else if result-only {
+          text(fill: red, [math-once: a display-only expression has no calculated result to show by itself.])
         } else {
           let visible-tokens = if calculated-assignment != none {
             tokenize(source)
@@ -4668,6 +4678,9 @@ let calculation-builder(
         }
         if (name == none or not stores-result or show-result) {
           labelled-body += h(0.25em) + math.eq + h(0.25em) + render-symbolic-result(result)
+        }
+        if result-only {
+          labelled-body = render-symbolic-result(result)
         }
 
         if stores-result {
@@ -4717,6 +4730,11 @@ let calculation-builder(
           fill: red,
           [math-once: #raw(name) is a unit name and cannot be used as a variable.],
         )
+      } else if missing.len() > 0 and result-only {
+        text(
+          fill: red,
+          [math-once: #raw(missing.first()) is not set, so there is no result to show.],
+        )
       } else if missing.len() > 0 and (calculated-assignment != none or has-paired-sign) {
         // Preserve ordinary symbolic equations when their right-hand side
         // cannot be evaluated from known variables, numbers, and units.
@@ -4734,7 +4752,11 @@ let calculation-builder(
           [math-once: #calculation-error.],
         )
       } else if display-only {
-        render-tokens(tokens, scope: current, aliases: aliases)
+        if result-only {
+          text(fill: red, [math-once: a display-only equation has no calculated result to show by itself.])
+        } else {
+          render-tokens(tokens, scope: current, aliases: aliases)
+        }
       } else if name != none {
         let name-scope = current
         name-scope.insert(name, 0)
@@ -4750,8 +4772,13 @@ let calculation-builder(
             labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases)
           }
         }
+        let visible-body = if result-only {
+          render-result(result, aliases: aliases)
+        } else {
+          labelled-body
+        }
         if stores-result {
-          result.insert("display", math.equation(labelled-body, block: block))
+          result.insert("display", math.equation(visible-body, block: block))
           result.insert("variable", name)
           if assignment-is-unloaded { result.insert("unloaded", true) }
           variables.update(old => {
@@ -4760,9 +4787,12 @@ let calculation-builder(
           })
           result.display.body
         } else {
-          labelled-body
+          visible-body
         }
       } else {
+        if result-only {
+          return render-result(result, aliases: aliases)
+        }
         let labelled-body = render-tokens(tokens, scope: current, aliases: aliases)
         if function-expansion.last() and vector-components(calculation-tokens) == none {
           labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(calculation-tokens, scope: numeric-scope(current), aliases: aliases)
@@ -5042,7 +5072,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 ///
 /// The returned runner accepts zero or one string, raw block, or Typst math
 /// equation plus the named `digits`, `unit`, `size`, `show-result`, `block`, `label`,
-/// `caption`, and `gap`, and `supplement` overrides.
+/// `result-only`, `caption`, and `gap`, and `supplement` overrides.
 /// Set `show-result: false` on a `:=` definition to store the exact calculated
 /// value while showing only the written definition.
 /// Scalar and vector functions can also be stored with `:=`, such as

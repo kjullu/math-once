@@ -22,6 +22,9 @@ ordinary arithmetic with matching custom units, without physical conversion.
 #eq($10 plus.minus 2$)
 // 10 ± 2 = 12 ∨ 8
 
+Conclusion: #eq($v$, result-only: true)
+// Conclusion: 250.56
+
 #eq($distance := 0.5 "mm"$)
 #eq($1 / distance$, unit: $#text-unit("lines") / m$)
 // 1/distance = 1/(0.5 mm) = 2000 lines/m
@@ -56,7 +59,7 @@ Copy [`math-once.typ`](math-once.typ) into your project and import the
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.31.0": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.32.0": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst. Symbolic builder operations use
