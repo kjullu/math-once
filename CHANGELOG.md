@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.32.0
+
+- Added `result-only: true` to calculation-builder calls for rendering only
+  the final calculated value, without repeating the variable or expression.
+- Kept exact stored values, units, requested conversions, rounding, scientific
+  notation, paired alternatives, and automatic inline/block layout when using
+  result-only output.
+- Added focused inline feedback for unset and display-only expressions that do
+  not have a calculated result to print by itself.
+
 ## 0.31.0
 
 - Made `calculation-builder` use `block: auto` by default, following Typst's
