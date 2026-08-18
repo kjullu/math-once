@@ -13,27 +13,30 @@ ordinary arithmetic with matching custom units, without physical conversion.
 
 #let eq = calculation-builder(digits: 2)
 
-#eq($v := 902 / 3.6$)
+#eq($ v := 902 / 3.6 $)
 // v = 902/3.6 = 250.56
 
-#eq($v * 2$)
+#eq($ v * 2 $)
 // v ⋅ 2 = 250.56 ⋅ 2 = 501.11
 
-#eq($10 plus.minus 2$)
+#eq($ 10 plus.minus 2 $)
 // 10 ± 2 = 12 ∨ 8
 
-#eq($"distance" := 0.5 "mm"$)
-#eq($1 / "distance"$, unit: $#text-unit("lines") / m$)
+Conclusion: #eq($v$, result-only: true)
+// Conclusion: 250.56
+
+#eq($ "distance" := 0.5 "mm" $)
+#eq($ 1 / "distance"$, unit: $#text-unit("lines") / m $)
 // 1/distance = 1/(0.5 mm) = 2000 lines/m
 
 // Use raw backticks for CAS input. Plain $...$ only works when
 // multi-letter names are quoted.
-#eq(`f := simplify(x^2 + 2*x + 1)`)
-#eq(`df := diff(f, x)`)
+#eq(` f := simplify(x^2 + 2*x + 1) `)
+#eq(` df := diff(f, x) `)
 // df = diff(f, x) = 2x + 2
 
 // Alternatively, quote multi-letter variables and CAS operations in $...$:
-#eq($"identity" := "simplify"(sin(x)^2 + cos(x)^2)$)
+#eq($ "identity" := "simplify"(sin(x)^2 + cos(x)^2) $)
 ```
 
 ## Acknowledgements and alternatives
@@ -56,7 +59,7 @@ Copy [`math-once.typ`](math-once.typ) into your project and import the
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.30.0": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.32.0": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst. Symbolic builder operations use

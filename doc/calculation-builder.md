@@ -198,7 +198,7 @@ calculation-builder(
   initial-state: (:),
   key: "math-once-calculation",
   digits: 4,
-  block: true,
+  block: auto,
   supplement: auto,
 ) -> function
 ```
@@ -246,14 +246,26 @@ override it.
 
 ### `block`
 
-`bool` — optional, named — default: `true`
+`auto` or `bool` — optional, named — default: `auto`
 
-Whether runner output is a centered block equation by default. A call can
-override it with `block: false`.
+With `auto`, the runner follows Typst's own math layout: compact `$1 + 1$`
+input produces an inline equation, while spaced `$ 1 + 1 $` input or math
+delimiters on separate lines produce a centered block equation. Raw and string
+input remain centered by default because they do not carry Typst layout
+metadata.
+
+Set a boolean on the builder to force one layout by default. An individual
+call can still override it:
 
 ```typ
 #let eq = calculation-builder(key: "inline-example", block: false)
 Inline: #eq(`x := 2 + 2`).
+
+#let automatic = calculation-builder(key: "automatic-layout")
+Inline: #automatic($1 + 1$).
+
+#automatic($ 1 + 1 $)
+// centered, like Typst's own spaced math syntax
 ```
 
 ### `supplement`
@@ -282,6 +294,7 @@ runner(
   unit: none,
   size: none,
   show-result: true,
+  result-only: false,
   block: builder-block,
   label: none,
   caption: none,
@@ -317,6 +330,35 @@ shown.
 #eq($lambda * 2$)
 // λ ⋅ 2 = 0.00000053 ⋅ 2 = 0.00000106
 ```
+
+### `result-only`
+
+`bool` — optional, named — default: `false`
+
+Shows only the final calculated value, without repeating the variable or the
+expression. The calculation still uses the stored exact value, units,
+conversion, rounding, and scientific-notation rules:
+
+```typ
+#let eq = calculation-builder(key: "conclusion-example", digits: 4)
+#eq($v_0 := 11.1822 "km"/s$)
+
+The minimum evasion velocity is: #eq($v_0$, result-only: true)
+// The minimum evasion velocity is: 11.1822 km/s
+```
+
+It also works for an expression or a paired result:
+
+```typ
+#eq($v_0 * 2$, result-only: true)
+// 22.3644 km/s
+
+#eq($10 plus.minus 2$, result-only: true)
+// 12 ∨ 8
+```
+
+An unset or display-only symbolic expression has no calculated result and
+therefore produces a focused inline error with `result-only: true`.
 
 ```typ
 #let eq = calculation-builder(key: "source-example")
@@ -553,9 +595,11 @@ Bare `10^(-6)` is not valid in Typst code; use `$10^(-6)$`, `` `10^(-6)` ``,
 
 ### `block`
 
-`bool` — optional, named
+`auto` or `bool` — optional, named
 
-Overrides the builder's `block` value for this call.
+Overrides the builder's `block` value for this call. `auto` follows math input
+layout and centers raw/string input; `true` and `false` force block or inline
+layout.
 
 ### `label`
 
@@ -593,7 +637,7 @@ label still attaches to the generated equation and can be referenced normally.
 #let eq = calculation-builder(key: "caption-example")
 
 #eq(
-  $v := 10 m/s$,
+  $ v := 10 m/s $,
   caption: [Den valgte begyndelseshastighed],
 ) <speed>
 

@@ -36,6 +36,10 @@ Inline: #calculate(`100 cm to m`, block: false).display.
 #let inline = calculation-builder(key: "docs-inline", block: false)
 Inline: #inline(`x := 2 + 2`).
 
+#let automatic = calculation-builder(key: "docs-automatic-layout")
+Inline: #automatic($1 + 1$).
+#automatic($ 1 + 1 $)
+
 #let source = calculation-builder(key: "docs-source")
 #source($v := 10 m/s$)
 #source($x := v * 2 s$)
@@ -118,7 +122,7 @@ Inline: #inline(`x := 2 + 2`).
 #equation-outline(title: [List of Equations])
 #equation($ E = m c^2 $, caption: [Mass-energy equivalence]) <docs-energy>
 #dimensioned(
-  $p := 2 m * 3 m$,
+  $ p := 2 m * 3 m $,
   caption: [Calculated area],
   supplement: [Formula],
 ) <docs-area>
