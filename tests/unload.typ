@@ -6,6 +6,25 @@
 // available as a variable and is therefore a harmless no-op.
 #unload($a$, $b$, $c$)
 #context assert(eq().len() == 0)
+
+// Euler's number and pi are built-in constants. Unload their reserved names
+// before deliberately reusing them as ordinary variables.
+#eq($e := 3$) // red error: built-in constant must be unloaded first
+#eq($pi := 4$) // red error: built-in constant must be unloaded first
+#eq($"circle" := 2 pi$)
+#eq($"growth" := e^2$)
+#context {
+  assert(calc.abs(eq().circle.exact - 2 * calc.pi) < 0.000000000001)
+  assert(calc.abs(eq().growth.exact - calc.pow(calc.e, 2)) < 0.000000000001)
+}
+#unload("e", "pi")
+#eq($e := 3$)
+#eq($pi := 4$)
+#eq($"custom_constants" := e + pi$)
+#context assert(eq().custom_constants.exact == 7)
+#restore-units("e", "pi")
+#eq($"restored_constants" := e + pi$)
+#context assert(calc.abs(eq().restored_constants.exact - (calc.e + calc.pi)) < 0.000000000001)
 #eq($a := 2$)
 #eq($b := 3$)
 #eq($c := a + b$)

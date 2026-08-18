@@ -4,7 +4,6 @@
 // equation. This is also a page-width regression fixture.
 #let eq = calculation-builder(key: "scientific-substitution", digits: 4)
 
-#eq($pi := 3.1415926536$, show-result: false)
 #eq($M_S := 1.989 * 10^(30) "kg"$, show-result: false)
 #eq($m_J := 5.976 * 10^(24) "kg"$, show-result: false)
 #eq($G := 6.6726 * 10^(-11) m^3 / ("kg" s^2)$)

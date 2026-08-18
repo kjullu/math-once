@@ -1,6 +1,6 @@
 # `unload`
 
-Temporarily makes unit names available as variables in a
+Temporarily makes reserved unit or built-in constant names available as variables in a
 [`calculation-builder`](calculation-builder.md). The setting is stored with the
 builder state and lasts until [`restore-units`](restore-units.md) or
 [`reset`](reset.md) restores it.
@@ -46,6 +46,15 @@ Bare `#unload(a, b)` is not generally valid because Typst evaluates `a` and
 `b` before calling the function. Single-letter math arguments such as `$a$`
 are the closest equivalent without quoting.
 
+The built-in constants `e` and `pi` are reserved in the same way. Unload them
+before deliberately replacing either value:
+
+```typ
+#unload("e", "pi")
+#eq($e := 3$)
+#eq($pi := 4$)
+```
+
 ## Restoring units
 
 Restore one catalog name without changing other builder state:
@@ -79,9 +88,10 @@ unloaded, `restore-units("a")` leaves `b` available as a variable.
 
 One or more `str`, raw, or math-content positional arguments.
 
-- Known unit names are unloaded until reset.
-- Names that are not units are harmless no-ops because they are already
-  available as variables.
+- Known unit names and the built-in constants `e` and `pi` are unloaded until
+  restored or reset.
+- Names that are neither units nor built-in constants are harmless no-ops
+  because they are already available as variables.
 - Calling `unload()` without a name reports an error.
 
 An unloaded spelling is interpreted as the variable in calculation

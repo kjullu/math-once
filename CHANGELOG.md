@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.33.0
+
+- Added Euler's number `e` and the circle constant `pi` as built-in
+  `calculation-builder` variables using Typst's exact runtime constants.
+- Reserved both names by default and allowed deliberate reuse after
+  `unload("e", "pi")`.
+- Made `restore-units` and a complete `reset` restore unloaded built-in
+  constants alongside catalog units.
+- Kept built-in constants out of the user-facing variable dictionary returned
+  by calling a builder without an expression.
+
 ## 0.32.1
 
 - Fixed the README's spaced-math example so an output unit containing
