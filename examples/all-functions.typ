@@ -188,7 +188,7 @@ $ E = m c^2 $ <energy>
 
 // Calculated equations accept the same per-call caption style.
 #eq(
-  $y := x / 2$,
+  $ y := x / 2 $,
   caption: [The recovered speed],
   supplement: [Formula],
 ) <recovered-speed>
