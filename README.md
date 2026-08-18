@@ -19,6 +19,9 @@ ordinary arithmetic with matching custom units, without physical conversion.
 #eq($ v * 2 $)
 // v ⋅ 2 = 250.56 ⋅ 2 = 501.11
 
+#eq($ 2 pi $)
+// 2π = 2 ⋅ 3.141592653589793 = 6.28
+
 #eq($ 10 plus.minus 2 $)
 // 10 ± 2 = 12 ∨ 8
 
@@ -63,7 +66,7 @@ Copy [`math-once.typ`](math-once.typ) into your project and import the
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.32.1": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.33.0": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst. Symbolic builder operations use

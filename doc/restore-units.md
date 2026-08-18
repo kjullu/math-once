@@ -1,6 +1,6 @@
 # `restore-units`
 
-Restores catalog unit names previously made available as variables with
+Restores catalog unit names and built-in constants previously made available as variables with
 [`unload`](unload.md), without resetting unrelated builder state.
 
 ## Import
@@ -28,6 +28,16 @@ restore-units(..names, key: "math-once-calculation") -> content
 
 #restore-units()
 // every remaining unloaded catalog name is restored
+```
+
+Despite its historical name, `restore-units` also restores the standard
+values of unloaded `e` and `pi`:
+
+```typ
+#unload("pi")
+#eq($pi := 4$)
+#restore-units("pi")
+#eq($2 pi$) // uses Typst's calc.pi again
 ```
 
 Restoring a catalog name removes a stored variable using that name because the

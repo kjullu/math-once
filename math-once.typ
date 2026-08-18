@@ -1,4 +1,4 @@
-// math-once v0.32.1
+// math-once v0.33.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3697,6 +3697,8 @@ let is-symbolic-expression(item) = is-symbolic-result(item) and item.at("symboli
 let is-renamed-unit(item) = is-unloaded(item) and type(item) == dictionary and item.at("renamed-unit", default: false)
 let initial-state-marker-name = "math-once--initial-state"
 let is-initial-state-marker(item) = type(item) == dictionary and item.at("initial-state-marker", default: false)
+let built-in-constants = (e: calc.e, pi: calc.pi)
+let is-built-in-constant(name) = name in built-in-constants
 let is-stored-variable(item) = (
   not is-unloaded-marker(item)
   and not is-unit-alias(item)
@@ -3910,10 +3912,12 @@ let state-initial-values(scope) = {
 }
 
 let builder-initial-state(initial) = {
-  let result = initial
+  let result = (:)
+  for (name, value) in built-in-constants { result.insert(name, value) }
+  for (name, value) in initial { result.insert(name, value) }
   result.insert(initial-state-marker-name, (
     initial-state-marker: true,
-    values: initial,
+    values: result,
   ))
   result
 }
@@ -4507,6 +4511,12 @@ let calculation-builder(
         + "` is a unit name and cannot be used as a variable",
       )
     }
+    if is-built-in-constant(name) {
+      panic(
+        "math-once calculation-builder: `" + name
+        + "` is a built-in constant; use unload before assigning it",
+      )
+    }
   }
   let variables = state(key, builder-initial-state(initial-state))
 
@@ -4533,7 +4543,10 @@ let calculation-builder(
     if source == none {
       let visible = (:)
       for (name, value) in variables.get() {
-        if not is-unloaded-marker(value) and not is-unit-alias(value) and not is-initial-state-marker(value) {
+        if (not is-unloaded-marker(value)
+          and not is-unit-alias(value)
+          and not is-initial-state-marker(value)
+          and not is-built-in-constant(name)) {
           visible.insert(name, value)
         }
       }
@@ -4607,7 +4620,15 @@ let calculation-builder(
         if is-unloaded(item) { unloaded.push(stored-name) }
       }
       let assignment-is-unloaded = stores-result and name != none and name in unloaded
-      let illegal-assignment = stores-result and name != none and (resolve-unit(name) != none or name in aliases) and not assignment-is-unloaded
+      let illegal-assignment = (stores-result
+        and name != none
+        and (resolve-unit(name) != none or name in aliases or is-built-in-constant(name))
+        and not assignment-is-unloaded)
+      let reserved-name-kind = if name != none and is-built-in-constant(name) {
+        "a built-in constant"
+      } else {
+        "a unit name"
+      }
       let tokens = if display-only { tokenize(source) } else { expression-tokens(expression) }
       let evaluation-tokens = if display-only { tokens } else { tokenize(expression) }
       let has-paired-sign = evaluation-tokens.any(token => token in ("±", "∓"))
@@ -4623,7 +4644,7 @@ let calculation-builder(
         if illegal-assignment {
           text(
             fill: red,
-            [math-once: #raw(name) is a unit name and cannot be used as a variable.],
+            [math-once: #raw(name) is #reserved-name-kind and cannot be used as a variable.],
           )
         } else if stores-result {
           text(
@@ -4652,7 +4673,7 @@ let calculation-builder(
         if illegal-assignment {
           text(
             fill: red,
-            [math-once: #raw(name) is a unit name and cannot be used as a variable.],
+            [math-once: #raw(name) is #reserved-name-kind and cannot be used as a variable.],
           )
           return
         }
@@ -4728,7 +4749,7 @@ let calculation-builder(
       if illegal-assignment {
         text(
           fill: red,
-          [math-once: #raw(name) is a unit name and cannot be used as a variable.],
+          [math-once: #raw(name) is #reserved-name-kind and cannot be used as a variable.],
         )
       } else if missing.len() > 0 and result-only {
         text(
@@ -4834,7 +4855,7 @@ let state-name(value, action) = {
 /// Clear the complete calculation-builder state.
 let reset(key: "math-once-calculation") = {
   let variables = state(key, (:))
-  variables.update(_ => (:))
+  variables.update(_ => builder-initial-state((:)))
 }
 
 /// Clear selected or all stored values while preserving builder configuration.
@@ -4896,7 +4917,11 @@ let restore-units(..names, key: "math-once-calculation") = {
       if (is-unloaded(value)
         and not is-renamed-unit(value)
         and (selected.len() == 0 or name in selected)) {
-        let _ = kept.remove(name)
+        if is-built-in-constant(name) {
+          kept.insert(name, built-in-constants.at(name))
+        } else {
+          let _ = kept.remove(name)
+        }
       }
     }
     kept
@@ -4948,7 +4973,9 @@ let unload(..names, key: "math-once-calculation") = {
   let variables = state(key, (:))
   variables.update(old => {
     for name in selected {
-      if resolve-unit(name) == none {
+      if is-built-in-constant(name) {
+        old.insert(name, (unloaded: true))
+      } else if resolve-unit(name) == none {
         continue
       } else if name in old and type(old.at(name)) == dictionary and "si-value" in old.at(name) {
         let value = old.at(name)
@@ -5038,7 +5065,8 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 ///   conversion.
 /// - `digits`: Decimal places used for the visible `value`. Default: `4`.
 /// - `scope`: Numbers or earlier calculate results available as variables.
-///   Unit names are reserved and cannot be used as variable names.
+///   Unit names are reserved and cannot be used as variable names. Stateful
+///   calculation builders also reserve their built-in `e` and `pi` constants.
 /// - `unit`: Optional requested output unit as a string, raw block, or Typst
 ///   math equation. This is an alternative to `to` or `=` in `source`.
 /// - `size`: Optional positive SI scale for the displayed result. For example,

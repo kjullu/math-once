@@ -30,7 +30,8 @@ The default `key` matches a builder created without an explicit key:
 #eq(`height := factor * 5 m`)
 
 #reset()
-// values, functions, initial-state, unloads, and aliases are all cleared
+// values, functions, initial-state, unloads, and aliases are all cleared;
+// the standard e and pi constants are restored
 ```
 
 Use the matching `key` for a custom builder:

@@ -22,6 +22,27 @@ substitute values stored by `:=`.
 Calculations use the unrounded stored value. This avoids accumulating rounding
 errors even though the substituted step shows the rounded value.
 
+Euler's number `e` and the circle constant `pi` are available by default and
+use Typst's `calc.e` and `calc.pi` values:
+
+```typ
+#eq($"growth" := e^2$)
+#eq($"circumference" := 2 pi r$)
+```
+
+Their names are reserved so they cannot be replaced accidentally. To reuse
+either spelling as an ordinary variable, unload it first:
+
+```typ
+#unload("e", "pi")
+#eq($e := 3$)
+#eq($pi := 4$)
+```
+
+[`restore-units`](restore-units.md) restores their standard values, as does a
+complete [`reset`](reset.md). Built-in constants are omitted from the
+dictionary returned by `eq()` so it continues to contain user results only.
+
 Very large values (`>= 10^9`) and very small nonzero values (`< 10^(-4)`) are
 shown in scientific notation when substituted or rendered as results. Their
 stored exact values are unchanged. For example, a stored mass of
