@@ -198,7 +198,7 @@ calculation-builder(
   initial-state: (:),
   key: "math-once-calculation",
   digits: 4,
-  block: true,
+  block: auto,
   supplement: auto,
 ) -> function
 ```
@@ -246,14 +246,26 @@ override it.
 
 ### `block`
 
-`bool` — optional, named — default: `true`
+`auto` or `bool` — optional, named — default: `auto`
 
-Whether runner output is a centered block equation by default. A call can
-override it with `block: false`.
+With `auto`, the runner follows Typst's own math layout: compact `$1 + 1$`
+input produces an inline equation, while spaced `$ 1 + 1 $` input or math
+delimiters on separate lines produce a centered block equation. Raw and string
+input remain centered by default because they do not carry Typst layout
+metadata.
+
+Set a boolean on the builder to force one layout by default. An individual
+call can still override it:
 
 ```typ
 #let eq = calculation-builder(key: "inline-example", block: false)
 Inline: #eq(`x := 2 + 2`).
+
+#let automatic = calculation-builder(key: "automatic-layout")
+Inline: #automatic($1 + 1$).
+
+#automatic($ 1 + 1 $)
+// centered, like Typst's own spaced math syntax
 ```
 
 ### `supplement`
@@ -553,9 +565,11 @@ Bare `10^(-6)` is not valid in Typst code; use `$10^(-6)$`, `` `10^(-6)` ``,
 
 ### `block`
 
-`bool` — optional, named
+`auto` or `bool` — optional, named
 
-Overrides the builder's `block` value for this call.
+Overrides the builder's `block` value for this call. `auto` follows math input
+layout and centers raw/string input; `true` and `false` force block or inline
+layout.
 
 ### `label`
 
@@ -593,7 +607,7 @@ label still attaches to the generated equation and can be referenced normally.
 #let eq = calculation-builder(key: "caption-example")
 
 #eq(
-  $v := 10 m/s$,
+  $ v := 10 m/s $,
   caption: [Den valgte begyndelseshastighed],
 ) <speed>
 

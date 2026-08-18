@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.31.0
+
+- Made `calculation-builder` use `block: auto` by default, following Typst's
+  own math layout: `$1 + 1$` stays inline, while `$ 1 + 1 $` and multiline
+  math input become centered block equations.
+- Kept raw and string builder input centered by default because those forms do
+  not contain Typst equation-layout metadata.
+- Preserved explicit `block: true` and `block: false` overrides at both builder
+  and individual-call level.
+
 ## 0.30.0
 
 - Evaluated numeric `plus.minus` (`±`) and `minus.plus` (`∓`) expressions as

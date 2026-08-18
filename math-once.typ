@@ -1,4 +1,4 @@
-// math-once v0.30.0
+// math-once v0.31.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -4491,9 +4491,12 @@ let calculation-builder(
   initial-state: (:),
   key: "math-once-calculation",
   digits: 4,
-  block: true,
+  block: auto,
   supplement: auto,
 ) = {
+  if block != auto and type(block) != bool {
+    panic("math-once calculation-builder: block must be auto or a boolean")
+  }
   for (name, _) in initial-state {
     if name == initial-state-marker-name {
       panic("math-once calculation-builder: reserved initial-state key")
@@ -4533,6 +4536,19 @@ let calculation-builder(
       return visible
     }
 
+    let source-block = if type(source) == content and source.func() == math.equation {
+      source.block
+    } else {
+      none
+    }
+    if block != auto and type(block) != bool {
+      panic("math-once calculation-builder: block must be auto or a boolean")
+    }
+    let block = if block == auto {
+      if source-block == none { true } else { source-block }
+    } else {
+      block
+    }
     let source = input-source(source, preserve-text: true)
     let parsed-function = function-definition(source)
     let stored-assignment = source.match(regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*:=\\s*(.+)$"))
@@ -5019,7 +5035,9 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 ///   are reserved and cannot be used as keys. Default: empty.
 /// - `key`: Typst state key. Give independent runners different keys.
 /// - `digits`: Default decimal places for runner calls. Default: `4`.
-/// - `block`: Whether runner equations are centered. Default: `true`.
+/// - `block`: `auto` follows Typst math input (`$x$` inline, `$ x $` block)
+///   and keeps raw/string input centered. A boolean forces the layout.
+///   Default: `auto`.
 /// - `supplement`: Optional reference and caption name. Default: `auto`.
 ///
 /// The returned runner accepts zero or one string, raw block, or Typst math
@@ -5043,7 +5061,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   initial-state: (:),
   key: "math-once-calculation",
   digits: 4,
-  block: true,
+  block: auto,
   supplement: auto,
 ) = (_engine.calculation-builder)(
   initial-state: initial-state,
