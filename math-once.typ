@@ -1,4 +1,4 @@
-// math-once v0.32.0
+// math-once v0.32.1
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -4549,7 +4549,7 @@ let calculation-builder(
       panic("math-once calculation-builder: block must be auto or a boolean")
     }
     let block = if block == auto {
-      if source-block == none { true } else { source-block }
+      if result-only { false } else if source-block == none { true } else { source-block }
     } else {
       block
     }
