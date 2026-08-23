@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.34.2
+
+- Made `floor`, `ceil`, and `round` calculate inside Typst `$...$` math, where
+  Typst converts the names to floor and ceiling delimiters before math-once
+  receives the expression.
+- Added value assertions for math-mode rounding instead of relying on compile
+  success alone.
+- Replaced the literal NBSP reverse-symbol key with `"\u{a0}"` to prevent a
+  duplicate-key error while keeping `space.nobreak` available.
+- Updated the symbol-catalog generator so regeneration preserves the escaped
+  NBSP key.
+
 ## 0.34.1
 
 - Accepted quoted Typst text in variable subscripts, so names such as

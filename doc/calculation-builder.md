@@ -444,6 +444,14 @@ preserve the input unit:
 // length = floor(3.7 cm) = 3 cm
 ```
 
+The same functions work inside `$...$` math:
+
+```typ
+#eq($floor(3.7)$) // ⌊3.7⌋ = 3
+#eq($ceil(3.2)$)  // ⌈3.2⌉ = 4
+#eq($round(3.5)$) // ⌊3.5⌉ = 4
+```
+
 Arguments to stored functions are substituted before the normal unit-aware
 calculation:
 

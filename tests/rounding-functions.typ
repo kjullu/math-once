@@ -7,6 +7,13 @@
 #assert(calculate(`floor(-3.2)`).exact == -4)
 #assert(calculate(`ceil(-3.2)`).exact == -3)
 
+// Typst converts math-mode names to floor and ceiling delimiters before the
+// package sees them. Reconstruct the function from those delimiters.
+#assert(calculate($floor(3.7)$).exact == 3)
+#assert(calculate($ceil(3.2)$).exact == 4)
+#assert(calculate($round(3.5)$).exact == 4)
+#assert(calculate($floor(-3.2)$).exact == -4)
+
 // Round in the input's preferred unit and preserve that unit when stored.
 #let centimetres = calculate(`floor(3.7 cm)`)
 #assert(centimetres.exact == 3)
