@@ -1,4 +1,4 @@
-// math-once v0.34.0
+// math-once v0.34.1
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3126,7 +3126,12 @@ let math-source-part(value, parse, preserve-text: false) = {
     let base = math-source-part(value.base, parse)
     if value.has("b") {
       let subscript = parse(value.b)
-      if regex("^[A-Za-z0-9]+$") not in subscript {
+      if (subscript.len() >= 2
+        and subscript.starts-with("\"")
+        and subscript.ends-with("\"")) {
+        subscript = subscript.slice(1, subscript.len() - 1)
+      }
+      if regex("^[\\p{L}0-9]+$") not in subscript {
         panic("math-once calculate: variable subscripts must contain only letters or digits")
       }
       base += "_" + subscript

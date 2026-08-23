@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.34.1
+
+- Accepted quoted Typst text in variable subscripts, so names such as
+  `$n_"maks"$` can be stored and reused.
+- Normalized the state key to `n_maks`, matching existing raw and ordinary
+  letter-subscript variables.
+- Kept rejecting spaces, operators, and other ambiguous subscript content.
+- Added direct, reuse, rendered, and local-package regression coverage.
+
 ## 0.34.0
 
 - Added `floor(x)`, `ceil(x)`, and `round(x)` to `calculate` and
