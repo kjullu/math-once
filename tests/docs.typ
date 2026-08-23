@@ -71,6 +71,13 @@ Inline: #automatic($1 + 1$).
 #dimensioned($v := 10 m/s + 1 "km"/h$)
 #dimensioned($x := v * 2 s$, digits: 3)
 
+#let text-subscript = calculation-builder(key: "docs-text-subscript")
+#unload("d", key: "docs-text-subscript")
+#text-subscript($d := 10 "mm"$)
+#text-subscript($lambda := 2 "mm"$)
+#text-subscript($n_"maks" := d / lambda$)
+#context assert(text-subscript().at("n_maks").exact == 5)
+
 // Symbolic calculation-builder documentation examples.
 #let symbolic = calculation-builder(key: "docs-symbolic")
 #symbolic(`f := simplify(x^2 + 2*x + 1)`)

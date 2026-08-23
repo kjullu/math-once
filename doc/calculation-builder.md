@@ -8,7 +8,7 @@ substitute values stored by `:=`.
 ## Example
 
 ```typ
-#import "math-once.typ": calculation-builder, text-unit
+#import "math-once.typ": calculation-builder, unload, text-unit
 
 #let eq = calculation-builder(digits: 2)
 
@@ -523,8 +523,21 @@ including its underscore, becomes the state dictionary key:
 ```
 
 Raw input uses the same underscore syntax, for example
-`` `speed_max := 20 m/s` ``. Subscripts are intentionally limited to letters
-and digits so they remain unambiguous reusable variable names.
+`` `speed_max := 20 m/s` ``. Typst text subscripts work too. Quotes let a
+multi-letter subscript stay upright in math while the stored key remains
+plain:
+
+```typ
+#unload("d") // d is the day unit until unloaded
+#eq($d := 10 "mm"$)
+#eq($lambda := 2 "mm"$)
+#eq($n_"maks" := d / lambda$)
+
+#context assert(eq().at("n_maks").exact == 5)
+```
+
+Subscripts are intentionally limited to letters and digits so they remain
+unambiguous reusable variable names.
 
 `degree` can be used with a subscripted angle and is displayed as `°` in Typst
 math:
