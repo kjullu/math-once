@@ -25,6 +25,9 @@ ordinary arithmetic with matching custom units, without physical conversion.
 #eq($ floor(3.7) $)
 // floor(3.7) = 3
 
+#eq($ x := |1 - 4| $)
+// x = |1 - 4| = 3
+
 #eq($ 10 plus.minus 2 $)
 // 10 ± 2 = 12 ∨ 8
 
@@ -69,7 +72,7 @@ Copy [`math-once.typ`](math-once.typ) into your project and import the
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.34.2": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.35.0": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst. Symbolic builder operations use

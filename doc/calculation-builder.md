@@ -452,6 +452,22 @@ The same functions work inside `$...$` math:
 #eq($round(3.5)$) // ⌊3.5⌉ = 4
 ```
 
+`abs(expression)` and balanced scalar bars calculate absolute values while
+preserving units:
+
+```typ
+#eq($T_0 := 286.15 K$)
+#eq($T_3 := 316.15 K$)
+#eq($T_Delta := |T_0 - T_3|$)
+// T_Δ = |T_0 - T_3| = 30 K
+
+#eq(`length := abs(-3 cm)`)
+// length = |-3 cm| = 3 cm
+```
+
+Other uses of `|`, including infix and non-numeric notation, remain
+display-only.
+
 Arguments to stored functions are substituted before the normal unit-aware
 calculation:
 
