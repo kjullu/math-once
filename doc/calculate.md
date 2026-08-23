@@ -225,6 +225,27 @@ the root index. For example, `sqrt(9 m^2)` returns `3 m`. A non-integer or
 zero index, an even root of a negative value, or incompatible unit exponents
 produces an error.
 
+### Absolute values
+
+`abs(expression)` always calculates an absolute value. Balanced bars do the
+same when they surround a numeric expression:
+
+```typ
+#calculate(`abs(-3)`).display // |-3| = 3
+#calculate($|-3|$).display    // |-3| = 3
+```
+
+Absolute values preserve units:
+
+```typ
+#calculate($|-3 "cm"|$).display
+// |-3 cm| = 3 cm
+```
+
+Multiple and nested absolute values are supported. Infix bars such as
+`$a | b$`, unbalanced bars, and non-numeric bar notation remain display-only
+when passed through `calculation-builder`.
+
 ### Rounding functions
 
 `floor(x)` rounds down, `ceil(x)` rounds up, and `round(x)` rounds to the

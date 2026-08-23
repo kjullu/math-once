@@ -19,6 +19,8 @@
 #calculate(`floor(3.7 cm)`).display
 #calculate(`ceil(-3.2)`).display
 #calculate(`round(3.5)`).display
+#calculate(`abs(-3 cm)`).display
+#calculate($|-3 "cm"|$).display
 Inline: #calculate(`100 cm to m`, block: false).display.
 
 #let length = calculate(`250 cm to m`)

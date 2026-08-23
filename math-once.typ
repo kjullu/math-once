@@ -1,4 +1,4 @@
-// math-once v0.34.2
+// math-once v0.35.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3077,7 +3077,7 @@ let variable-symbol-name(symbol) = {
 
 let cas-functions = ("simplify", "diff", "integrate", "solve", "factor", "limit", "taylor")
 let rounding-functions = ("floor", "ceil", "round")
-let math-functions = ("sin", "cos", "tan", "sqrt", "root") + rounding-functions
+let math-functions = ("sin", "cos", "tan", "sqrt", "root", "abs") + rounding-functions
 let source-functions = math-functions + cas-functions
 let text-unit-prefix = "⟦"
 let text-unit-suffix = "⟧"
@@ -3186,6 +3186,7 @@ let math-source-part(value, parse, preserve-text: false) = {
   let variable-name = variable-symbol-name(token)
   if variable-name != none { variable-name }
   else if token == "≔" { ":=" }
+  else if token == "|" { "|" }
   else if token in ("⋅", "∗", "×") { "*" }
   else if token in ("÷",) { "/" }
   else if token in ("−",) { "-" }
@@ -3231,7 +3232,7 @@ let tokenize(source) = {
       normalized-symbol(token, value: entry.value)
     } else if (regex("^" + raw-symbol + "$") in token
       and resolve-unit(token) == none
-      and token not in ("=", "(", ")", ",", "+", "-", "*", "/", "^")) {
+      and token not in ("=", "(", ")", ",", "+", "-", "*", "/", "^", "|")) {
       normalized-symbol-value(token)
     } else {
       token
@@ -3372,6 +3373,38 @@ let expression-tokens(source) = {
   }
   tokens
 }
+
+// Convert scalar absolute-value bars to the evaluator's abs(...) function.
+// A bar can only open where an operand is expected, which leaves conditional,
+// divisibility, determinant, and other infix bar notation display-only.
+let absolute-value-tokens(tokens) = {
+  if "|" not in tokens { return tokens }
+  let result = ()
+  let depth = 0
+  let expects-operand = true
+  for token in tokens {
+    if token == "|" {
+      if depth > 0 and not expects-operand {
+        result.push(")")
+        depth -= 1
+        expects-operand = false
+      } else if expects-operand {
+        result.push("abs")
+        result.push("(")
+        depth += 1
+        expects-operand = true
+      } else {
+        return none
+      }
+    } else {
+      result.push(token)
+      expects-operand = token in ("(", ",", "+", "-", "*", "/", "^", "=", ":=")
+    }
+  }
+  if depth == 0 { result } else { none }
+}
+
+let is-display-only-token(token) = is-math-symbol(token) or token == "|"
 
 let split-top-level(tokens, separator: ",") = {
   let parts = ()
@@ -4133,6 +4166,13 @@ let apply-rounding(name, argument, aliases: (:), soft: false) = {
   )
 }
 
+let apply-absolute(argument) = quantity(
+  calc.abs(argument.si-value),
+  dims: argument.dims,
+  preferred: argument.preferred,
+  opaque: argument.opaque,
+)
+
 let apply-root(index, radicand, soft: false) = {
   if not is-dimensionless(index) or index.preferred != none {
     return calculation-fail("root index must be dimensionless", soft: soft)
@@ -4207,6 +4247,8 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
         }
         left = if token == "sqrt" {
           apply-root(quantity(2.0), first, soft: soft)
+        } else if token == "abs" {
+          apply-absolute(first)
         } else if token in rounding-functions {
           apply-rounding(token, first, aliases: aliases, soft: soft)
         } else {
@@ -4346,8 +4388,8 @@ let normalize-size(size, soft: false) = {
 }
 
 /// Evaluate a unit-aware expression containing numbers, units, variables,
-/// `sin`, `cos`, `tan`, `floor`, `ceil`, `round`, and the operators `+`, `-`,
-/// `*`, `/`, `^`, `±`, and `∓`.
+/// `sin`, `cos`, `tan`, `abs`, `floor`, `ceil`, `round`, absolute-value bars,
+/// and the operators `+`, `-`, `*`, `/`, `^`, `±`, and `∓`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
 let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), aliases: (:), soft: false) = {
@@ -4359,7 +4401,9 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   // when the bare name `m` has been unloaded for use as a variable.
   let source = input-source(source, preserve-text: true)
   let raw-tokens = tokenize(source)
-  if raw-tokens.any(is-math-symbol) {
+  let absolute-tokens = absolute-value-tokens(raw-tokens)
+  if absolute-tokens != none { raw-tokens = absolute-tokens }
+  if raw-tokens.any(is-display-only-token) {
     return calculation-fail(
       "display-only mathematical symbols cannot be evaluated as one numeric value",
       soft: soft,
@@ -4684,6 +4728,9 @@ let calculation-builder(
       }
       let tokens = if display-only { tokenize(source) } else { expression-tokens(expression) }
       let evaluation-tokens = if display-only { tokens } else { tokenize(expression) }
+      let has-absolute-bars = "|" in evaluation-tokens
+      let absolute-tokens = absolute-value-tokens(evaluation-tokens)
+      if absolute-tokens != none { evaluation-tokens = absolute-tokens }
       let has-paired-sign = evaluation-tokens.any(token => token in ("±", "∓"))
       if has-paired-sign and stores-result and not illegal-assignment {
         text(
@@ -4692,7 +4739,7 @@ let calculation-builder(
         )
         return
       }
-      let has-display-symbol = evaluation-tokens.any(is-math-symbol)
+      let has-display-symbol = evaluation-tokens.any(is-display-only-token)
       if has-display-symbol {
         if illegal-assignment {
           text(
@@ -4798,12 +4845,22 @@ let calculation-builder(
         )
       }
       let calculation-error = if is-calculation-failure(result) { result.error } else { none }
+      let unresolved-absolute = (has-absolute-bars
+        and (missing.len() > 0 or function-error != none or calculation-error != none))
 
       if illegal-assignment {
         text(
           fill: red,
           [math-once: #raw(name) is #reserved-name-kind and cannot be used as a variable.],
         )
+      } else if unresolved-absolute and stores-result {
+        text(
+          fill: red,
+          [math-once: a non-numeric absolute-value expression cannot be stored as one value.],
+        )
+      } else if unresolved-absolute {
+        let visible-tokens = if calculated-assignment != none { tokenize(source) } else { tokens }
+        render-tokens(visible-tokens, scope: current, aliases: aliases)
       } else if missing.len() > 0 and result-only {
         text(
           fill: red,
@@ -5113,9 +5170,9 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// Evaluate a dimensional, unit-aware expression.
 ///
 /// - `source`: A trusted string, raw block, or Typst math equation containing
-///   numbers, units, variables, parentheses, `sin`, `cos`, `tan`, `floor`,
-///   `ceil`, `round`, `+`, `-`, `*`, `/`, `^`, `±`, `∓`, and optionally `to`
-///   or `=` for output conversion.
+///   numbers, units, variables, parentheses, `sin`, `cos`, `tan`, `abs`,
+///   `floor`, `ceil`, `round`, absolute-value bars, `+`, `-`, `*`, `/`, `^`,
+///   `±`, `∓`, and optionally `to` or `=` for output conversion.
 /// - `digits`: Decimal places used for the visible `value`. Default: `4`.
 /// - `scope`: Numbers or earlier calculate results available as variables.
 ///   Unit names are reserved and cannot be used as variable names. Stateful

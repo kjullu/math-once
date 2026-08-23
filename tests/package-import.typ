@@ -1,4 +1,4 @@
-#import "@local/math-once:0.34.2": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline
+#import "@local/math-once:0.35.0": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline
 
 #let result = evaluate-code(`6 * 7`, unit: `kg`)
 #assert(result.value == 42)
@@ -8,6 +8,8 @@
 #assert(calculate($floor(3.7)$).exact == 3)
 #assert(calculate($ceil(3.2)$).exact == 4)
 #assert(calculate($round(3.5)$).exact == 4)
+#assert(calculate(`abs(-3)`).exact == 3)
+#assert(calculate($|-3|$).exact == 3)
 #assert(result.exact == 42)
 #result.display
 

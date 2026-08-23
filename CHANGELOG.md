@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.35.0
+
+- Added `abs(expression)` to the unit-aware evaluator.
+- Evaluated balanced scalar `|expression|` notation as absolute value in raw
+  and Typst math input.
+- Preserved physical and custom units through absolute-value calculations.
+- Left infix, unbalanced, determinant-like, and otherwise non-numeric bar
+  notation display-only.
+- Added coverage for stored values, variables, units, multiple and nested
+  absolute values, package imports, and rendered output.
+
 ## 0.34.2
 
 - Made `floor`, `ceil`, and `round` calculate inside Typst `$...$` math, where
