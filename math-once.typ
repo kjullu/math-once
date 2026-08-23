@@ -1,4 +1,4 @@
-// math-once v0.34.1
+// math-once v0.34.2
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -1910,7 +1910,7 @@ let typst-symbol-values = (
   "‎": "lrm",
   "‏": "rlm",
   " ": "space",
-  " ": "space.nobreak",
+  "\u{a0}": "space.nobreak",
   " ": "space.nobreak.narrow",
   " ": "space.en",
   " ": "space.quad",
@@ -3142,6 +3142,27 @@ let math-source-part(value, parse, preserve-text: false) = {
     return base
   }
   if value.func() == math.lr {
+    let parts = math-items(value.body)
+    if parts.len() >= 3 {
+      let left = parts.first()
+      let right = parts.last()
+      let left-text = if left.has("text") { left.text.trim() } else { "" }
+      let right-text = if right.has("text") { right.text.trim() } else { "" }
+      let rounding = if left-text == "⌊" and right-text == "⌋" {
+        "floor"
+      } else if left-text == "⌈" and right-text == "⌉" {
+        "ceil"
+      } else if left-text == "⌊" and right-text == "⌉" {
+        "round"
+      } else {
+        none
+      }
+      if rounding != none {
+        let inner = parts.slice(1, parts.len() - 1).map(part => parse(part))
+          .filter(part => part != "").join(" ")
+        return rounding + "(" + inner + ")"
+      }
+    }
     return parse(value.body)
   }
   if value.func() == math.op {

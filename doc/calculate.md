@@ -241,6 +241,15 @@ nearest integer:
 // round(3.5) = 4
 ```
 
+They also work directly in Typst math. Typst displays the matching floor and
+ceiling delimiters, while math-once reconstructs and calculates the function:
+
+```typ
+#calculate($floor(3.7)$).display // ⌊3.7⌋ = 3
+#calculate($ceil(3.2)$).display  // ⌈3.2⌉ = 4
+#calculate($round(3.5)$).display // ⌊3.5⌉ = 4
+```
+
 Down and up refer to the number line. This matters for negative values:
 
 ```typ

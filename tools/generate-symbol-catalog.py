@@ -114,7 +114,10 @@ def parse_catalog(source: str) -> list[Symbol]:
 
 
 def typst_string(value: str) -> str:
-    return json.dumps(value, ensure_ascii=False)
+    # Keep NBSP distinct from an ordinary source-code space. Some Typst
+    # versions normalize the literal glyph while parsing dictionary keys and
+    # then report the reverse symbol table as containing a duplicate key.
+    return json.dumps(value, ensure_ascii=False).replace("\u00a0", r"\u{a0}")
 
 
 def generated_catalog(records: list[Symbol]) -> str:
