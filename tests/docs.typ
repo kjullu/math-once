@@ -16,6 +16,9 @@
 #calculate(`2047.762752 nm`, size: $10^(-6)$, digits: 9).display
 #calculate(`3 m/s to km/h`, digits: 1).display
 #calculate(`3 m/s = km/h`, digits: 1).display
+#calculate(`floor(3.7 cm)`).display
+#calculate(`ceil(-3.2)`).display
+#calculate(`round(3.5)`).display
 Inline: #calculate(`100 cm to m`, block: false).display.
 
 #let length = calculate(`250 cm to m`)
