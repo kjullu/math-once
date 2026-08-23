@@ -1,4 +1,4 @@
-// math-once v0.33.0
+// math-once v0.34.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3076,7 +3076,8 @@ let variable-symbol-name(symbol) = {
 }
 
 let cas-functions = ("simplify", "diff", "integrate", "solve", "factor", "limit", "taylor")
-let math-functions = ("sin", "cos", "tan", "sqrt", "root")
+let rounding-functions = ("floor", "ceil", "round")
+let math-functions = ("sin", "cos", "tan", "sqrt", "root") + rounding-functions
 let source-functions = math-functions + cas-functions
 let text-unit-prefix = "⟦"
 let text-unit-suffix = "⟧"
@@ -4082,6 +4083,30 @@ let apply-function(name, argument, soft: false) = {
   )
 }
 
+let apply-rounding(name, argument, aliases: (:), soft: false) = {
+  let scale = 1.0
+  let offset = 0.0
+  if argument.preferred != none and argument.opaque.len() == 0 {
+    let unit-name = aliases.at(argument.preferred, default: argument.preferred)
+    let unit = resolve-unit(unit-name)
+    if unit != none {
+      scale = unit.scale
+      offset = unit.at("offset", default: 0.0)
+    }
+  }
+  let value = (argument.si-value - offset) / scale
+  let rounded = if name == "floor" { calc.floor(value) }
+    else if name == "ceil" { calc.ceil(value) }
+    else if name == "round" { calc.round(value) }
+    else { return calculation-fail("unsupported rounding function `" + name + "`", soft: soft) }
+  quantity(
+    rounded * scale + offset,
+    dims: argument.dims,
+    preferred: argument.preferred,
+    opaque: argument.opaque,
+  )
+}
+
 let apply-root(index, radicand, soft: false) = {
   if not is-dimensionless(index) or index.preferred != none {
     return calculation-fail("root index must be dimensionless", soft: soft)
@@ -4156,6 +4181,8 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
         }
         left = if token == "sqrt" {
           apply-root(quantity(2.0), first, soft: soft)
+        } else if token in rounding-functions {
+          apply-rounding(token, first, aliases: aliases, soft: soft)
         } else {
           apply-function(token, first, soft: soft)
         }
@@ -4293,8 +4320,8 @@ let normalize-size(size, soft: false) = {
 }
 
 /// Evaluate a unit-aware expression containing numbers, units, variables,
-/// `sin`, `cos`, `tan`, and the operators `+`, `-`, `*`, `/`, `^`, `±`, and
-/// `∓`.
+/// `sin`, `cos`, `tan`, `floor`, `ceil`, `round`, and the operators `+`, `-`,
+/// `*`, `/`, `^`, `±`, and `∓`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
 let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), aliases: (:), soft: false) = {
@@ -5060,9 +5087,9 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// Evaluate a dimensional, unit-aware expression.
 ///
 /// - `source`: A trusted string, raw block, or Typst math equation containing
-///   numbers, units, variables, parentheses, `sin`, `cos`, `tan`, `+`, `-`,
-///   `*`, `/`, `^`, `±`, `∓`, and optionally `to` or `=` for output
-///   conversion.
+///   numbers, units, variables, parentheses, `sin`, `cos`, `tan`, `floor`,
+///   `ceil`, `round`, `+`, `-`, `*`, `/`, `^`, `±`, `∓`, and optionally `to`
+///   or `=` for output conversion.
 /// - `digits`: Decimal places used for the visible `value`. Default: `4`.
 /// - `scope`: Numbers or earlier calculate results available as variables.
 ///   Unit names are reserved and cannot be used as variable names. Stateful

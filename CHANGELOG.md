@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.34.0
+
+- Added `floor(x)`, `ceil(x)`, and `round(x)` to `calculate` and
+  `calculation-builder` expressions.
+- Preserved dimensions, custom units, and the input's preferred unit while
+  rounding, so `floor(3.7 cm)` returns and stores exactly `3 cm`.
+- Used Typst's `calc.floor`, `calc.ceil`, and `calc.round` behavior for positive
+  and negative values.
+- Added package-import, storage, reuse, unit, negative-value, and rendered
+  regression tests.
+
 ## 0.33.0
 
 - Added Euler's number `e` and the circle constant `pi` as built-in

@@ -225,6 +225,36 @@ the root index. For example, `sqrt(9 m^2)` returns `3 m`. A non-integer or
 zero index, an even root of a negative value, or incompatible unit exponents
 produces an error.
 
+### Rounding functions
+
+`floor(x)` rounds down, `ceil(x)` rounds up, and `round(x)` rounds to the
+nearest integer:
+
+```typ
+#calculate(`floor(3.7)`).display
+// floor(3.7) = 3
+
+#calculate(`ceil(3.2)`).display
+// ceil(3.2) = 4
+
+#calculate(`round(3.5)`).display
+// round(3.5) = 4
+```
+
+Down and up refer to the number line. This matters for negative values:
+
+```typ
+#calculate(`floor(-3.2)`).display // -4
+#calculate(`ceil(-3.2)`).display  // -3
+```
+
+The functions preserve units and round in the input's preferred unit:
+
+```typ
+#calculate(`floor(3.7 cm)`).display
+// floor(3.7 cm) = 3 cm
+```
+
 ### `block`
 
 `bool` — optional, named — default: `true`

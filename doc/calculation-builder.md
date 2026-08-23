@@ -428,9 +428,24 @@ Use `:=` to store a function. An ordinary `=` only displays it:
 // h(3, 4) = ((3) ⋅ (4) + 1) = 13
 ```
 
-Function bodies use the same arithmetic, units, variables, and trigonometric
-functions as other builder expressions. Arguments are substituted before the
-normal unit-aware calculation:
+Function bodies use the same arithmetic, units, variables, trigonometric
+functions, and rounding functions as other builder expressions. `floor`
+rounds down, `ceil` rounds up, and `round` selects the nearest integer. They
+preserve the input unit:
+
+```typ
+#eq(`down := floor(3.7)`)
+// down = floor(3.7) = 3
+
+#eq(`up := ceil(3.2)`)
+// up = ceil(3.2) = 4
+
+#eq(`length := floor(3.7 cm)`)
+// length = floor(3.7 cm) = 3 cm
+```
+
+Arguments to stored functions are substituted before the normal unit-aware
+calculation:
 
 ```typ
 #eq($u(x) := x * 2 m$)
