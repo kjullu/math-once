@@ -38,6 +38,15 @@ df = diff(f, x)             = 2x + 2
 builder passes that stored tree directly to typCAS. It does not copy the
 rendered equation back into a string.
 
+CAS assignments may use names that also exist in the unit catalog. This makes common algebra names such as `a` work without `unload`:
+
+```typ
+#eq(`a := diff(x^2, x)`)
+#eq(`second := diff(a, x)`)
+```
+
+The overlap applies only to stored CAS expressions. Active unit aliases and the built-in constants `e` and `pi` remain reserved because overwriting them would change the builder's configured state.
+
 ## Storing and displaying
 
 Symbolic calls follow the normal builder assignment rules:

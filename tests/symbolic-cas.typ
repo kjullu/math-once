@@ -16,6 +16,19 @@
   assert(cas.value-of(evaluated) == 6)
 }
 
+// Symbolic names may overlap catalog units. Here `a` is also the are unit,
+// but a top-level CAS assignment keeps it in the symbolic context.
+#eq(`a:=diff(x^2,x)`)
+#eq(`a_second := diff(a, x)`)
+#context {
+  assert(eq().a.symbolic-kind == "expression")
+  assert(not eq().a.at("unloaded", default: false))
+  assert(eq().a_second.symbolic-kind == "expression")
+  let evaluated = cas.eval(eq().a_second.expression)
+  assert(cas.ok(evaluated))
+  assert(cas.value-of(evaluated) == 2)
+}
+
 // Typst math input uses quoted multi-letter CAS operation names.
 #eq($"identity" := "simplify"(sin(x)^2 + cos(x)^2)$)
 #context assert(eq().identity.symbolic)

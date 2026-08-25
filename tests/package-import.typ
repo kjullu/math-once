@@ -1,4 +1,4 @@
-#import "@local/math-once:0.36.0": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline
+#import "@local/math-once:0.36.1": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline
 
 #let result = evaluate-code(`6 * 7`, unit: `kg`)
 #assert(result.value == 42)
@@ -27,6 +27,17 @@
   let variables = run()
   assert(variables.x.value == 20.0)
   assert(variables.x.unit == "m")
+}
+
+#let package_characters = "309"
+#run($ #package_characters/2400 $)
+
+#let symbolic_unit_name = calculation-builder(key: "package-import-symbolic-unit-name")
+#symbolic_unit_name(`a := diff(x^2, x)`)
+#symbolic_unit_name(`second := diff(a, x)`)
+#context {
+  assert(symbolic_unit_name().a.symbolic-kind == "expression")
+  assert(symbolic_unit_name().second.symbolic-kind == "expression")
 }
 #reset-variables("x", key: "package-import-runner")
 #context assert("x" not in run())

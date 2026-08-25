@@ -1,4 +1,4 @@
-// math-once v0.36.0
+// math-once v0.36.1
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -5140,7 +5140,10 @@ let calculation-builder(
         cas-call = none
       }
       if cas-call != none {
-        if illegal-assignment {
+        let illegal-symbolic-assignment = (stores-result
+          and name != none
+          and (name in aliases or is-built-in-constant(name)))
+        if illegal-symbolic-assignment {
           text(
             fill: red,
             [math-once: #raw(name) is #reserved-name-kind and cannot be used as a variable.],
@@ -5177,7 +5180,6 @@ let calculation-builder(
         if stores-result {
           result.insert("display", math.equation(labelled-body, block: block))
           result.insert("variable", name)
-          if assignment-is-unloaded { result.insert("unloaded", true) }
           variables.update(old => {
             old.insert(name, result)
             old
