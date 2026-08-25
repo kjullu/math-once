@@ -1,7 +1,6 @@
 # `reset-functions`
 
-Clears stored scalar or vector function definitions without changing stored
-values or unit configuration.
+Clears stored scalar, vector, or matrix function definitions without changing stored values or unit configuration.
 
 ## Import
 

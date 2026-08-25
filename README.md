@@ -9,7 +9,7 @@ Unknown quoted unit names also work as opaque custom units. They support
 ordinary arithmetic with matching custom units, without physical conversion.
 
 ```typ
-#import "math-once.typ": calculation-builder, text-unit
+#import "math-once.typ": calculation-builder, text-unit, matrix
 
 #let eq = calculation-builder(digits: 2)
 
@@ -30,6 +30,11 @@ ordinary arithmetic with matching custom units, without physical conversion.
 
 #eq($ 10 plus.minus 2 $)
 // 10 ± 2 = 12 ∨ 8
+
+#eq($ arrow(v) := vec(1, 2) $)
+#eq($ X := matrix(1, 2; 3, 4) $)
+#eq($ X arrow(v) $)
+// Xv⃗ = vec(5, 11)
 
 Conclusion: #eq($v$, result-only: true)
 // Conclusion: 250.56
@@ -66,13 +71,13 @@ Copy [`math-once.typ`](math-once.typ) into your project and import the
 [functions](doc/README.md#functions) you need:
 
 ```typ
-#import "math-once.typ": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "math-once.typ": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.35.0": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.36.0": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst. Symbolic builder operations use

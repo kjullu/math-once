@@ -13,12 +13,13 @@ internally in SI base units, so compatible units can be combined safely.
 | [Symbolic calculations](symbolic-calculations.md) | CAS operations, stored expressions, roots, and direct typCAS access. |
 | [`reset`](reset.md) | Clear the complete calculation-builder state. |
 | [`reset-variables`](reset-variables.md) | Clear values while preserving functions and unit configuration. |
-| [`reset-functions`](reset-functions.md) | Clear stored scalar and vector functions. |
+| [`reset-functions`](reset-functions.md) | Clear stored scalar, vector, and matrix functions. |
 | [`restore-units`](restore-units.md) | Restore catalog names made available with `unload`. |
 | [`reset-unit-aliases`](reset-unit-aliases.md) | Remove `rename-unit` relationships. |
 | [`unload`](unload.md) | Temporarily use reserved unit names as builder variables. |
 | [`rename-unit`](rename-unit.md) | Move an active unit spelling to a custom alias. |
 | [`text-unit`](units.md#custom-output-labels) | Create an explicit symbolic output-unit label. |
+| [`matrix`](calculation-builder.md#vectors-arrow-names-and-matrices) | A readable alias for Typst's `mat` syntax in builder calculations. |
 | [`equation`](equation.md) | A figure-like wrapper for per-equation captions. |
 | [`equation-outline`](equation-outline.md) | A linked list of labelled, captioned equations. |
 | [`evaluate-code`](evaluate-code.md) | Trusted Typst code where a unit is only a display label. |

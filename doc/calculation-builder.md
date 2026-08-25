@@ -412,7 +412,7 @@ Unknown quoted names are stored as opaque custom units. Matching custom units
 support ordinary arithmetic, but they cannot be converted to catalog units.
 See [Custom units](units.md#custom-units).
 
-## Functions and vectors
+## Functions
 
 Use `:=` to store a function. An ordinary `=` only displays it:
 
@@ -477,18 +477,51 @@ calculation:
 // u(3) = ((3) ⋅ 2 m) = 6 m
 ```
 
-Arrow names and vector functions are supported. Vector components are
-calculated independently and may themselves contain units:
+## Vectors, arrow names, and matrices
+
+Import `matrix` with `calculation-builder` when you want the readable `matrix(...)` spelling. It is an alias for Typst's built-in `mat(...)`, and math-once understands both forms:
+
+```typ
+#import "math-once.typ": calculation-builder, matrix
+
+#let eq = calculation-builder()
+
+#eq($arrow(v) := vec(1, 2)$)
+#eq($arrow(w) := vec(3, 4)$)
+#eq($arrow(q) := arrow(v) + arrow(w)$)
+// q⃗ = v⃗ + w⃗ = vec(4, 6)
+
+#eq($X := matrix(1, 2; 3, 4)$)
+#eq($Y := mat(5, 6; 7, 8)$)
+#eq($Z := X + Y$)
+// Z = X + Y = mat(6, 8; 10, 12)
+
+#eq($X arrow(v)$)
+// Xv⃗ = vec(5, 11)
+
+#eq($X Y$)
+// XY = mat(19, 22; 43, 50)
+```
+
+`arrow(v)` changes how the stored name is drawn; its state key is `arrow_v`. `vec(...)` creates the vector value. Matrix rows are separated by semicolons and cells by commas, matching Typst's native matrix syntax.
+
+The builder supports vector or matrix addition and subtraction with matching shapes, scalar multiplication, division of a vector or matrix by a scalar, matrix multiplication, matrix–vector multiplication, and row-vector–matrix multiplication. `vector * vector` is rejected because it is ambiguous between a dot product, an outer product, and component-wise multiplication.
+
+Components and cells are calculated independently and may contain compatible physical or custom units. A whole vector or matrix cannot receive one `unit:` or `size:` option; put units in the individual component or cell expressions.
+
+Stored functions may return either structure:
 
 ```typ
 #eq($arrow(s)(t) := vec(t^3 - 3t^2 - 4t + 12, t^2 - 4)$)
 #eq($arrow(s)(2)$)
 // s⃗(2) = vec(0, 0)
+
+#eq($D(t) := matrix(t, 0; 0, t)$)
+#eq($D(3)$)
+// D(3) = mat(3, 0; 0, 3)
 ```
 
-The current vector result cannot be assigned a single whole-vector `unit:` or
-`size:`. Put units in the individual component expressions instead. Calling a
-function with the wrong number of arguments produces a red inline error.
+Calling a function with the wrong number of arguments produces a red inline error.
 
 Built-in square and indexed roots can be calculated and stored in the same
 way. The indexed form follows Typst's `root(index, radicand)` order:
