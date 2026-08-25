@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.36.1
+
+- Allowed stored CAS expressions to use names that also exist in the unit catalog, so assignments such as `a := diff(x^2, x)` work without `unload`.
+- Kept symbolic results visible through the builder state and reusable in later CAS operations.
+- Added regression coverage for symbolic unit-name overlap and Typst value interpolation such as `#eq($ #characters/2400 $)`.
+
 ## 0.36.0
 
 - Made `arrow(name)` usable for stored vector variables, not only vector-returning functions.
