@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.36.0
+
+- Made `arrow(name)` usable for stored vector variables, not only vector-returning functions.
+- Added stored and reusable `vec(...)` values with component-wise addition and subtraction, scalar multiplication, scalar division, and unit-aware components.
+- Added matrix values through Typst's native `mat(...)` and the exported `matrix(...)` alias, with reusable storage, matching-shape addition and subtraction, scalar operations, matrix multiplication, matrix-vector multiplication, and row-vector–matrix multiplication.
+- Rejected ambiguous vector-by-vector multiplication instead of silently choosing a dot, outer, or component-wise product.
+- Added focused shape and whole-structure unit errors, state assertions, local-package coverage, documentation, and rendered regression coverage.
+
 ## 0.35.0
 
 - Added `abs(expression)` to the unit-aware evaluator.

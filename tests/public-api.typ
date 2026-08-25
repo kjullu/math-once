@@ -1,4 +1,4 @@
-#import "../math-once.typ": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, number-labelled-equations
+#import "../math-once.typ": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline, number-labelled-equations
 
 #assert(type(evaluate-code) == function)
 #assert(type(calculate) == function)
@@ -11,8 +11,9 @@
 #assert(type(unload) == function)
 #assert(type(rename-unit) == function)
 #assert(type(text-unit) == function)
+#assert(type(matrix) == function)
 #assert(type(equation) == function)
 #assert(type(equation-outline) == function)
 #assert(type(number-labelled-equations) == function)
 
-The documented public API exports all fourteen functions.
+The documented public API exports all fifteen functions.

@@ -1,4 +1,4 @@
-#import "@local/math-once:0.35.0": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline
+#import "@local/math-once:0.36.0": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline
 
 #let result = evaluate-code(`6 * 7`, unit: `kg`)
 #assert(result.value == 42)
@@ -65,3 +65,13 @@
 #subscript($lambda := 2 "mm"$)
 #subscript($n_"maks" := d / lambda$)
 #context assert(subscript().at("n_maks").exact == 5)
+
+#let structures = calculation-builder(key: "package-import-structures")
+#structures($arrow(v) := vec(1, 2)$)
+#structures($X := matrix(1, 2; 3, 4)$)
+#structures($arrow(w) := X arrow(v)$)
+#context {
+  assert(structures().arrow_v.values == (1.0, 2.0))
+  assert(structures().X.shape == (2, 2))
+  assert(structures().arrow_w.values == (5.0, 11.0))
+}
