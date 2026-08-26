@@ -53,6 +53,8 @@ units cannot be added or subtracted, and opaque units cannot be converted to
 physical catalog units. Products, quotients, and integer powers retain their
 custom dimensions.
 
+Mixed custom and physical units retain both parts. For example, `2.35 "DKK"/kWh` is stored in SI form and displayed as `DKK/J`; multiplying it by an energy cancels the physical dimensions and leaves `DKK`.
+
 Known quoted names still use the catalog, so `"cm"` is centimetres and can be
 converted to metres. Consequently, a misspelled quoted unit becomes a custom
 unit instead of immediately producing an unknown-unit error.
@@ -103,6 +105,8 @@ In this example, `d` is first passed to `unload` because it is also a catalog
 spelling for the day unit. This lets the builder use it as a variable until the
 next complete reset.
 
+Stored results keep the internal `text-unit` marker, so both plain labels and compound labels such as `text-unit("lines") / m` remain reusable through `result-only` and later calculations.
+
 ## SI prefixes
 
 Prefixes are resolved generically for supported SI units. Micro accepts `µ`,
@@ -150,6 +154,8 @@ For example:
 #calculate(`1 hp to W`).display
 #calculate(`1 KiB to bit`).display
 #calculate(`32 fahrenheit to celsius`).display
+#calculate(`30 celsius - 20 celsius`).display
+// 30 celsius - 20 celsius = 10 celsius
 ```
 
 The complete machine-checked spelling list is in `tests/qalc-units.typ`.
@@ -187,8 +193,7 @@ Unit symbols are case-sensitive. In particular:
 
 - Unit names are reserved and take precedence over variables with the same
   name.
-- Celsius, Fahrenheit, Kelvin, and Rankine are supported. Affine temperature
-  names must be multiplied by a plain number (for example, `20 celsius`).
+- Celsius, Fahrenheit, Kelvin, and Rankine are supported. Affine temperature names must be multiplied by a plain number, for example `20 celsius`. Subtracting two absolute affine temperatures produces a temperature difference, so the output uses the scale without applying its absolute offset again.
 - Qalculate's `dBW` and `dBm` are not supported because they are logarithmic
   power-level transforms rather than fixed linear or affine units.
 - Currencies and context-dependent conversions are not supported.

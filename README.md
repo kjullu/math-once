@@ -63,7 +63,7 @@ Inline derivative: #eq(`diff(f, x)`, block: false)
   calculator. Its unit handling *inspired* math-once. (Terminal and GUI tool)
 - [eqrun](https://github.com/snlxnet/eqrun) is a well-designed calculator for
   Typst and the original inspiration for this project. (Typst plugin)
-- [typcas](https://github.com/sihooleebd/typCAS) For the cas functions, as we integrate them into math-one (Typst plugin)
+- [typCAS](https://github.com/sihooleebd/typCAS) provides the symbolic algebra used by math-once. (Typst package)
 
 ## Install
 
@@ -87,6 +87,9 @@ through the normal package system. See [third-party notices](THIRD-PARTY.md).
 Common calculation mistakes passed through `calculation-builder` are shown as
 centered red messages in the document instead of stopping compilation. Direct
 `calculate(...)` calls still panic, making failures observable in Typst code.
+Set `strict: true` on a calculation builder when its calculation errors should stop compilation, such as in CI. Set `strict-units: true` on `calculate` or a builder to reject unknown quoted units instead of treating them as opaque custom units.
+
+Git release archives contain `examples/all-functions.typ`, `CHANGELOG.md`, the complete test suite, and the unit-audit tools linked from this README. A registry submission should use the complete repository tree so those relative links remain valid.
 
 ## Documentation
 
@@ -115,11 +118,8 @@ You can find all the supported units [here](doc/supported-units.md)
 See the [changelog](CHANGELOG.md) when upgrading.
 
 ## Why is it called `math-once`?
-The plugin originally started as just `typst-math` (still the name of the folder on my pc).
 
-But was later renamed, by codex, to `math-once`, idk why. My guess is because my first prompt for this plugin was something along the lines of: "*make a typst plugin like [eqrun](https://github.com/snlxnet/eqrun), but where I can save variabels, so I only have to do the math once*", and when I then asked it to create a little README.md for the docs, so I could share it with my friends, the name `math-once` was in the header (you can look at the blame and see it).
-
-And it is still the name today because I have gotten to used to typing (autocompleteing) `github.com/kjullu/math-once` in the adresses bare in my browser (and I don't have a better name).
+The project started as `typst-math`, which is still the name of my local folder. Codex later used `math-once` as the heading in an early README. The name probably came from my original request: make something like [eqrun](https://github.com/snlxnet/eqrun), but let me save variables so I only have to do the calculation once. The name stuck, partly because `github.com/kjullu/math-once` is now in my browser autocomplete and I still do not have a better one.
 
 ## License
 
