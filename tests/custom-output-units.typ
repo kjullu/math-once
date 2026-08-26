@@ -25,6 +25,17 @@
 #assert(symbolic-lines.unit == "linjer/m")
 #symbolic-lines.display
 
+// Stored text-unit output retains its internal marker when reused.
+#let stored-label = calculation-builder(key: "stored-text-unit", digits: 0)
+#stored-label(`panels := 3`, unit: $#text-unit("panels")$)
+#stored-label(`panels`, result-only: true)
+#context assert(stored-label().panels.unit == "panels")
+
+#let stored-compound-label = calculation-builder(key: "stored-compound-text-unit", digits: 0)
+#stored-compound-label(`density := 4`, unit: $#text-unit("lines") / m$)
+#stored-compound-label(`density`, result-only: true)
+#context assert(stored-compound-label().density.unit == "lines/m")
+
 #let eq = calculation-builder(key: "custom-output-unit", digits: 0)
 #unload($d$, key: "custom-output-unit")
 #eq($d := 0.5 "mm"$)

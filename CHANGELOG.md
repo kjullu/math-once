@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Distinguished absolute affine temperatures from temperature differences, so Celsius and Fahrenheit subtraction keeps the correct scale without reapplying an absolute offset.
+- Preserved physical dimensions when custom units and catalog units are combined, including cancellation from `DKK/kWh` to `DKK` after multiplication by energy.
+- Preserved `text-unit` markers in stored results so plain and compound symbolic output labels remain reusable.
+- Applied reserved-name rules to stored functions, expanded nested stored calls to a bounded practical depth, and reported direct or indirect recursive cycles.
+- Added concrete source and target units to incompatible-dimension errors, with a parentheses hint for expressions containing division.
+- Added opt-in `strict` builder errors and `strict-units` lookup for `calculate` and `calculation-builder`.
+- Added `hidden` stored assignments and `show-substitution` control to builder calls.
+- Chose underscore names such as `Delta_T` for compound mathematical variables while leaving quoted text unambiguously available for units.
+- Corrected calculation and rename examples, documented release-package contents, and copy edited the README acknowledgements and project-name history.
+- Added value, failure, package, and rendered-output regression coverage for the external review findings.
+
 ## 0.36.1
 
 - Allowed stored CAS expressions to use names that also exist in the unit catalog, so assignments such as `a := diff(x^2, x)` work without `unload`.

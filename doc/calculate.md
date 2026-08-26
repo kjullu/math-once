@@ -27,6 +27,7 @@ calculate(
   unit: none,
   size: none,
   block: true,
+  strict-units: false,
 ) -> dictionary
 ```
 
@@ -65,6 +66,8 @@ multi-value fields.
 An unknown quoted name such as `"widget"` is an opaque custom unit. Matching
 custom units support normal arithmetic but cannot be converted to physical
 catalog units. See [Custom units](units.md#custom-units).
+
+Set `strict-units: true` to reject unknown quoted names. This catches spellings such as `"celcius"`; the default remains compatible with opaque custom units.
 
 ### `digits`
 

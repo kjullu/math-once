@@ -35,7 +35,7 @@ Aliases may be moved again. Quote multi-letter names in Typst math:
 ```typ
 #rename-unit($m$, $v$)
 #rename-unit($v$, $"vme"$)
-#eq($d := 4 "vme"$)
+#eq($x := 4 "vme"$)
 ```
 
 Successful calls render no visible output. Calls take effect at their position

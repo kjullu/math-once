@@ -10,6 +10,8 @@
 #assert(calculate($round(3.5)$).exact == 4)
 #assert(calculate(`abs(-3)`).exact == 3)
 #assert(calculate($|-3|$).exact == 3)
+#assert(calculate(`30 celsius - 20 celsius`).exact == 10.0)
+#assert(calculate(`2 cm`, strict-units: true).unit == "cm")
 #assert(result.exact == 42)
 #result.display
 
@@ -27,6 +29,17 @@
   let variables = run()
   assert(variables.x.value == 20.0)
   assert(variables.x.unit == "m")
+}
+
+#let options = calculation-builder(key: "package-import-options", strict: true)
+#options(`x := 3`)
+#options(`y := x * 2`, show-substitution: false)
+#options(`hidden_value := y + 1`, hidden: true)
+#options(`labelled := 4`, unit: $#text-unit("panels")$)
+#options(`labelled`, result-only: true)
+#context {
+  assert(options().hidden_value.exact == 7.0)
+  assert(options().labelled.unit == "panels")
 }
 
 #let package_characters = "309"

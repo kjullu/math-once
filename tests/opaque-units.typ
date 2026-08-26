@@ -41,3 +41,24 @@
   assert(override-builder().d.unit == "m")
   assert(override-builder().d.dimensions.length == 1)
 }
+
+// Mixed custom and physical dimensions retain both parts in their output unit.
+#let tariff = calculate(`2.35 "DKK"/kWh`, digits: 12)
+#assert(tariff.unit == "DKK/J")
+#assert(tariff.custom-units == (DKK: 1))
+#assert(tariff.dimensions.length == -2)
+#assert(tariff.dimensions.mass == -1)
+#assert(tariff.dimensions.time == 2)
+#tariff.display
+
+#let prices = calculation-builder(key: "mixed-opaque-physical", digits: 4)
+#prices(`tariff := 2.35 "DKK"/kWh`)
+#prices(`cost := 1.4 kWh * tariff`)
+#prices(`tariff`, result-only: true)
+#prices(`cost`, result-only: true)
+#context {
+  let values = prices()
+  assert(values.tariff.unit == "DKK/J")
+  assert(values.cost.unit == "DKK")
+  assert(calc.abs(values.cost.exact - 3.29) < 0.0000001)
+}

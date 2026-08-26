@@ -67,10 +67,11 @@ also storing the exact value:
 Use a plain equals sign to calculate without storing the left-hand name:
 
 ```typ
-#eq($x = 1 + 1$)
+#let plain = calculation-builder(key: "plain-equals-example")
+#plain($x = 1 + 1$)
 // x = 1 + 1 = 2
 
-#eq($x + 1$)
+#plain($x + 1$)
 // red: math-once: x is not set.
 ```
 
@@ -221,6 +222,8 @@ calculation-builder(
   digits: 4,
   block: auto,
   supplement: auto,
+  strict: false,
+  strict-units: false,
 ) -> function
 ```
 
@@ -311,6 +314,23 @@ language or giving one family of calculations its own name.
 )
 ```
 
+### `strict`
+
+`bool` — optional, named — default: `false`
+
+With `true`, calculation errors panic and stop compilation instead of becoming red equations. Use this in CI when a broken calculation must fail the document build. Unknown symbolic equations remain display-only because they are not calculation failures.
+
+```typ
+#let checked = calculation-builder(key: "checked", strict: true)
+#checked(`x := 1 / 0`) // compilation fails
+```
+
+### `strict-units`
+
+`bool` — optional, named — default: `false`
+
+With `true`, unknown quoted unit names fail instead of becoming opaque custom units. Known catalog units and explicit `text-unit(...)` output labels still work.
+
 ## Returned runner
 
 `calculation-builder` returns a function with this interface:
@@ -322,7 +342,9 @@ runner(
   unit: none,
   size: none,
   show-result: true,
+  show-substitution: true,
   result-only: false,
+  hidden: false,
   block: builder-block,
   label: none,
   caption: none,
@@ -393,6 +415,29 @@ It also works for an expression or a paired result:
 An unset or display-only symbolic expression has no calculated result and
 therefore produces a focused inline error with `result-only: true`.
 
+### `show-substitution`
+
+`bool` — optional, named — default: `true`
+
+Set this to `false` to omit the substituted middle step while retaining the written expression and final result:
+
+```typ
+#eq(`x := 3`)
+#eq(`y := x * 2`, show-substitution: false)
+// y = x ⋅ 2 = 6
+```
+
+### `hidden`
+
+`bool` — optional, named — default: `false`
+
+Set `hidden: true` on a stored value assignment to update builder state without visible output or layout space. It cannot be combined with a caption or label.
+
+```typ
+#eq(`x := 3 * 2`, hidden: true)
+The result is #eq(`x`, result-only: true).
+```
+
 ```typ
 #let eq = calculation-builder(key: "source-example")
 #eq($v := 10 m/s$)
@@ -423,9 +468,9 @@ Use `:=` to store a function. An ordinary `=` only displays it:
 #eq($f(2)$)
 // f(2) = ((2) + 1) = 3
 
-#eq($h(x, y) := x * y + 1$)
-#eq($h(3, 4)$)
-// h(3, 4) = ((3) ⋅ (4) + 1) = 13
+#eq($f_2(x, y) := x * y + 1$)
+#eq($f_2(3, 4)$)
+// f₂(3, 4) = ((3) ⋅ (4) + 1) = 13
 ```
 
 Function bodies use the same arithmetic, units, variables, trigonometric
@@ -522,6 +567,7 @@ Stored functions may return either structure:
 ```
 
 Calling a function with the wrong number of arguments produces a red inline error.
+Stored function calls expand until no stored calls remain. Direct and indirect recursive definitions produce a focused cycle error. Unit names, aliases, and the built-in constants `e` and `pi` are reserved as function names under the same rules used for scalar variables; call `unload` first when deliberate reuse is required.
 
 Built-in square and indexed roots can be calculated and stored in the same
 way. The indexed form follows Typst's `root(index, radicand)` order:
@@ -595,6 +641,8 @@ plain:
 
 Subscripts are intentionally limited to letters and digits so they remain
 unambiguous reusable variable names.
+
+Compound mathematical names use the existing underscore syntax. For a temperature difference, write `Delta_T`; Typst renders it as $Delta_T$ and the builder stores it under the exact key `Delta_T`. Quoted text with spaces remains unit text, so `"Delta T"` is not overloaded as a state-dependent variable name.
 
 `degree` can be used with a subscripted angle and is displayed as `°` in Typst
 math:

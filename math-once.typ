@@ -571,11 +571,12 @@ let resolve-unit-with-aliases(name, aliases: (:)) = {
   if name in aliases { resolve-unit(aliases.at(name)) } else { resolve-unit(name) }
 }
 
-let quantity(si-value, dims: zero-dim, preferred: none, affine: none, opaque: (:)) = (
+let quantity(si-value, dims: zero-dim, preferred: none, affine: none, affine-kind: none, opaque: (:)) = (
   si-value: si-value,
   dims: dims,
   preferred: preferred,
   affine: affine,
+  affine-kind: affine-kind,
   opaque: opaque,
 )
 
@@ -647,12 +648,6 @@ let dimensions-name(dims) = {
   "incompatible dimensions"
 }
 
-let unit-kind-name(q) = if q.opaque.len() > 0 {
-  "custom unit `" + q.opaque.keys().join(" ") + "`"
-} else {
-  dimensions-name(q.dims)
-}
-
 let canonical-unit(dims) = {
   let known = (
     (dim(length: 1), "m"),
@@ -665,6 +660,7 @@ let canonical-unit(dims) = {
     (dim(length: 1, mass: 1, time: -2), "N"),
     (dim(length: -1, mass: 1, time: -2), "Pa"),
     (dim(length: 2, mass: 1, time: -2), "J"),
+    (dim(length: -2, mass: -1, time: 2), "1/J"),
     (dim(length: 2, mass: 1, time: -3), "W"),
     (dim(current: 1), "A"),
     (dim(temperature: 1), "K"),
@@ -702,13 +698,34 @@ let canonical-unit(dims) = {
   numerator.join(" ") + if denominator.len() == 0 { "" } else { "/" + denominator.join(" ") }
 }
 
-let canonical-opaque-unit(opaque) = {
+let unit-kind-name(q) = {
+  let physical = dimensions-name(q.dims)
+  let physical = if physical == "incompatible dimensions" {
+    "dimensions `" + canonical-unit(q.dims) + "`"
+  } else {
+    physical + " (`" + canonical-unit(q.dims) + "`)"
+  }
+  if q.opaque.len() > 0 and q.dims != zero-dim {
+    "custom unit `" + q.opaque.keys().join(" ") + "` with " + physical
+  } else if q.opaque.len() > 0 {
+    "custom unit `" + q.opaque.keys().join(" ") + "`"
+  } else {
+    physical
+  }
+}
+
+let canonical-opaque-unit(opaque, dims: zero-dim) = {
   let numerator = ()
   let denominator = ()
   for (name, exponent) in opaque {
     let magnitude = calc.abs(exponent)
     let part = name + if magnitude == 1 { "" } else { "^" + str(magnitude) }
     if exponent > 0 { numerator.push(part) } else { denominator.push(part) }
+  }
+  if dims != zero-dim {
+    let physical = canonical-unit(dims).split("/")
+    if physical.first() != "1" { numerator += physical.first().split(" ") }
+    if physical.len() > 1 { denominator += physical.at(1).split(" ") }
   }
   if numerator.len() == 0 { numerator.push("1") }
   numerator.join(" ") + if denominator.len() == 0 { "" } else { "/" + denominator.join(" ") }
@@ -3476,7 +3493,10 @@ let substitute-function(definition, arguments) = {
   result
 }
 
-let expand-function-calls(tokens, scope) = {
+let expand-function-calls(tokens, scope, stack: (), depth: 0) = {
+  if depth > 64 {
+    return calculation-failure("stored function expansion exceeded 64 nested calls")
+  }
   let result = ()
   let changed = false
   let index = 0
@@ -3487,19 +3507,42 @@ let expand-function-calls(tokens, scope) = {
       and definition.at("function", default: false)
       and index + 1 < tokens.len()
       and tokens.at(index + 1) == "(") {
-      let depth = 1
+      let paren-depth = 1
       let closing = index + 2
-      while closing < tokens.len() and depth > 0 {
-        if tokens.at(closing) == "(" { depth += 1 }
-        if tokens.at(closing) == ")" { depth -= 1 }
+      while closing < tokens.len() and paren-depth > 0 {
+        if tokens.at(closing) == "(" { paren-depth += 1 }
+        if tokens.at(closing) == ")" { paren-depth -= 1 }
         closing += 1
       }
-      if depth != 0 { return calculation-failure("missing closing parenthesis in function call") }
+      if paren-depth != 0 { return calculation-failure("missing closing parenthesis in function call") }
       let arguments = split-top-level(tokens.slice(index + 2, closing - 1))
-      let expanded = substitute-function(definition, arguments)
+      if token in stack {
+        return calculation-failure(
+          "recursive stored function cycle: " + (stack + (token,)).join(" -> "),
+        )
+      }
+      let expanded-arguments = ()
+      for argument in arguments {
+        let expanded-argument = expand-function-calls(
+          argument,
+          scope,
+          stack: stack,
+          depth: depth + 1,
+        )
+        if is-calculation-failure(expanded-argument) { return expanded-argument }
+        expanded-arguments.push(expanded-argument.first())
+      }
+      let expanded = substitute-function(definition, expanded-arguments)
       if is-calculation-failure(expanded) { return expanded }
+      let nested = expand-function-calls(
+        expanded,
+        scope,
+        stack: stack + (token,),
+        depth: depth + 1,
+      )
+      if is-calculation-failure(nested) { return nested }
       result.push("(")
-      result += expanded
+      result += nested.first()
       result.push(")")
       changed = true
       index = closing
@@ -3809,7 +3852,7 @@ let top-level-structure-operator(tokens) = {
   best-index
 }
 
-let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded) = {
+let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, strict-units: false) = {
   tokens = unwrap-tokens(tokens)
   let scalar-scope = numeric-scope(scope)
   let components = vector-components(tokens)
@@ -3879,7 +3922,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded) =
   }
 
   if tokens.len() > 1 and tokens.first() == "-" {
-    let inner = evaluate-structure(calculate-fn, tokens.slice(1), digits, scope, aliases, unloaded)
+    let inner = evaluate-structure(calculate-fn, tokens.slice(1), digits, scope, aliases, unloaded, strict-units: strict-units)
     if is-calculation-failure(inner) { return inner }
     if inner != none {
       let minus-one = calculate-fn("-1", digits: digits, block: false, soft: true)
@@ -3891,22 +3934,22 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded) =
   if operator-index != none {
     let left-tokens = tokens.slice(0, operator-index)
     let right-tokens = tokens.slice(operator-index + 1)
-    let left = evaluate-structure(calculate-fn, left-tokens, digits, scope, aliases, unloaded)
+    let left = evaluate-structure(calculate-fn, left-tokens, digits, scope, aliases, unloaded, strict-units: strict-units)
     if is-calculation-failure(left) { return left }
-    let right = evaluate-structure(calculate-fn, right-tokens, digits, scope, aliases, unloaded)
+    let right = evaluate-structure(calculate-fn, right-tokens, digits, scope, aliases, unloaded, strict-units: strict-units)
     if is-calculation-failure(right) { return right }
     if left == none and right == none { return none }
     if left == none {
       left = calculate-fn(
         left-tokens.join(" "), digits: digits, scope: scalar-scope, block: false,
-        unloaded: unloaded, aliases: aliases, soft: true,
+        unloaded: unloaded, aliases: aliases, strict-units: strict-units, soft: true,
       )
       if is-calculation-failure(left) { return left }
     }
     if right == none {
       right = calculate-fn(
         right-tokens.join(" "), digits: digits, scope: scalar-scope, block: false,
-        unloaded: unloaded, aliases: aliases, soft: true,
+        unloaded: unloaded, aliases: aliases, strict-units: strict-units, soft: true,
       )
       if is-calculation-failure(right) { return right }
     }
@@ -3926,7 +3969,7 @@ let paired-sign-branches(tokens) = (
   tokens.map(token => if token == "±" { "-" } else if token == "∓" { "+" } else { token }),
 )
 
-let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, unloaded, aliases) = {
+let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, unloaded, aliases, strict-units: false) = {
   let result = evaluate-structure(
     calculate-fn,
     add-implicit-multiplication(tokens),
@@ -3934,6 +3977,7 @@ let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, u
     scope,
     aliases,
     unloaded,
+    strict-units: strict-units,
   )
   if result == none {
     return calculate-fn(
@@ -3945,6 +3989,7 @@ let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, u
       block: block,
       unloaded: unloaded,
       aliases: aliases,
+      strict-units: strict-units,
       soft: true,
     )
   }
@@ -4010,15 +4055,17 @@ let display-number-tokens(value, exact: none) = {
 }
 
 let is-scientific-size-unit(unit) = unit != none and "10^(" in unit
+let result-unit-source(result) = result.at("unit-source", default: result.unit)
 
 let result-tokens(result) = {
   let tokens = display-number-tokens(
     result.value,
     exact: result.at("exact", default: result.value),
   )
-  if result.unit != none {
-    if is-scientific-size-unit(result.unit) { tokens.push("*") }
-    tokens += tokenize(result.unit)
+  let unit = result-unit-source(result)
+  if unit != none {
+    if is-scientific-size-unit(unit) { tokens.push("*") }
+    tokens += tokenize(unit)
   }
   tokens
 }
@@ -4057,12 +4104,13 @@ let render-result(result, aliases: (:)) = {
     let rows = result.rows.map(row => row.map(cell => render-result(cell, aliases: aliases)))
     return math.mat(..rows)
   }
-  if is-scientific-size-unit(result.unit) {
+  let unit = result-unit-source(result)
+  if is-scientific-size-unit(unit) {
     render-tokens(
       display-number-tokens(
         result.value,
         exact: result.at("exact", default: result.value),
-      ) + ("*",) + tokenize(result.unit),
+      ) + ("*",) + tokenize(unit),
       aliases: aliases,
     )
   } else {
@@ -4070,8 +4118,8 @@ let render-result(result, aliases: (:)) = {
       result.value,
       exact: result.at("exact", default: result.value),
     ))
-    if result.unit != none {
-      body += h(0.2em) + render-tokens(tokenize(result.unit), aliases: aliases)
+    if unit != none {
+      body += h(0.2em) + render-tokens(tokenize(unit), aliases: aliases)
     }
     body
   }
@@ -4102,7 +4150,8 @@ let expand-variables(tokens, scope) = {
           item.value,
           exact: item.at("exact", default: item.value),
         )
-        if item.unit != none { expanded += tokenize(item.unit) }
+        let item-unit = result-unit-source(item)
+        if item-unit != none { expanded += tokenize(item-unit) }
       } else {
         expanded.push(str(item))
       }
@@ -4394,7 +4443,8 @@ let normalize-scope(scope) = {
       normalized.insert(name, quantity(
         item.si-value,
         dims: item.dimensions,
-        preferred: item.unit,
+        preferred: item.at("unit-source", default: item.unit),
+        affine-kind: item.at("affine-kind", default: none),
         opaque: item.at("custom-units", default: (:)),
       ))
     } else if type(item) in (int, float, decimal) {
@@ -4415,11 +4465,32 @@ let apply-op(op, left, right, soft: false) = {
         soft: soft,
       )
     }
+    let left-kind = left.affine-kind
+    let right-kind = right.affine-kind
+    let result-kind = none
+    if left-kind == "absolute" and right-kind == "absolute" {
+      if op == "+" {
+        return calculation-fail("absolute affine temperatures cannot be added", soft: soft)
+      }
+      result-kind = "difference"
+    } else if left-kind == "absolute" and right-kind == "difference" {
+      result-kind = "absolute"
+    } else if left-kind == "difference" and right-kind == "absolute" {
+      if op == "-" {
+        return calculation-fail("a temperature difference cannot subtract an absolute temperature", soft: soft)
+      }
+      result-kind = "absolute"
+    } else if left-kind == "difference" or right-kind == "difference" {
+      result-kind = "difference"
+    } else if left-kind == "absolute" or right-kind == "absolute" {
+      result-kind = "absolute"
+    }
     return quantity(
       if op == "+" { left.si-value + right.si-value } else { left.si-value - right.si-value },
       dims: left.dims,
       opaque: left.opaque,
       preferred: if left.preferred != none { left.preferred } else { right.preferred },
+      affine-kind: result-kind,
     )
   }
   if op == "*" {
@@ -4428,6 +4499,7 @@ let apply-op(op, left, right, soft: false) = {
         left.si-value * right.affine.scale + right.affine.offset,
         dims: right.dims,
         preferred: right.preferred,
+        affine-kind: "absolute",
       )
     }
     if left.affine != none and is-dimensionless(right) and right.preferred == none {
@@ -4435,6 +4507,7 @@ let apply-op(op, left, right, soft: false) = {
         right.si-value * left.affine.scale + left.affine.offset,
         dims: left.dims,
         preferred: left.preferred,
+        affine-kind: "absolute",
       )
     }
     if left.affine != none or right.affine != none {
@@ -4459,6 +4532,13 @@ let apply-op(op, left, right, soft: false) = {
       } else {
         none
       },
+      affine-kind: if left.affine-kind != none and is-dimensionless(right) {
+        left.affine-kind
+      } else if right.affine-kind != none and is-dimensionless(left) {
+        right.affine-kind
+      } else {
+        none
+      },
     )
   }
   if op == "/" {
@@ -4473,6 +4553,7 @@ let apply-op(op, left, right, soft: false) = {
       dims: dims-add(left.dims, right.dims, factor: -1),
       opaque: opaque-add(left.opaque, right.opaque, factor: -1),
       preferred: if is-dimensionless(right) and right.preferred == none { left.preferred } else { none },
+      affine-kind: if is-dimensionless(right) and right.preferred == none { left.affine-kind } else { none },
     )
   }
   if op == "^" {
@@ -4520,7 +4601,7 @@ let apply-rounding(name, argument, aliases: (:), soft: false) = {
     let unit = resolve-unit(unit-name)
     if unit != none {
       scale = unit.scale
-      offset = unit.at("offset", default: 0.0)
+      offset = if argument.affine-kind == "difference" { 0.0 } else { unit.at("offset", default: 0.0) }
     }
   }
   let value = (argument.si-value - offset) / scale
@@ -4532,6 +4613,7 @@ let apply-rounding(name, argument, aliases: (:), soft: false) = {
     rounded * scale + offset,
     dims: argument.dims,
     preferred: argument.preferred,
+    affine-kind: argument.affine-kind,
     opaque: argument.opaque,
   )
 }
@@ -4540,6 +4622,7 @@ let apply-absolute(argument) = quantity(
   calc.abs(argument.si-value),
   dims: argument.dims,
   preferred: argument.preferred,
+  affine-kind: argument.affine-kind,
   opaque: argument.opaque,
 )
 
@@ -4575,7 +4658,7 @@ let apply-root(index, radicand, soft: false) = {
   )
 }
 
-let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, override-opaque: false, soft: false) = {
+let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, override-opaque: false, strict-units: false, soft: false) = {
   let scope = normalize-scope(scope)
   if override-opaque {
     for (name, item) in scope {
@@ -4631,7 +4714,13 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
       let (operand, next) = parse-expression(tokens, position + 1, minimum: 3)
       if is-calculation-failure(operand) { return (operand, next) }
       left = if token == "-" {
-        quantity(-operand.si-value, dims: operand.dims, preferred: operand.preferred, opaque: operand.opaque)
+        quantity(
+          -operand.si-value,
+          dims: operand.dims,
+          preferred: operand.preferred,
+          affine-kind: operand.affine-kind,
+          opaque: operand.opaque,
+        )
       } else {
         operand
       }
@@ -4676,6 +4765,14 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
             preferred: unit-name,
             affine: affine,
           )
+        } else if quoted and custom-units and strict-units {
+          return (
+            calculation-fail(
+              "unknown unit `" + unit-name + "`; use text-unit for a display-only label",
+              soft: soft,
+            ),
+            position + 1,
+          )
         } else if quoted and custom-units {
           // Preserve the legacy unit: behavior: an unknown quoted output name
           // is a dimensionless label. text-unit is the unambiguous form.
@@ -4683,6 +4780,14 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
         } else if quoted and override-opaque {
           // An explicit physical unit: overrides unknown input-unit labels.
           left = quantity(1.0)
+        } else if quoted and strict-units {
+          return (
+            calculation-fail(
+              "unknown unit `" + unit-name + "`; strict-units rejects opaque custom units",
+              soft: soft,
+            ),
+            position + 1,
+          )
         } else if quoted {
           // Unknown quoted names are opaque user-defined units. They support
           // ordinary arithmetic, but only identical opaque dimensions are
@@ -4762,7 +4867,10 @@ let normalize-size(size, soft: false) = {
 /// and the operators `+`, `-`, `*`, `/`, `^`, `±`, and `∓`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
-let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), aliases: (:), soft: false) = {
+let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), aliases: (:), strict-units: false, soft: false) = {
+  if type(strict-units) != bool {
+    return calculation-fail("strict-units must be a boolean", soft: soft)
+  }
   let normalized-size = normalize-size(size, soft: soft)
   if is-calculation-failure(normalized-size) { return normalized-size }
   let size = if normalized-size == none { none } else { normalized-size.value }
@@ -4820,6 +4928,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
         block: false,
         unloaded: unloaded,
         aliases: aliases,
+        strict-units: strict-units,
         soft: true,
       )
       if is-calculation-failure(branch) {
@@ -4848,6 +4957,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     unloaded: unloaded,
     aliases: aliases,
     override-opaque: unit != none,
+    strict-units: strict-units,
     soft: soft,
   )
   if is-calculation-failure(result) { return result }
@@ -4855,7 +4965,13 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   let output-scale = 1.0
   let output-offset = 0.0
   if target-tokens != none {
-    let target = parse(add-implicit-multiplication(target-tokens), aliases: aliases, custom-units: true, soft: soft)
+    let target = parse(
+      add-implicit-multiplication(target-tokens),
+      aliases: aliases,
+      custom-units: true,
+      strict-units: strict-units,
+      soft: soft,
+    )
     if is-calculation-failure(target) { return target }
     if target.dims != result.dims or target.opaque != result.opaque {
       if is-dimensionless(result) and not is-dimensionless(target) {
@@ -4870,25 +4986,37 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
           assigned-value,
           dims: target.dims,
           preferred: target-tokens.join(""),
+          affine-kind: if target.affine == none { none } else { "absolute" },
         )
       } else {
+        let precedence-hint = if "/" in expression-tokens {
+          "; check parentheses around compound denominators"
+        } else {
+          ""
+        }
         return calculation-fail(
-          "cannot convert " + unit-kind-name(result) + " to " + unit-kind-name(target),
+          "cannot convert " + unit-kind-name(result) + " to " + unit-kind-name(target)
+          + precedence-hint,
           soft: soft,
         )
       }
     }
-    output-unit = target-tokens.map(token => if is-quoted-unit(token) { quoted-unit-name(token) } else if is-text-unit(token) { text-unit-name(token) } else { token }).join("")
+    output-unit = target-tokens.map(token => if is-quoted-unit(token) { quoted-unit-name(token) } else { token }).join("")
     output-scale = if target.affine == none { target.si-value } else { target.affine.scale }
-    output-offset = if target.affine == none { 0.0 } else { target.affine.offset }
+    output-offset = if target.affine == none or result.affine-kind == "difference" { 0.0 } else { target.affine.offset }
   } else if output-unit == none and result.opaque.len() > 0 {
-    output-unit = canonical-opaque-unit(result.opaque)
+    output-unit = canonical-opaque-unit(result.opaque, dims: result.dims)
   } else if output-unit == none and not is-dimensionless(result) {
     output-unit = canonical-unit(result.dims)
   } else if output-unit != none and result.opaque.len() == 0 {
-    let preferred = parse(add-implicit-multiplication(tokenize(output-unit)), aliases: aliases)
+    let preferred = parse(
+      add-implicit-multiplication(tokenize(output-unit)),
+      aliases: aliases,
+      custom-units: true,
+      strict-units: strict-units,
+    )
     output-scale = if preferred.affine == none { preferred.si-value } else { preferred.affine.scale }
-    output-offset = if preferred.affine == none { 0.0 } else { preferred.affine.offset }
+    output-offset = if preferred.affine == none or result.affine-kind == "difference" { 0.0 } else { preferred.affine.offset }
   }
 
   if size != none {
@@ -4939,13 +5067,22 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     display-body += render-tokens(display-number-tokens(value, exact: exact))
   }
 
+  let public-unit = if output-unit == none {
+    none
+  } else if text-unit-prefix not in output-unit {
+    output-unit
+  } else {
+    tokenize(output-unit).map(token => if is-text-unit(token) { text-unit-name(token) } else { token }).join("")
+  }
   (
     value: value,
     exact: exact,
     si-value: result.si-value,
     dimensions: result.dims,
     custom-units: result.opaque,
-    unit: output-unit,
+    affine-kind: result.affine-kind,
+    unit: public-unit,
+    unit-source: output-unit,
     size: size,
     source: source,
     display: math.equation(display-body, block: block),
@@ -4964,9 +5101,17 @@ let calculation-builder(
   digits: 4,
   block: auto,
   supplement: auto,
+  strict: false,
+  strict-units: false,
 ) = {
   if block != auto and type(block) != bool {
     panic("math-once calculation-builder: block must be auto or a boolean")
+  }
+  if type(strict) != bool {
+    panic("math-once calculation-builder: strict must be a boolean")
+  }
+  if type(strict-units) != bool {
+    panic("math-once calculation-builder: strict-units must be a boolean")
   }
   for (name, _) in initial-state {
     if name == initial-state-marker-name {
@@ -4986,6 +5131,11 @@ let calculation-builder(
     }
   }
   let variables = state(key, builder-initial-state(initial-state))
+  let builder-error(message) = if strict {
+    panic("math-once calculation-builder: " + message)
+  } else {
+    text(fill: red, [math-once: #message.])
+  }
 
   (
     ..args,
@@ -4993,7 +5143,9 @@ let calculation-builder(
     unit: none,
     size: none,
     show-result: true,
+    show-substitution: true,
     result-only: false,
+    hidden: false,
     block: block,
     label: none,
     caption: none,
@@ -5005,6 +5157,12 @@ let calculation-builder(
     }
     if type(result-only) != bool {
       panic("math-once calculation-builder: result-only must be a boolean")
+    }
+    if type(show-substitution) != bool {
+      panic("math-once calculation-builder: show-substitution must be a boolean")
+    }
+    if type(hidden) != bool {
+      panic("math-once calculation-builder: hidden must be a boolean")
     }
     let source = args.pos().at(0, default: none)
     if source == none {
@@ -5053,6 +5211,13 @@ let calculation-builder(
     let expression = if assignment == none { source } else { assignment.captures.at(2) }
     let display-only = assignment == none and "=" in tokenize(source)
 
+    if hidden and (not stores-result or parsed-function != none) {
+      panic("math-once calculation-builder: hidden requires a stored scalar, vector, or matrix assignment")
+    }
+    if hidden and (caption != none or label != none) {
+      panic("math-once calculation-builder: hidden cannot be combined with caption or label")
+    }
+
     if caption != none and not block {
       panic("math-once calculation-builder: captions require block: true")
     }
@@ -5065,14 +5230,16 @@ let calculation-builder(
       let aliases = unit-aliases(current)
       if parsed-function != none {
         if result-only {
-          text(fill: red, [math-once: a function definition has no calculated result to show by itself.])
+          builder-error("a function definition has no calculated result to show by itself")
           return
         }
-        if parsed-function.name in aliases {
-          text(
-            fill: red,
-            [math-once: #raw(parsed-function.name) is a unit name and cannot be used as a function.],
-          )
+        let function-name-is-unloaded = (parsed-function.name in current
+          and is-unloaded(current.at(parsed-function.name)))
+        let reserved-function-name = (parsed-function.name in aliases
+          or (is-built-in-constant(parsed-function.name) and not function-name-is-unloaded)
+          or (resolve-unit(parsed-function.name) != none and not function-name-is-unloaded))
+        if reserved-function-name {
+          builder-error("`" + parsed-function.name + "` is a reserved unit or constant name and cannot be used as a function")
           return
         }
         variables.update(old => {
@@ -5103,26 +5270,17 @@ let calculation-builder(
       if absolute-tokens != none { evaluation-tokens = absolute-tokens }
       let has-paired-sign = evaluation-tokens.any(token => token in ("±", "∓"))
       if has-paired-sign and stores-result and not illegal-assignment {
-        text(
-          fill: red,
-          [math-once: plus/minus expressions have two paired results and cannot be stored as one value.],
-        )
+        builder-error("plus/minus expressions have two paired results and cannot be stored as one value")
         return
       }
       let has-display-symbol = evaluation-tokens.any(is-display-only-token)
       if has-display-symbol {
         if illegal-assignment {
-          text(
-            fill: red,
-            [math-once: #raw(name) is #reserved-name-kind and cannot be used as a variable.],
-          )
+          builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
         } else if stores-result {
-          text(
-            fill: red,
-            [math-once: display-only mathematical symbols cannot be stored as one numeric value.],
-          )
+          builder-error("display-only mathematical symbols cannot be stored as one numeric value")
         } else if result-only {
-          text(fill: red, [math-once: a display-only expression has no calculated result to show by itself.])
+          builder-error("a display-only expression has no calculated result to show by itself")
         } else {
           let visible-tokens = if calculated-assignment != none {
             tokenize(source)
@@ -5144,20 +5302,17 @@ let calculation-builder(
           and name != none
           and (name in aliases or is-built-in-constant(name)))
         if illegal-symbolic-assignment {
-          text(
-            fill: red,
-            [math-once: #raw(name) is #reserved-name-kind and cannot be used as a variable.],
-          )
+          builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
           return
         }
         if unit != none or size != none {
-          text(fill: red, [math-once: symbolic calculations do not accept unit or size.])
+          builder-error("symbolic calculations do not accept unit or size")
           return
         }
 
         let result = symbolic-result(cas-call, current)
         if is-calculation-failure(result) {
-          text(fill: red, [math-once: #result.error.])
+          builder-error(result.error)
           return
         }
 
@@ -5193,14 +5348,6 @@ let calculation-builder(
       let function-expansion = if display-only { (evaluation-tokens, false) } else { expand-function-calls(evaluation-tokens, current) }
       let function-error = if is-calculation-failure(function-expansion) { function-expansion.error } else { none }
       let calculation-tokens = if function-error == none { function-expansion.first() } else { tokens }
-      let nested-expansion = if function-error == none and function-expansion.last() {
-        expand-function-calls(calculation-tokens, current)
-      } else {
-        (calculation-tokens, false)
-      }
-      if not is-calculation-failure(nested-expansion) and nested-expansion.last() {
-        calculation-tokens = nested-expansion.first()
-      }
       let missing = if display-only { () } else { missing-variables(tokens, current, unloaded, aliases: aliases) }
       let result = if illegal-assignment or display-only or missing.len() > 0 or function-error != none { none } else {
         calculate-expanded(
@@ -5213,6 +5360,7 @@ let calculation-builder(
           block,
           unloaded,
           aliases,
+          strict-units: strict-units,
         )
       }
       let calculation-error = if is-calculation-failure(result) { result.error } else { none }
@@ -5220,42 +5368,27 @@ let calculation-builder(
         and (missing.len() > 0 or function-error != none or calculation-error != none))
 
       if illegal-assignment {
-        text(
-          fill: red,
-          [math-once: #raw(name) is #reserved-name-kind and cannot be used as a variable.],
-        )
+        builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
       } else if unresolved-absolute and stores-result {
-        text(
-          fill: red,
-          [math-once: a non-numeric absolute-value expression cannot be stored as one value.],
-        )
+        builder-error("a non-numeric absolute-value expression cannot be stored as one value")
       } else if unresolved-absolute {
         let visible-tokens = if calculated-assignment != none { tokenize(source) } else { tokens }
         render-tokens(visible-tokens, scope: current, aliases: aliases)
       } else if missing.len() > 0 and result-only {
-        text(
-          fill: red,
-          [math-once: #raw(missing.first()) is not set, so there is no result to show.],
-        )
+        builder-error("`" + missing.first() + "` is not set, so there is no result to show")
       } else if missing.len() > 0 and (calculated-assignment != none or has-paired-sign) {
         // Preserve ordinary symbolic equations when their right-hand side
         // cannot be evaluated from known variables, numbers, and units.
         render-tokens(tokenize(source), scope: current, aliases: aliases)
       } else if missing.len() > 0 {
-        text(
-          fill: red,
-          [math-once: #raw(missing.first()) is not set.],
-        )
+        builder-error("`" + missing.first() + "` is not set")
       } else if function-error != none {
-        text(fill: red, [math-once: #function-error.])
+        builder-error(function-error)
       } else if calculation-error != none {
-        text(
-          fill: red,
-          [math-once: #calculation-error.],
-        )
+        builder-error(calculation-error)
       } else if display-only {
         if result-only {
-          text(fill: red, [math-once: a display-only equation has no calculated result to show by itself.])
+          builder-error("a display-only equation has no calculated result to show by itself")
         } else {
           render-tokens(tokens, scope: current, aliases: aliases)
         }
@@ -5265,10 +5398,10 @@ let calculation-builder(
         let labelled-body = render-tokens((name,), scope: name-scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current, aliases: aliases)
         if show-result {
           let (expanded, has-variables) = expand-variables(tokens, current)
-          if has-variables {
+          if has-variables and show-substitution {
             labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
           }
-          let last-visible-tokens = if has-variables { expanded } else { tokens }
+          let last-visible-tokens = if has-variables and show-substitution { expanded } else { tokens }
           if ((is-structure-result(result) and not structure-equivalent(last-visible-tokens, result))
             or result.at("alternatives", default: false)
             or (not is-structure-result(result)
@@ -5298,16 +5431,17 @@ let calculation-builder(
           return render-result(result, aliases: aliases)
         }
         let labelled-body = render-tokens(tokens, scope: current, aliases: aliases)
-        if (function-expansion.last()
+        if (show-substitution
+          and function-expansion.last()
           and vector-components(calculation-tokens) == none
           and matrix-rows(calculation-tokens) == none) {
           labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(calculation-tokens, scope: numeric-scope(current), aliases: aliases)
         }
         let (expanded, has-variables) = expand-variables(tokens, current)
-        if has-variables {
+        if has-variables and show-substitution {
           labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
         }
-        let last-visible-tokens = if has-variables { expanded } else { tokens }
+        let last-visible-tokens = if has-variables and show-substitution { expanded } else { tokens }
         if ((is-structure-result(result) and not structure-equivalent(last-visible-tokens, result))
           or result.at("alternatives", default: false)
           or (not is-structure-result(result)
@@ -5322,7 +5456,13 @@ let calculation-builder(
       block,
       supplement,
     )
-    if label == none { output } else { [#output #label] }
+    if hidden {
+      box(width: 0pt, height: 0pt, place(hide[#output]))
+    } else if label == none {
+      output
+    } else {
+      [#output #label]
+    }
   }
 }
 
@@ -5562,21 +5702,24 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// - `unit`: Optional requested output unit as a string, raw block, or Typst
 ///   math equation. This is an alternative to `to` or `=` in `source`.
 /// - `size`: Optional positive SI scale for the displayed result. For example,
-///   `$10^(-6)$` displays a length in micrometres. Cannot be combined with an
-///   output unit.
+///   `$10^(-6)$` displays a length in micrometres. It may be combined with the
+///   named `unit` argument, but not with `to` or `=` inside the source.
 /// - `block`: Whether the rendered equation is centered. Default: `true`.
+/// - `strict-units`: Reject unknown quoted units instead of treating them as
+///   opaque custom units. Default: `false`.
 ///
 /// Returns a dictionary with `display`, `value`, `exact`, `si-value`,
 /// `dimensions`, `unit`, `size`, and `source`.
 /// A paired-sign expression instead returns `alternatives: true`, `display`,
 /// and tuples named `branches`, `values`, `exacts`, `si-values`, and `units`.
-#let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true) = (_engine.calculate)(
+#let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, strict-units: false) = (_engine.calculate)(
   source,
   digits: digits,
   scope: scope,
   unit: unit,
   size: size,
   block: block,
+  strict-units: strict-units,
 )
 
 /// Create a stateful calculator for sequences of equations.
@@ -5589,10 +5732,15 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 ///   and keeps raw/string input centered. A boolean forces the layout.
 ///   Default: `auto`.
 /// - `supplement`: Optional reference and caption name. Default: `auto`.
+/// - `strict`: Panic on calculation errors instead of rendering them in red.
+///   Default: `false`.
+/// - `strict-units`: Reject unknown quoted units instead of treating them as
+///   opaque custom units. Default: `false`.
 ///
 /// The returned runner accepts zero or one string, raw block, or Typst math
-/// equation plus the named `digits`, `unit`, `size`, `show-result`, `block`, `label`,
-/// `result-only`, `caption`, and `gap`, and `supplement` overrides.
+/// equation plus the named `digits`, `unit`, `size`, `show-result`,
+/// `show-substitution`, `result-only`, `hidden`, `block`, `label`, `caption`,
+/// `gap`, and `supplement` overrides.
 /// Set `show-result: false` on a `:=` definition to store the exact calculated
 /// value while showing only the written definition.
 /// Scalar, vector, and matrix functions can also be stored with `:=`, such as
@@ -5616,12 +5764,16 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   digits: 4,
   block: auto,
   supplement: auto,
+  strict: false,
+  strict-units: false,
 ) = (_engine.calculation-builder)(
   initial-state: initial-state,
   key: key,
   digits: digits,
   block: block,
   supplement: supplement,
+  strict: strict,
+  strict-units: strict-units,
 )
 
 /// Clear the complete `calculation-builder` state.
