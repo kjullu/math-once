@@ -26,6 +26,18 @@
   assert(eq().x.custom-units == (micrometer: 1))
 }
 
+// Quoted custom units named after Typst symbols use the same glyph in the
+// source expression and result. Known quoted units remain upright text.
+#let symbols = calculation-builder(key: "opaque-symbol-units")
+#symbols($M := 53 * 10^(-3) "Omega"$)
+#symbols($x := 2 "alpha"$)
+#symbols($y := 2 "ohm"$)
+#context {
+  assert(symbols().M.unit == "Omega")
+  assert(symbols().x.unit == "alpha")
+  assert(symbols().y.unit == "ohm")
+}
+
 // An explicit unit: replaces opaque input units while preserving arithmetic.
 #let overridden = calculate($1 "micrometer" + 1$, unit: $m$)
 #assert(overridden.value == 2.0)

@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.37.0
 
+- Rendered quoted custom units that match Typst symbol names consistently on both sides of calculated equations, so `"Omega"` now appears as `Ω` in both the input and result while known units such as `"ohm"` remain upright text.
 - Distinguished absolute affine temperatures from temperature differences, so Celsius and Fahrenheit subtraction keeps the correct scale without reapplying an absolute offset.
 - Preserved physical dimensions when custom units and catalog units are combined, including cancellation from `DKK/kWh` to `DKK` after multiplication by energy.
 - Preserved `text-unit` markers in stored results so plain and compound symbolic output labels remain reusable.

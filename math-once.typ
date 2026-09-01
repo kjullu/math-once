@@ -1,4 +1,4 @@
-// math-once v0.36.1
+// math-once v0.37.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3318,7 +3318,15 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
     } else if is-text-unit(token) {
       "upright(\"" + text-unit-name(token) + "\")"
     } else if is-quoted-unit(token) {
-      "upright(\"" + quoted-unit-name(token) + "\")"
+      let name = quoted-unit-name(token)
+      let symbol-tokens = tokenize(name)
+      if resolve-unit(name) == none and name in variable-symbols {
+        name
+      } else if (symbol-tokens.len() == 1 and is-math-symbol(symbol-tokens.first())) {
+        render-tokens(symbol-tokens, scope: scope, aliases: aliases)
+      } else {
+        "upright(\"" + name + "\")"
+      }
     } else if is-name(token) {
       if (token in cas-functions
         and index + 1 < tokens.len()
