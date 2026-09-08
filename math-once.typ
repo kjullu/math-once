@@ -1,4 +1,4 @@
-// math-once v0.37.1
+// math-once v0.37.2
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -5382,7 +5382,7 @@ let calculation-builder(
       } else if unresolved-absolute {
         let visible-tokens = if calculated-assignment != none { tokenize(source) } else { tokens }
         render-tokens(visible-tokens, scope: current, aliases: aliases)
-      } else if missing.len() > 0 and stores-result and missing.any(name => name in unloaded) {
+      } else if missing.len() > 0 and stores-result {
         // Contextual state reads lag behind updates during layout. Queue a
         // second evaluation against the state seen by the update itself so a
         // chain of stored assignments can advance without one layout pass per

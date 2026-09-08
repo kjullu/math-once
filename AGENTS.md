@@ -3,4 +3,4 @@
 - Every implementation change must include a corresponding entry in `CHANGELOG.md`.
 - Bump the version in the first line of `math-once.typ` whenever implementation changes are prepared for delivery.
 - Keep that version synchronized with `typst.toml`, the local-package import example in `README.md`, and `tests/package-import.typ`.
-- Do not create a commit, tag, or release unless the user explicitly asks for it.
+- Do not create a commit or release unless the user explicitly asks for it. Do though create a tag to go with your new version.

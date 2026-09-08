@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.37.2
+
+- Stored long calculation chains even when later assignments depend on ordinary variables, fixing result-only lookups such as `I` after `A_l -> A -> M -> I`.
+- Extended the state regression through area, mass, moment of inertia, unit conversion, and a final result-only lookup.
+
 ## 0.37.1
 
 - Stored dependent calculation chains in one layout pass, preventing later assignments and lookups from disappearing when several variables are derived in sequence.
