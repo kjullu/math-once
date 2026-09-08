@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.38.0
+
+- Added `show-unit: false` to calculation-builder calls, allowing result values to be placed before a prose unit without rendering the calculated unit twice.
+
 ## 0.37.2
 
 - Stored long calculation chains even when later assignments depend on ordinary variables, fixing result-only lookups such as `I` after `A_l -> A -> M -> I`.

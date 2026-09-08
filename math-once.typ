@@ -1,4 +1,4 @@
-// math-once v0.37.2
+// math-once v0.38.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -4098,22 +4098,22 @@ let structure-equivalent(tokens, result) = {
   false
 }
 
-let render-result(result, aliases: (:)) = {
+let render-result(result, aliases: (:), show-unit: true) = {
   if result.at("alternatives", default: false) {
-    return result.branches.map(branch => render-result(branch, aliases: aliases)).join(
+    return result.branches.map(branch => render-result(branch, aliases: aliases, show-unit: show-unit)).join(
       h(0.25em) + render-tokens((math-symbol-token("or"),)) + h(0.25em),
     )
   }
   if result.at("vector", default: false) {
-    let children = result.components.map(component => render-result(component, aliases: aliases))
+    let children = result.components.map(component => render-result(component, aliases: aliases, show-unit: show-unit))
     return math.vec(..children)
   }
   if result.at("matrix", default: false) {
-    let rows = result.rows.map(row => row.map(cell => render-result(cell, aliases: aliases)))
+    let rows = result.rows.map(row => row.map(cell => render-result(cell, aliases: aliases, show-unit: show-unit)))
     return math.mat(..rows)
   }
   let unit = result-unit-source(result)
-  if is-scientific-size-unit(unit) {
+  if show-unit and is-scientific-size-unit(unit) {
     render-tokens(
       display-number-tokens(
         result.value,
@@ -4126,7 +4126,7 @@ let render-result(result, aliases: (:)) = {
       result.value,
       exact: result.at("exact", default: result.value),
     ))
-    if unit != none {
+    if show-unit and unit != none {
       body += h(0.2em) + render-tokens(tokenize(unit), aliases: aliases)
     }
     body
@@ -5152,6 +5152,7 @@ let calculation-builder(
     size: none,
     show-result: true,
     show-substitution: true,
+    show-unit: true,
     result-only: false,
     hidden: false,
     block: block,
@@ -5168,6 +5169,9 @@ let calculation-builder(
     }
     if type(show-substitution) != bool {
       panic("math-once calculation-builder: show-substitution must be a boolean")
+    }
+    if type(show-unit) != bool {
+      panic("math-once calculation-builder: show-unit must be a boolean")
     }
     if type(hidden) != bool {
       panic("math-once calculation-builder: hidden must be a boolean")
@@ -5455,11 +5459,11 @@ let calculation-builder(
             or result.at("alternatives", default: false)
             or (not is-structure-result(result)
               and not equivalent-tokens(last-visible-tokens, result-tokens(result)))) {
-            labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases)
+            labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases, show-unit: show-unit)
           }
         }
         let visible-body = if result-only {
-          render-result(result, aliases: aliases)
+          render-result(result, aliases: aliases, show-unit: show-unit)
         } else {
           labelled-body
         }
@@ -5477,7 +5481,7 @@ let calculation-builder(
         }
       } else {
         if result-only {
-          return render-result(result, aliases: aliases)
+          return render-result(result, aliases: aliases, show-unit: show-unit)
         }
         let labelled-body = render-tokens(tokens, scope: current, aliases: aliases)
         if (show-substitution
@@ -5495,7 +5499,7 @@ let calculation-builder(
           or result.at("alternatives", default: false)
           or (not is-structure-result(result)
             and not equivalent-tokens(last-visible-tokens, result-tokens(result)))) {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases)
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases, show-unit: show-unit)
         }
         labelled-body
       }
@@ -5788,7 +5792,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 ///
 /// The returned runner accepts zero or one string, raw block, or Typst math
 /// equation plus the named `digits`, `unit`, `size`, `show-result`,
-/// `show-substitution`, `result-only`, `hidden`, `block`, `label`, `caption`,
+/// `show-substitution`, `show-unit`, `result-only`, `hidden`, `block`, `label`, `caption`,
 /// `gap`, and `supplement` overrides.
 /// Set `show-result: false` on a `:=` definition to store the exact calculated
 /// value while showing only the written definition.
