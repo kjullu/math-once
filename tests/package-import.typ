@@ -1,4 +1,4 @@
-#import "@local/math-once:0.37.2": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline
+#import "@local/math-once:0.38.0": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline
 
 #let result = evaluate-code(`6 * 7`, unit: `kg`)
 #assert(result.value == 42)
@@ -82,6 +82,7 @@
 #let conclusion = calculation-builder(key: "package-import-result-only")
 #conclusion($speed := 10 m/s$)
 #assert(conclusion($speed$, result-only: true).block == false)
+#conclusion($speed$, result-only: true, show-unit: false)
 
 #let subscript = calculation-builder(key: "package-import-text-subscript")
 #unload("d", key: "package-import-text-subscript")

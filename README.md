@@ -39,6 +39,9 @@ ordinary arithmetic with matching custom units, without physical conversion.
 Conclusion: #eq($v$, result-only: true)
 // Conclusion: 250.56
 
+It takes #eq($1.394 s$, result-only: true, show-unit: false) seconds.
+// show-unit avoids output such as "1.39 s seconds"
+
 #eq($ "distance" := 0.5 "mm" $)
 #eq($ 1 / "distance" $, unit: $#text-unit("lines") / m $)
 // 1/distance = 1/(0.5 mm) = 2000 lines/m
@@ -77,7 +80,7 @@ Copy [`math-once.typ`](math-once.typ) into your project and import the
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.37.2": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.38.0": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst. Symbolic builder operations use

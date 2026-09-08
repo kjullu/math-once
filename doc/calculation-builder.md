@@ -343,6 +343,7 @@ runner(
   size: none,
   show-result: true,
   show-substitution: true,
+  show-unit: true,
   result-only: false,
   hidden: false,
   block: builder-block,
@@ -425,6 +426,20 @@ Set this to `false` to omit the substituted middle step while retaining the writ
 #eq(`x := 3`)
 #eq(`y := x * 2`, show-substitution: false)
 // y = x ⋅ 2 = 6
+```
+
+### `show-unit`
+
+`bool` — optional, named — default: `true`
+
+Set this to `false` to omit the unit from calculated results. The stored value
+and its unit stay unchanged, so later calculations and conversions still work.
+This is useful when the unit is already written as prose:
+
+```typ
+#eq($t := 1.394 s$)
+It takes #eq($t$, result-only: true, show-unit: false) seconds.
+// It takes 1.394 seconds.
 ```
 
 ### `hidden`

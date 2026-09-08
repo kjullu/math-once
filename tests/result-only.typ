@@ -13,6 +13,8 @@ Conclusion: #eq($v_0$, result-only: true).
 // The option applies to ordinary expressions, conversions, and paired values.
 Twice: #eq($v_0 * 2$, result-only: true).
 Converted: #eq($v_0$, unit: $m/s$, result-only: true).
+Without a unit suffix: #eq($v_0$, result-only: true, show-unit: false) seconds.
+#context assert(eq().v_0.unit == "km/s")
 Alternatives: #eq($10 plus.minus 2$, result-only: true).
 
 CAS: #eq(`simplify(x^2 + 2*x + 1)`, result-only: true).
