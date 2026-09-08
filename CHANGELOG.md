@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.37.1
+
+- Stored dependent calculation chains in one layout pass, preventing later assignments and lookups from disappearing when several variables are derived in sequence.
+- Added regression coverage for unloaded unit names used as variables in the chain `d -> R -> r -> A_l`.
+
 ## 0.37.0
 
 - Rendered quoted custom units that match Typst symbol names consistently on both sides of calculated equations, so `"Omega"` now appears as `Ω` in both the input and result while known units such as `"ohm"` remain upright text.
