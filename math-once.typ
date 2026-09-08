@@ -1,4 +1,4 @@
-// math-once v0.37.0
+// math-once v0.37.1
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -5382,6 +5382,47 @@ let calculation-builder(
       } else if unresolved-absolute {
         let visible-tokens = if calculated-assignment != none { tokenize(source) } else { tokens }
         render-tokens(visible-tokens, scope: current, aliases: aliases)
+      } else if missing.len() > 0 and stores-result and missing.any(name => name in unloaded) {
+        // Contextual state reads lag behind updates during layout. Queue a
+        // second evaluation against the state seen by the update itself so a
+        // chain of stored assignments can advance without one layout pass per
+        // dependency.
+        variables.update(old => {
+          let update-aliases = unit-aliases(old)
+          let update-unloaded = ()
+          for (stored-name, item) in old {
+            if is-unloaded(item) { update-unloaded.push(stored-name) }
+          }
+          let update-expansion = expand-function-calls(evaluation-tokens, old)
+          if is-calculation-failure(update-expansion) {
+            return old
+          }
+          let update-tokens = update-expansion.first()
+          let update-missing = missing-variables(tokens, old, update-unloaded, aliases: update-aliases)
+          if update-missing.len() > 0 {
+            return old
+          }
+          let update-result = calculate-expanded(
+            calculate,
+            update-tokens,
+            digits,
+            old,
+            unit,
+            size,
+            block,
+            update-unloaded,
+            update-aliases,
+            strict-units: strict-units,
+          )
+          if is-calculation-failure(update-result) {
+            return old
+          }
+          update-result.insert("variable", name)
+          if name in update-unloaded { update-result.insert("unloaded", true) }
+          old.insert(name, update-result)
+          old
+        })
+        builder-error("`" + missing.first() + "` is not set")
       } else if missing.len() > 0 and result-only {
         builder-error("`" + missing.first() + "` is not set, so there is no result to show")
       } else if missing.len() > 0 and (calculated-assignment != none or has-paired-sign) {
