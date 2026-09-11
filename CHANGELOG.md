@@ -5,6 +5,7 @@
 - Allowed `solve(left = right)` and `solve(left = right, variable)` so equations can be passed to the CAS as equations instead of manually separating their two sides.
 - Rendered alternative solutions as equations joined by `∨`, such as `x = 0 ∨ x = 1`.
 - Passed `infinity` and `oo` limit targets to typCAS correctly while continuing to display them as `∞`.
+- Separated CAS tokenization from the unit-aware tokenizer, leaving expression parsing and symbol rendering to typCAS while retaining builder assignments and stored-value substitution.
 - Kept the existing zero-form and three-argument solve syntax compatible.
 
 ## 0.38.0

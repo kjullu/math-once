@@ -9,6 +9,8 @@ The CAS runs locally as Typst code. Typst downloads and caches the pinned
 package dependency through its normal package system; there is no web service
 or separate program to install.
 
+CAS operands use typCAS parsing and rendering directly. The unit-aware math-once tokenizer is not applied to them, so constants and symbols such as `pi` and `infinity` keep their CAS meaning.
+
 ## First calculation
 
 Create the same builder used for unit-aware calculations:

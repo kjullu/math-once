@@ -40,9 +40,13 @@
 // Existing dimensionless builder values are substituted into CAS input.
 #eq(`coefficient := 3`)
 #eq(`scaled := simplify(coefficient*x + coefficient*x)`)
+#eq(`pi_identity := simplify(sin(pi)^2 + cos(pi)^2)`)
+#eq(`alpha_derivative := diff(alpha^2, alpha)`)
 #context {
   let evaluated = cas.eval(eq().scaled.expression, bindings: (x: 2))
   assert(cas.value-of(evaluated) == 12)
+  assert(cas.value-of(cas.eval(eq().pi_identity.expression)) == 1)
+  assert(cas.value-of(cas.eval(eq().alpha_derivative.expression, bindings: (alpha: 2))) == 4)
 }
 
 // The remaining public operations use the same stored-result contract.

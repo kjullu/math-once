@@ -4194,10 +4194,36 @@ let is-stored-variable(item) = (
   and not is-initial-state-marker(item)
 )
 
+// Tokenize only the outer CAS call. Unlike the unit-aware tokenizer, this does
+// not interpret names through Typst's symbol or unit catalogs. typCAS owns the
+// expression grammar inside each argument.
+let symbolic-tokenize(source) = {
+  let name = "[\\p{L}]+(?:_[\\p{L}0-9]+)*"
+  let math-symbol = math-symbol-prefix + "[^" + math-symbol-prefix + math-symbol-suffix + "]+" + math-symbol-suffix
+  let raw-symbol = "[\\p{S}\\p{P}]\\p{M}*"
+  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|" + math-symbol + "|\\\"" + name + "\\\"|" + name + "|:=|[=(),;+*/^+\\-]|" + raw-symbol)
+  let tokens = ()
+  let cursor = 0
+  for found in source.matches(pattern) {
+    if source.slice(cursor, found.start).trim() != "" {
+      panic("math-once CAS: unsupported syntax near `" + source.slice(cursor, found.start) + "`")
+    }
+    tokens.push(found.text)
+    cursor = found.end
+  }
+  if source.slice(cursor).trim() != "" {
+    panic("math-once CAS: unsupported syntax near `" + source.slice(cursor) + "`")
+  }
+  tokens
+}
+
 // Recognize the deliberately small, task-oriented CAS surface accepted by the
 // builder. CAS expressions are dimensionless; unit-aware arithmetic continues
 // to use the native evaluator below.
-let symbolic-call(tokens) = {
+let symbolic-call(source) = {
+  let operation = source.match(regex("^\\s*(simplify|diff|integrate|solve|factor|limit|taylor)\\s*\\("))
+  if operation == none { return none }
+  let tokens = symbolic-tokenize(source)
   if (tokens.len() < 3
     or tokens.first() not in cas-functions
     or tokens.at(1) != "("
@@ -4220,9 +4246,17 @@ let symbolic-call(tokens) = {
 
 let symbolic-token-name(token) = if is-quoted-unit(token) {
   quoted-unit-name(token)
-} else if (is-math-symbol(token)
-  and math-symbol-payload(token) in ("infinity", "oo")) {
-  "infinity"
+} else if token in ("infinity", "oo") {
+  "∞"
+} else if is-math-symbol(token) {
+  let payload = math-symbol-payload(token)
+  if payload.starts-with(":") {
+    payload.slice(1)
+  } else if payload in ("infinity", "oo") {
+    "∞"
+  } else {
+    typst-symbol-catalog.at(payload, default: payload)
+  }
 } else {
   token
 }
@@ -4247,6 +4281,30 @@ let symbolic-name-argument(tokens, operation) = {
     return calculation-failure(operation + ": the variable must be a single name")
   }
   symbolic-token-name(tokens.first())
+}
+
+let render-symbolic-call(call) = {
+  let render-argument(tokens) = {
+    let source = symbolic-source(tokens)
+    if source == "∞" {
+      eval("infinity", mode: "math").body
+    } else {
+      cas.display(cas.parse(source))
+    }
+  }
+  let body = []
+  for (index, argument) in call.arguments.enumerate() {
+    if index > 0 { body += math.comma + h(0.25em) }
+    let equation = split-top-level(argument, separator: "=")
+    if equation.len() == 2 {
+      body += (render-argument(equation.first())
+        + h(0.25em) + math.eq + h(0.25em)
+        + render-argument(equation.last()))
+    } else {
+      body += render-argument(argument)
+    }
+  }
+  math.op(call.operation) + math.lr(math.paren.l + body + math.paren.r)
 }
 
 let symbolic-expression(tokens, scope) = {
@@ -5252,7 +5310,10 @@ let calculation-builder(
       assignment.captures.at(1)
     }
     let expression = if assignment == none { source } else { assignment.captures.at(2) }
-    let display-only = assignment == none and split-top-level(tokenize(source), separator: "=").len() > 1
+    let source-cas-call = symbolic-call(expression)
+    let display-only = (assignment == none
+      and source-cas-call == none
+      and split-top-level(tokenize(source), separator: "=").len() > 1)
 
     if hidden and (not stores-result or parsed-function != none) {
       panic("math-once calculation-builder: hidden requires a stored scalar, vector, or matrix assignment")
@@ -5306,8 +5367,26 @@ let calculation-builder(
       } else {
         "a unit name"
       }
-      let tokens = if display-only { tokenize(source) } else { expression-tokens(expression) }
-      let evaluation-tokens = if display-only { tokens } else { tokenize(expression) }
+      let cas-call = if display-only { none } else { source-cas-call }
+      if (cas-call != none
+        and cas-call.operation in current
+        and is-stored-function(current.at(cas-call.operation))) {
+        cas-call = none
+      }
+      let tokens = if cas-call != none {
+        cas-call.tokens
+      } else if display-only {
+        tokenize(source)
+      } else {
+        expression-tokens(expression)
+      }
+      let evaluation-tokens = if cas-call != none {
+        cas-call.tokens
+      } else if display-only {
+        tokens
+      } else {
+        tokenize(expression)
+      }
       let has-absolute-bars = "|" in evaluation-tokens
       let absolute-tokens = absolute-value-tokens(evaluation-tokens)
       if absolute-tokens != none { evaluation-tokens = absolute-tokens }
@@ -5316,18 +5395,7 @@ let calculation-builder(
         builder-error("plus/minus expressions have two paired results and cannot be stored as one value")
         return
       }
-      let cas-call = if display-only { none } else { symbolic-call(evaluation-tokens) }
-      if (cas-call != none
-        and cas-call.operation in current
-        and is-stored-function(current.at(cas-call.operation))) {
-        cas-call = none
-      }
-      let has-display-symbol = evaluation-tokens.any(token => (
-        is-display-only-token(token)
-          and not (cas-call != none
-            and is-math-symbol(token)
-            and symbolic-token-name(token) == "infinity")
-      ))
+      let has-display-symbol = cas-call == none and evaluation-tokens.any(is-display-only-token)
       if has-display-symbol {
         if illegal-assignment {
           builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
@@ -5364,7 +5432,7 @@ let calculation-builder(
           return
         }
 
-        let written = render-tokens(evaluation-tokens, scope: current, aliases: aliases)
+        let written = render-symbolic-call(cas-call)
         let labelled-body = if name != none {
           let name-scope = current
           name-scope.insert(name, 0)
