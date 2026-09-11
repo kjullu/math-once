@@ -84,7 +84,7 @@ Inline: #automatic($1 + 1$).
 #let symbolic = calculation-builder(key: "docs-symbolic")
 #symbolic(`f := simplify(x^2 + 2*x + 1)`)
 #symbolic(`df := diff(f, x)`)
-#symbolic(`roots := solve(x^2 - 4, x)`)
+#symbolic(`roots := solve(x = x^2)`)
 #context {
   assert(symbolic().f.symbolic-kind == "expression")
   assert(symbolic().df.operation == "diff")

@@ -1,4 +1,4 @@
-// math-once v0.38.0
+// Better CAS integration (0.38.0)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -4220,6 +4220,9 @@ let symbolic-call(tokens) = {
 
 let symbolic-token-name(token) = if is-quoted-unit(token) {
   quoted-unit-name(token)
+} else if (is-math-symbol(token)
+  and math-symbol-payload(token) in ("infinity", "oo")) {
+  "infinity"
 } else {
   token
 }
@@ -4292,12 +4295,18 @@ let symbolic-expression(tokens, scope) = {
 let symbolic-result(call, scope) = {
   let operation = call.operation
   let arguments = call.arguments
+  let solve-equation = if operation == "solve" {
+    split-top-level(arguments.first(), separator: "=")
+  } else {
+    ()
+  }
+  let solves-equation = operation == "solve" and solve-equation.len() == 2
   let expected = if operation in ("simplify",) {
     "one expression"
   } else if operation in ("diff", "integrate") {
     "an expression and a variable"
   } else if operation == "solve" {
-    "an expression and a variable, or a left side, right side, and variable"
+    "an equation with an optional variable, an expression and a variable, or a left side, right side, and variable"
   } else if operation == "factor" {
     "an expression and optionally a variable"
   } else if operation == "limit" {
@@ -4307,7 +4316,10 @@ let symbolic-result(call, scope) = {
   }
   let valid-arity = if operation == "simplify" { arguments.len() == 1 }
     else if operation in ("diff", "integrate") { arguments.len() == 2 }
-    else if operation == "solve" { arguments.len() in (2, 3) }
+    else if operation == "solve" {
+      ((solves-equation and arguments.len() in (1, 2)) or
+        (not solves-equation and arguments.len() in (2, 3)))
+    }
     else if operation == "factor" { arguments.len() in (1, 2) }
     else if operation == "limit" { arguments.len() == 3 }
     else { arguments.len() == 4 }
@@ -4315,7 +4327,8 @@ let symbolic-result(call, scope) = {
     return calculation-failure(operation + " expects " + expected)
   }
 
-  let input = symbolic-expression(arguments.first(), scope)
+  let input-tokens = if solves-equation { solve-equation.first() } else { arguments.first() }
+  let input = symbolic-expression(input-tokens, scope)
   if is-calculation-failure(input) { return input }
 
   let result = if operation == "simplify" {
@@ -4325,10 +4338,16 @@ let symbolic-result(call, scope) = {
     if is-calculation-failure(variable) { return variable }
     if operation == "diff" { cas.diff(input, variable) } else { cas.integrate(input, variable) }
   } else if operation == "solve" {
-    let variable-tokens = arguments.last()
+    let variable-tokens = if solves-equation and arguments.len() == 1 {
+      ("x",)
+    } else {
+      arguments.last()
+    }
     let variable = symbolic-name-argument(variable-tokens, operation)
     if is-calculation-failure(variable) { return variable }
-    let right = if arguments.len() == 3 {
+    let right = if solves-equation {
+      symbolic-expression(solve-equation.last(), scope)
+    } else if arguments.len() == 3 {
       symbolic-expression(arguments.at(1), scope)
     } else {
       0
@@ -4375,6 +4394,16 @@ let symbolic-result(call, scope) = {
     expression: expression,
     roots: roots,
     operation: operation,
+    solution-variable: if operation == "solve" {
+      let variable-tokens = if solves-equation and arguments.len() == 1 {
+        ("x",)
+      } else {
+        arguments.last()
+      }
+      symbolic-name-argument(variable-tokens, operation)
+    } else {
+      none
+    },
     source: symbolic-source(call.tokens),
     restrictions: result.at("restrictions", default: ()),
     warnings: result.at("warnings", default: ()),
@@ -4388,8 +4417,10 @@ let render-symbolic-result(result) = {
   if result.roots.len() == 0 { return math.emptyset }
   let body = []
   for (index, root) in result.roots.enumerate() {
-    if index > 0 { body += math.comma + h(0.25em) }
-    body += cas.display(root)
+    if index > 0 { body += h(0.35em) + math.or + h(0.35em) }
+    body += (cas.display(cas.parse(result.solution-variable))
+      + h(0.25em) + math.eq + h(0.25em)
+      + cas.display(root))
   }
   body
 }
@@ -5221,7 +5252,7 @@ let calculation-builder(
       assignment.captures.at(1)
     }
     let expression = if assignment == none { source } else { assignment.captures.at(2) }
-    let display-only = assignment == none and "=" in tokenize(source)
+    let display-only = assignment == none and split-top-level(tokenize(source), separator: "=").len() > 1
 
     if hidden and (not stores-result or parsed-function != none) {
       panic("math-once calculation-builder: hidden requires a stored scalar, vector, or matrix assignment")
@@ -5285,7 +5316,18 @@ let calculation-builder(
         builder-error("plus/minus expressions have two paired results and cannot be stored as one value")
         return
       }
-      let has-display-symbol = evaluation-tokens.any(is-display-only-token)
+      let cas-call = if display-only { none } else { symbolic-call(evaluation-tokens) }
+      if (cas-call != none
+        and cas-call.operation in current
+        and is-stored-function(current.at(cas-call.operation))) {
+        cas-call = none
+      }
+      let has-display-symbol = evaluation-tokens.any(token => (
+        is-display-only-token(token)
+          and not (cas-call != none
+            and is-math-symbol(token)
+            and symbolic-token-name(token) == "infinity")
+      ))
       if has-display-symbol {
         if illegal-assignment {
           builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
@@ -5302,12 +5344,6 @@ let calculation-builder(
           render-tokens(visible-tokens, scope: current, aliases: aliases)
         }
         return
-      }
-      let cas-call = if display-only { none } else { symbolic-call(evaluation-tokens) }
-      if (cas-call != none
-        and cas-call.operation in current
-        and is-stored-function(current.at(cas-call.operation))) {
-        cas-call = none
       }
       if cas-call != none {
         let illegal-symbolic-assignment = (stores-result

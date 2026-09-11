@@ -76,6 +76,8 @@ CAS operations must be the top-level operation on the right-hand side.
 | `simplify(expression)` | Simplify an expression. |
 | `diff(expression, variable)` | Differentiate with respect to `variable`. |
 | `integrate(expression, variable)` | Find an indefinite integral. |
+| `solve(left = right)` | Solve an equation for `x`. |
+| `solve(left = right, variable)` | Solve an equation for the chosen variable. |
 | `solve(expression, variable)` | Solve `expression = 0`. |
 | `solve(left, right, variable)` | Solve `left = right`. |
 | `factor(expression)` | Factor with respect to `x`. |
@@ -88,9 +90,18 @@ For example:
 ```typ
 #eq(`identity := simplify(sin(x)^2 + cos(x)^2)`)
 #eq(`factored := factor(x^2 - 1, x)`)
-#eq(`roots := solve(x^2 - 4, x)`)
+#eq(`roots := solve(x = x^2)`)
 #eq(`approach := limit(sin(x) / x, x, 0)`)
+#eq(`decay := limit(1 / x, x, infinity)`)
 #eq(`series := taylor(sin(x), x, 0, 3)`)
+```
+
+Infinite limit targets can be written as either `infinity` or `oo`. Both display as `∞`.
+
+The equation form defaults to `x`. Name the variable when solving for anything else:
+
+```typ
+#eq(`y_roots := solve(y = y^2, y)`)
 ```
 
 The builder currently exposes this focused set of typCAS operations. Other
@@ -127,8 +138,8 @@ Most operations return one expression and can feed another operation:
 `solve` is different because it returns a set of roots:
 
 ```typ
-#eq(`roots := solve(x^2 - 4, x)`)
-// roots = solve(x² - 4, x) = 2, -2
+#eq(`roots := solve(x = x^2)`)
+// roots = solve(x = x²) = x = 0 ∨ x = 1
 ```
 
 A root set cannot be treated as one expression. For example,
@@ -157,6 +168,7 @@ The symbolic fields intended for programmatic use are:
 | `expression` | The typCAS AST for an expression result, otherwise `none`. |
 | `roots` | A tuple of typCAS AST roots for a solve result. |
 | `operation` | The operation that created the result. |
+| `solution-variable` | The variable shown beside each alternative solution. |
 
 The usual builder fields `display`, `variable`, and `source` are also present.
 

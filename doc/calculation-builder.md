@@ -95,6 +95,8 @@ diff(expression, variable)
 integrate(expression, variable)
 solve(expression, variable)
 solve(left, right, variable)
+solve(left = right)
+solve(left = right, variable)
 factor(expression[, variable])
 limit(expression, variable, target)
 taylor(expression, variable, center, order)
@@ -114,8 +116,8 @@ passed to a later operation:
 #eq(`df := diff(f, x)`)
 // df = diff(f, x) = 2x + 2
 
-#eq(`roots := solve(x^2 - 4, x)`)
-// roots = solve(x² - 4, x) = 2, -2
+#eq(`roots := solve(x = x^2)`)
+// roots = solve(x = x²) = x = 0 ∨ x = 1
 ```
 
 Unknown names such as `x` stay symbolic. Existing stored, dimensionless

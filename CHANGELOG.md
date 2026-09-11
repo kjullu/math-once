@@ -1,5 +1,12 @@
 # Changelog
 
+## Better CAS integration demo (based on 0.38.0)
+
+- Allowed `solve(left = right)` and `solve(left = right, variable)` so equations can be passed to the CAS as equations instead of manually separating their two sides.
+- Rendered alternative solutions as equations joined by `∨`, such as `x = 0 ∨ x = 1`.
+- Passed `infinity` and `oo` limit targets to typCAS correctly while continuing to display them as `∞`.
+- Kept the existing zero-form and three-argument solve syntax compatible.
+
 ## 0.38.0
 
 - Added `show-unit: false` to calculation-builder calls, allowing result values to be placed before a prose unit without rendering the calculated unit twice.

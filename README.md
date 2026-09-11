@@ -52,6 +52,9 @@ It takes #eq($1.394 s$, result-only: true, show-unit: false) seconds.
 #eq(` df := diff(f, x) `)
 // df = diff(f, x) = 2x + 2
 
+#eq(` roots := solve(x = x^2) `)
+// roots = solve(x = x²) = x = 0 ∨ x = 1
+
 // Raw input has no $...$ layout metadata. Override its centered default when
 // a normal CAS result should appear inline:
 Inline derivative: #eq(`diff(f, x)`, block: false)

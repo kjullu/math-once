@@ -105,7 +105,7 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 #let symbolic = calculation-builder(key: "all-functions-symbolic")
 #symbolic(`f := simplify(x^2 + 2*x + 1)`)
 #symbolic(`df := diff(f, x)`)
-#symbolic(`roots := solve(x^2 - 4, x)`)
+#symbolic(`roots := solve(x = x^2)`)
 #context {
   assert(symbolic().df.symbolic-kind == "expression")
   assert(symbolic().roots.symbolic-kind == "roots")

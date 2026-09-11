@@ -49,20 +49,39 @@
 #eq(`factored := factor(x^2 - 1, x)`)
 #eq(`approach := limit(sin(x) / x, x, 0)`)
 #eq(`series := taylor(sin(x), x, 0, 3)`)
+#let limits = calculation-builder(key: "symbolic-cas-limits", strict: true)
+#limits(`limit_ten := limit(1/x, x, 10)`)
+#limits(`limit_zero := limit(1/x, x, 0)`)
+#limits(`limit_infinity := limit(1/x, x, infinity)`)
+#limits(`limit_oo := limit(1/x, x, oo)`)
 #context {
   assert(eq().factored.operation == "factor")
   assert(eq().approach.operation == "limit")
   assert(eq().series.operation == "taylor")
+  assert(cas.value-of(cas.eval(limits().limit_ten.expression)) == 0.1)
+  assert(cas.value-of(cas.eval(limits().limit_infinity.expression)) == 0)
+  assert(cas.value-of(cas.eval(limits().limit_oo.expression)) == 0)
 }
 
 // Solve stores a root set rather than pretending that it is one expression.
 #eq(`roots := solve(x^2 - 4, x)`)
 #eq(`shifted_roots := solve(x + 1, 3, x)`)
+#eq(`fixed_points := solve(x = x^2)`)
+#eq(`y_fixed_points := solve(y = y^2, y)`)
 #context {
   assert(eq().roots.symbolic-kind == "roots")
   assert(eq().roots.roots.len() == 2)
   assert(eq().shifted_roots.roots.len() == 1)
+  assert(eq().fixed_points.roots.len() == 2)
+  assert(eq().y_fixed_points.roots.len() == 2)
+  assert(eq().fixed_points.solution-variable == "x")
+  assert(eq().y_fixed_points.solution-variable == "y")
+  assert(eq().fixed_points.roots.any(root => cas.value-of(cas.eval(root)) == 0))
+  assert(eq().fixed_points.roots.any(root => cas.value-of(cas.eval(root)) == 1))
 }
+
+// Quoted Typst math calls can contain the equation directly too.
+#eq($ "solve"(x = x^2) $)
 
 #eq(`not_scalar := simplify(roots + 1)`)
 #context assert("not_scalar" not in eq())
