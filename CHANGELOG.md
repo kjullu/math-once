@@ -6,6 +6,7 @@
 - Rendered alternative solutions as equations joined by `∨`, such as `x = 0 ∨ x = 1`.
 - Passed `infinity` and `oo` limit targets to typCAS correctly while continuing to display them as `∞`.
 - Separated CAS tokenization from the unit-aware tokenizer, leaving expression parsing and symbol rendering to typCAS while retaining builder assignments and stored-value substitution.
+- Made direct lookups of stored CAS expressions and solution sets render their symbolic value instead of falling through to the numeric unknown-variable error.
 - Kept the existing zero-form and three-argument solve syntax compatible.
 
 ## 0.38.0

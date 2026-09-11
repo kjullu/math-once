@@ -87,6 +87,15 @@
 // Quoted Typst math calls can contain the equation directly too.
 #eq($ "solve"(x = x^2) $)
 
+// Stored expressions and solution sets can be displayed through direct lookup.
+#let lookup = calculation-builder(key: "symbolic-cas-direct-lookup", strict: true)
+#lookup(`x := solve(y = y^2, y)`)
+#lookup($x$)
+#lookup($x$, result-only: true)
+#lookup(`f := simplify(z^2 + 1)`)
+#lookup($f$)
+#context assert(lookup().x.symbolic-kind == "roots" and lookup().f.symbolic-kind == "expression")
+
 #eq(`not_scalar := simplify(roots + 1)`)
 #context assert("not_scalar" not in eq())
 

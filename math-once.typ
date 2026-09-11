@@ -5461,6 +5461,33 @@ let calculation-builder(
         }
         return
       }
+      let symbolic-lookup-name = if (assignment == none
+        and evaluation-tokens.len() == 1) {
+        symbolic-token-name(evaluation-tokens.first())
+      } else {
+        none
+      }
+      let symbolic-lookup = if (symbolic-lookup-name != none
+        and symbolic-lookup-name in current
+        and is-symbolic-result(current.at(symbolic-lookup-name))) {
+        current.at(symbolic-lookup-name)
+      } else {
+        none
+      }
+      if symbolic-lookup != none {
+        if unit != none or size != none {
+          builder-error("symbolic results do not accept unit or size")
+          return
+        }
+        let value = render-symbolic-result(symbolic-lookup)
+        if result-only {
+          value
+        } else {
+          (render-tokens((symbolic-lookup-name,), scope: current, aliases: aliases)
+            + h(0.25em) + math.eq + h(0.25em) + value)
+        }
+        return
+      }
       let function-expansion = if display-only { (evaluation-tokens, false) } else { expand-function-calls(evaluation-tokens, current) }
       let function-error = if is-calculation-failure(function-expansion) { function-expansion.error } else { none }
       let calculation-tokens = if function-error == none { function-expansion.first() } else { tokens }

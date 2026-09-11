@@ -148,6 +148,16 @@ A root set cannot be treated as one expression. For example,
 `simplify(roots + 1)` produces a red inline error instead of silently choosing
 one root.
 
+A stored solution set can still be displayed directly:
+
+```typ
+#eq(`x := solve(y = y^2, y)`)
+#eq($x$)
+// x = y = 0 ∨ y = 1
+```
+
+Use `result-only: true` to omit the stored name and show only the solutions.
+
 ## Reading stored results
 
 Call the builder without an expression inside `context` to read its state:
