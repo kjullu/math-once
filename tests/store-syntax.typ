@@ -18,6 +18,23 @@
   assert(variables.x.exact == 2.0)
 }
 
+// Typst represents a fraction's unit factors with redundant parentheses.
+// They must not make a direct value repeat as `G = value = value`.
+#eq($G := 9.81 m/s^2$)
+#context {
+  let gravity = eq().G
+  assert(gravity.value == 9.81)
+  assert(repr(gravity.display.body).matches(regex("\\[=\\]")).len() == 1)
+}
+
+// Meaningful arithmetic parentheses still keep the calculated result visible.
+#eq($"computed_gravity" := (4 + 5.81) m/s^2$)
+#context {
+  let gravity = eq().computed_gravity
+  assert(gravity.value == 9.81)
+  assert(repr(gravity.display.body).matches(regex("\\[=\\]")).len() == 2)
+}
+
 // Later expressions visibly substitute and calculate the stored value.
 #eq($x + 1$)
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.38.1
+
+- Avoided repeating an unchanged direct value in stored equations whose Typst math input uses fraction-style units, so `$G := 9.81 m/s^2$` renders once as `G = 9.81 m/s²`.
+
 ## 0.38.0
 
 - Added `show-unit: false` to calculation-builder calls, allowing result values to be placed before a prose unit without rendering the calculated unit twice.

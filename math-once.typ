@@ -1,4 +1,4 @@
-// math-once v0.38.0
+// math-once v0.38.1
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3392,6 +3392,53 @@ let compact-unit-tokens(tokens) = {
   result
 }
 
+// Typst math fractions wrap their numerator, denominator, and exponents in
+// grouping that is absent from the calculator's unit string. Remove only
+// grouping that cannot change the value before comparing the two forms.
+let comparable-unit-tokens(tokens) = {
+  let result = ()
+  let index = 0
+  while index < tokens.len() {
+    if tokens.at(index) == "(" {
+      let depth = 1
+      let closing = index + 1
+      while closing < tokens.len() and depth > 0 {
+        if tokens.at(closing) == "(" { depth += 1 }
+        if tokens.at(closing) == ")" { depth -= 1 }
+        closing += 1
+      }
+      if depth != 0 {
+        result.push(tokens.at(index))
+        index += 1
+        continue
+      }
+      let inner = comparable-unit-tokens(tokens.slice(index + 1, closing - 1))
+      let atomic = inner.len() == 1 and (
+        is-number(inner.first())
+        or is-name(inner.first())
+        or is-quoted-unit(inner.first())
+        or is-text-unit(inner.first())
+      )
+      let atomic-power = (inner.len() == 3
+        and (is-name(inner.first()) or is-quoted-unit(inner.first()) or is-text-unit(inner.first()))
+        and inner.at(1) == "^"
+        and is-number(inner.at(2)))
+      if atomic or atomic-power {
+        result += inner
+      } else {
+        result.push("(")
+        result += inner
+        result.push(")")
+      }
+      index = closing
+    } else {
+      result.push(tokens.at(index))
+      index += 1
+    }
+  }
+  result
+}
+
 let expression-tokens(source) = {
   let tokens = tokenize(source)
   let depth = 0
@@ -4009,8 +4056,8 @@ let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, u
 }
 
 let equivalent-tokens(left, right) = {
-  left = compact-unit-tokens(left)
-  right = compact-unit-tokens(right)
+  left = comparable-unit-tokens(left)
+  right = comparable-unit-tokens(right)
   if left.len() != right.len() { return false }
   for (left-token, right-token) in left.zip(right) {
     if is-number(left-token) and is-number(right-token) {
