@@ -1,4 +1,5 @@
 // Better CAS integration (0.38.0)
+// Public test file: https://raw.githubusercontent.com/kjullu/math-once/refs/heads/t3code/improve-cas-integration-demo/math-once.typ
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
