@@ -57,7 +57,7 @@
 #assert(distance.unit == "m")
 
 // Parentheses, derived units, exponents, prefixes, and implicit products.
-#let energy = calculate(`2 N * 3 m`)
+#let energy = calculate(`2 N * 3 m`, unit: `J`)
 #assert(energy.value == 6.0)
 #assert(energy.unit == "J")
 

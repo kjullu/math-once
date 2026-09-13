@@ -1,4 +1,4 @@
-// math-once v0.38.3
+// math-once v0.39.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -706,6 +706,31 @@ let canonical-unit(dims) = {
   }
   if numerator.len() == 0 { numerator.push("1") }
   numerator.join(" ") + if denominator.len() == 0 { "" } else { "/" + denominator.join(" ") }
+}
+
+let ambiguous-unit(dims) = {
+  let known = (
+    (dim(time: -1), ("Hz", "Bq", "1/s")),
+    (dim(length: 2, time: -2), ("Gy", "Sv", "m^2/s^2")),
+    (dim(length: 2, mass: 1, time: -2), ("J", "Nm", "kg*m^2/s^2")),
+    (dim(luminosity: 1), ("cd", "lm")),
+  )
+  for (candidate, choices) in known {
+    if dims == candidate {
+      return choices
+    }
+  }
+  none
+}
+
+let ambiguous-unit-message(ambiguity) = {
+  let choices = ambiguity.map(choice => "`$" + choice + "$`")
+  let suggestion = if choices.len() == 2 {
+    choices.join(" or ")
+  } else {
+    choices.slice(0, -1).join(", ") + ", or " + choices.last()
+  }
+  "ambiguous unit; specify `unit:` as " + suggestion
 }
 
 let unit-kind-name(q) = {
@@ -4607,9 +4632,9 @@ let apply-op(op, left, right, soft: false) = {
         and is-dimensionless(left)
         and left.preferred == none) {
         right.preferred
-      } else if is-dimensionless(left) {
+      } else if is-dimensionless(left) and left.preferred == none {
         right.preferred
-      } else if is-dimensionless(right) {
+      } else if is-dimensionless(right) and right.preferred == none {
         left.preferred
       } else {
         none
@@ -5122,6 +5147,10 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   } else if output-unit == none and result.opaque.len() > 0 {
     output-unit = canonical-opaque-unit(result.opaque, dims: result.dims)
   } else if output-unit == none and not is-dimensionless(result) {
+    let ambiguity = ambiguous-unit(result.dims)
+    if ambiguity != none {
+      return calculation-fail(ambiguous-unit-message(ambiguity), soft: soft)
+    }
     output-unit = canonical-unit(result.dims)
   } else if output-unit != none and result.opaque.len() == 0 {
     let preferred = parse(
