@@ -3,7 +3,10 @@
 ## 0.38.2
 
 - Chose `Ω` automatically for resistance results such as `V/A` instead of expanding them to SI base units.
+- Used the unambiguous coherent SI symbols `C`, `V`, `F`, `S`, `Wb`, `T`, `H`, `lx`, and `kat` for automatically derived results.
 - Accepted Typst math `Omega` and `Ω` as explicit output-unit spellings, rendering either as `Ω`.
+- Treated Typst math spellings such as `$degree C$`, `$degree F$`, and `$mu m$` as the single output units `°C`, `°F`, and `µm` in both named output units and math `=` conversions.
+- Preserved custom and mixed units when `size` uses scientific notation, so a symbol-rendered `Omega` result no longer becomes the dimensionless unit `1`.
 
 ## 0.38.1
 
