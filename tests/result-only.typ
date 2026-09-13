@@ -27,6 +27,13 @@ CAS: #eq(`simplify(x^2 + 2*x + 1)`, result-only: true).
   assert(eq().distance.unit == "km")
 }
 
+// A result-only override preserves a trailing zero when rounding changes the
+// stored value to the requested number of decimal places.
+#let resistance = calculation-builder(key: "result-only-decimal-places", digits: 4)
+#resistance($R_A := 0.0599$, unit: $Omega$)
+Four decimals: #resistance($R_A$, result-only: true, digits: 4).
+Three decimals: #resistance($R_A$, result-only: true, digits: 3).
+
 // Unknown and display-only expressions produce focused inline feedback.
 Unknown: #eq($q$, result-only: true).
 Symbolic: #eq($x arrow.r y$, result-only: true).

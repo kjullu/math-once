@@ -260,7 +260,8 @@ The key used for Typst state. Give each independent runner a unique key.
 `int` — optional, named — default: `4`
 
 The default number of displayed decimal places for runner calls. A call can
-override it.
+override it. When rounding changes the value, the rendered result keeps any
+trailing zeros needed to show that precision. Exact values are not padded.
 
 ```typ
 #let eq = calculation-builder(key: "rounding-example", digits: 2)
