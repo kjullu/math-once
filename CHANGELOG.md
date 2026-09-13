@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.39.0
+
+- Required an explicit output unit when newly derived dimensions are inherently ambiguous, with direct suggestions for frequency/activity, energy/torque, absorbed/equivalent dose, and luminous intensity/flux.
+- Preserved directly named units and explicit `unit:` selections while preventing a dimensionless semantic unit such as `sr` from incorrectly preserving another operand's preferred symbol.
+
 ## 0.38.3
 
 - Preserved trailing zeros needed to show the requested decimal precision when rounding changes a rendered result, including `result-only: true` overrides such as `0.0599` with `digits: 3` rendering as `0.060`.

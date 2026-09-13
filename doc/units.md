@@ -7,7 +7,7 @@ and integer powers combine dimensions.
 
 ```typ
 #calculate(`10 m/s + 1 km/h`).display
-#calculate(`2 N * 3 m`).display
+#calculate(`2 N * 3 m`, unit: `J`).display
 #calculate(`(2 m + 30 cm)^2`).display
 ```
 
@@ -31,6 +31,24 @@ physical unit:
 ```
 
 Unit symbols are rendered upright, following normal mathematical typography.
+
+## Ambiguous derived units
+
+When newly combined dimensions have more than one standard meaning,
+math-once does not guess the intended unit. Specify one of the units suggested
+by the error, for example:
+
+```typ
+#calculate(`1 / (2 s)`, unit: `Hz`).display
+#calculate(`2 N * 3 m`, unit: `J`).display
+#calculate(`1 J / 1 kg`, unit: `Gy`).display
+#calculate(`1 cd * 1 sr`, unit: `lm`).display
+```
+
+This applies to inverse time (`Hz`, `Bq`, or `1/s`), energy/torque (`J`, `Nm`,
+or `kg*m^2/s^2`), absorbed/equivalent dose (`Gy`, `Sv`, or `m^2/s^2`), and
+luminous intensity/flux (`cd` or `lm`). A value that already names its unit,
+such as `1 J` or `1 lm`, keeps that preferred unit without requiring `unit:`.
 
 ## Custom units
 
