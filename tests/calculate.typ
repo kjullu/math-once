@@ -61,6 +61,22 @@
 #assert(energy.value == 6.0)
 #assert(energy.unit == "J")
 
+// Electrical resistance prefers Ω, and Typst's Omega symbol spelling is a
+// valid explicit output unit without reserving Omega as a general unit name.
+#let voltage = calculate(`0.366 V`)
+#let current = calculate(`6.11 A`)
+#let resistance = calculate(`V_1 / A_1`, scope: (V_1: voltage, A_1: current), digits: 4)
+#assert(resistance.value == 0.0599)
+#assert(resistance.unit == "Ω")
+#let omega-resistance = calculate(
+  $V_1 / A_1$,
+  scope: (V_1: voltage, A_1: current),
+  unit: $Omega$,
+  digits: 4,
+)
+#assert(omega-resistance.value == 0.0599)
+#assert(omega-resistance.unit == "Ω")
+
 #let area = calculate(`(2 m + 30 cm)^2`, digits: 2)
 #assert(area.value == 5.29)
 #assert(area.unit == "m^2")
@@ -85,6 +101,8 @@
 #requested-unit.display \
 #distance.display \
 #energy.display \
+#resistance.display \
+#omega-resistance.display \
 #area.display \
 #volume.display
 
@@ -119,4 +137,15 @@
   assert(variables.p.unit == "m/s")
   assert(variables.q.unit == "m")
   assert(calc.abs(variables.x.exact - 501.1111111111111) < 0.000000000001)
+}
+
+// Stored volts divided by stored amperes infer electrical resistance.
+#let electrical = calculation-builder(key: "electrical-resistance", digits: 4)
+#electrical($V_1 := 0.366 V$)
+#electrical($A_1 := 6.11 A$)
+#electrical($R_A := V_1 / A_1$)
+#context {
+  let variables = electrical()
+  assert(variables.R_A.value == 0.0599)
+  assert(variables.R_A.unit == "Ω")
 }
