@@ -27,15 +27,27 @@
 }
 
 // Quoted custom units named after Typst symbols use the same glyph in the
-// source expression and result. Known quoted units remain upright text.
+// source expression and result. Omega is the physical resistance unit.
 #let symbols = calculation-builder(key: "opaque-symbol-units")
 #symbols($M := 53 * 10^(-3) "Omega"$)
 #symbols($x := 2 "alpha"$)
 #symbols($y := 2 "ohm"$)
 #context {
-  assert(symbols().M.unit == "Omega")
+  assert(symbols().M.unit == "Ω")
+  assert(symbols().M.dimensions == symbols().y.dimensions)
+  assert(symbols().M.custom-units.len() == 0)
   assert(symbols().x.unit == "alpha")
   assert(symbols().y.unit == "ohm")
+}
+
+#symbols($I_2 := 10 A$)
+#symbols($P_M := I_2^2 * M$)
+#symbols($P_W := I_2^2 * M$, unit: $W$)
+#context {
+  assert(symbols().P_M.value == 5.3)
+  assert(symbols().P_M.unit == "W")
+  assert(symbols().P_W.value == 5.3)
+  assert(symbols().P_W.unit == "W")
 }
 
 // An explicit unit: replaces opaque input units while preserving arithmetic.

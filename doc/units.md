@@ -48,10 +48,10 @@ An unknown quoted name in an input expression becomes an opaque custom unit:
 // d + 3 micrometer = 1 micrometer + 3 micrometer = 4 micrometer
 ```
 
-If the name matches Typst's symbol catalog, math-once uses that symbol on both
-sides of a displayed calculation. For example, `"Omega"` is stored as the
-opaque unit `Omega` and displayed as `Ω`. Known physical unit names such as
-`"ohm"` remain upright text.
+If a custom name matches Typst's symbol catalog, math-once uses that symbol on
+both sides of a displayed calculation. For example, `"alpha"` is stored as an
+opaque custom unit and displayed as `α`. The quoted spellings `"Omega"` and
+`"ohm"` are physical resistance units, displayed as `Ω` and upright `ohm`.
 
 Normal arithmetic works when the custom dimensions match. Different custom
 units cannot be added or subtracted, and opaque units cannot be converted to

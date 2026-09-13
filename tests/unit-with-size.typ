@@ -46,8 +46,8 @@
 #assert(requested-factor.value == 3.0)
 #assert(requested-factor.unit == "(3*10^(-4)) N")
 
-// Scientific sizing retains a symbol-rendered custom unit instead of replacing
-// it with the dimensionless canonical unit `1`.
+// Scientific sizing retains physical and custom units instead of replacing a
+// unit with the dimensionless canonical unit `1`.
 #let resistance = calculation-builder(key: "scientific-resistance-size")
 #resistance($I_2 := 10 A$)
 #resistance($M := 0.053 "Omega"$)
@@ -56,6 +56,13 @@
 #context {
   let variables = resistance()
   assert(variables.R_S.value == 5.89)
-  assert(variables.R_S.unit == "10^(-3) Omega")
-  assert(variables.R_S.custom-units == variables.M.custom-units)
+  assert(variables.R_S.unit == "10^(-3) Ω")
+  assert(variables.R_S.dimensions == variables.M.dimensions)
+  assert(variables.R_S.custom-units.len() == 0)
 }
+
+
+#let sized-widget = calculate($0.004 "widget"$, size: $10^(-3)$, digits: 2)
+#assert(sized-widget.value == 4.0)
+#assert(sized-widget.unit == "10^(-3) widget")
+#assert(sized-widget.custom-units == (widget: 1))

@@ -4810,6 +4810,7 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
       let symbolic = is-text-unit(token)
       let quoted = is-quoted-unit(token)
       let unit-name = if symbolic { text-unit-name(token) } else if quoted { quoted-unit-name(token) } else { token }
+      if quoted and unit-name == "Omega" { unit-name = "Ω" }
       if symbolic and custom-units {
         left = quantity(1.0, preferred: token)
       } else if quoted and resolve-unit-with-aliases(unit-name, aliases: aliases) == none and unit-name in scope {
