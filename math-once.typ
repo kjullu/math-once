@@ -1,4 +1,4 @@
-// math-once v0.38.1
+// math-once v0.38.2
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -662,6 +662,7 @@ let canonical-unit(dims) = {
     (dim(length: 2, mass: 1, time: -2), "J"),
     (dim(length: -2, mass: -1, time: 2), "1/J"),
     (dim(length: 2, mass: 1, time: -3), "W"),
+    (dim(length: 2, mass: 1, time: -3, current: -2), "Ω"),
     (dim(current: 1), "A"),
     (dim(temperature: 1), "K"),
     (dim(amount: 1), "mol"),
@@ -4964,7 +4965,12 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   let target-tokens = if conversion-index != none {
     raw-tokens.slice(conversion-index + 1)
   } else if unit != none {
-    compact-unit-tokens(tokenize(input-source(unit, preserve-text: true)))
+    let tokens = compact-unit-tokens(tokenize(input-source(unit, preserve-text: true)))
+    if type(unit) == content and unit.func() == math.equation {
+      tokens.map(token => if token == "Omega" { "Ω" } else { token })
+    } else {
+      tokens
+    }
   } else {
     none
   }

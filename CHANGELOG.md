@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.38.2
+
+- Chose `Ω` automatically for resistance results such as `V/A` instead of expanding them to SI base units.
+- Accepted Typst math `Omega` and `Ω` as explicit output-unit spellings, rendering either as `Ω`.
+
 ## 0.38.1
 
 - Avoided repeating an unchanged direct value in stored equations whose Typst math input uses fraction-style units, so `$G := 9.81 m/s^2$` renders once as `G = 9.81 m/s²`.
