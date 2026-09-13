@@ -77,6 +77,9 @@ The number of decimal places used for `result.value` and the rendered result.
 The unrounded value remains available through `result.exact` and
 `result.si-value`.
 
+When rounding changes the value, the rendered result keeps any trailing zeros
+needed to show that precision. Exact values are not padded with zeros.
+
 ```typ
 #calculate(`1 m / 3`, digits: 2).display
 // 1 m / 3 = 0.33 m

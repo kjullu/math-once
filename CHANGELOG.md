@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.38.3
+
+- Preserved trailing zeros needed to show the requested decimal precision when rounding changes a rendered result, including `result-only: true` overrides such as `0.0599` with `digits: 3` rendering as `0.060`.
+
 ## 0.38.2
 
 - Chose `Ω` automatically for resistance results such as `V/A` instead of expanding them to SI base units.

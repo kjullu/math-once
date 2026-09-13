@@ -1,4 +1,4 @@
-// math-once v0.38.2
+// math-once v0.38.3
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -4090,11 +4090,19 @@ let equivalent-tokens(left, right) = {
 
 // Keep very large and very small displayed values readable. Calculations still
 // retain and use their complete exact value; this only changes equation output.
-let display-number-tokens(value, exact: none) = {
+let display-number-tokens(value, exact: none, digits: none) = {
   if exact == none { exact = value }
   let magnitude = calc.abs(float(exact))
   if magnitude == 0 or (magnitude >= 0.0001 and magnitude < 1000000000) {
-    return (str(value),)
+    let rendered = str(value)
+    if digits != none and digits > 0 and value != exact {
+      let decimal-places = if "." in rendered { rendered.split(".").last().len() } else { 0 }
+      if decimal-places < digits {
+        rendered += if decimal-places == 0 { "." } else { "" }
+        rendered += range(digits - decimal-places).map(_ => "0").join()
+      }
+    }
+    return (rendered,)
   }
 
   let normalized = magnitude
@@ -4131,6 +4139,7 @@ let result-tokens(result) = {
   let tokens = display-number-tokens(
     result.value,
     exact: result.at("exact", default: result.value),
+    digits: result.at("digits", default: none),
   )
   let unit = result-unit-source(result)
   if unit != none {
@@ -4180,6 +4189,7 @@ let render-result(result, aliases: (:), show-unit: true) = {
       display-number-tokens(
         result.value,
         exact: result.at("exact", default: result.value),
+        digits: result.at("digits", default: none),
       ) + ("*",) + tokenize(unit),
       aliases: aliases,
     )
@@ -4187,6 +4197,7 @@ let render-result(result, aliases: (:), show-unit: true) = {
     let body = render-tokens(display-number-tokens(
       result.value,
       exact: result.at("exact", default: result.value),
+      digits: result.at("digits", default: none),
     ))
     if show-unit and unit != none {
       body += h(0.2em) + render-tokens(tokenize(unit), aliases: aliases)
@@ -4219,6 +4230,7 @@ let expand-variables(tokens, scope) = {
         expanded += display-number-tokens(
           item.value,
           exact: item.at("exact", default: item.value),
+          digits: item.at("digits", default: none),
         )
         let item-unit = result-unit-source(item)
         if item-unit != none { expanded += tokenize(item-unit) }
@@ -5165,15 +5177,15 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     let output-tokens = if target-tokens != none { target-tokens } else { tokenize(output-unit) }
     if scientific-output {
       display-body += render-tokens(
-        display-number-tokens(value, exact: exact) + ("*",) + output-tokens,
+        display-number-tokens(value, exact: exact, digits: digits) + ("*",) + output-tokens,
         aliases: aliases,
       )
     } else {
-      let rendered-value = render-tokens(display-number-tokens(value, exact: exact))
+      let rendered-value = render-tokens(display-number-tokens(value, exact: exact, digits: digits))
       display-body += rendered-value + h(0.2em) + render-tokens(output-tokens, aliases: aliases)
     }
   } else {
-    display-body += render-tokens(display-number-tokens(value, exact: exact))
+    display-body += render-tokens(display-number-tokens(value, exact: exact, digits: digits))
   }
 
   let public-unit = if output-unit == none {
@@ -5193,6 +5205,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     unit: public-unit,
     unit-source: output-unit,
     size: size,
+    digits: digits,
     source: source,
     display: math.equation(display-body, block: block),
   )
