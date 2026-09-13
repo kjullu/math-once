@@ -45,3 +45,17 @@
 #assert(automatic-factor.unit == "(2*10^(3)) N")
 #assert(requested-factor.value == 3.0)
 #assert(requested-factor.unit == "(3*10^(-4)) N")
+
+// Scientific sizing retains a symbol-rendered custom unit instead of replacing
+// it with the dimensionless canonical unit `1`.
+#let resistance = calculation-builder(key: "scientific-resistance-size")
+#resistance($I_2 := 10 A$)
+#resistance($M := 0.053 "Omega"$)
+#resistance($I_S := 90 A$)
+#resistance($R_S := (I_2 * M) / I_S$, digits: 2, size: $10^(-3)$)
+#context {
+  let variables = resistance()
+  assert(variables.R_S.value == 5.89)
+  assert(variables.R_S.unit == "10^(-3) Omega")
+  assert(variables.R_S.custom-units == variables.M.custom-units)
+}

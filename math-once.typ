@@ -662,7 +662,16 @@ let canonical-unit(dims) = {
     (dim(length: 2, mass: 1, time: -2), "J"),
     (dim(length: -2, mass: -1, time: 2), "1/J"),
     (dim(length: 2, mass: 1, time: -3), "W"),
+    (dim(time: 1, current: 1), "C"),
+    (dim(length: 2, mass: 1, time: -3, current: -1), "V"),
+    (dim(length: -2, mass: -1, time: 4, current: 2), "F"),
     (dim(length: 2, mass: 1, time: -3, current: -2), "Ω"),
+    (dim(length: -2, mass: -1, time: 3, current: 2), "S"),
+    (dim(length: 2, mass: 1, time: -2, current: -1), "Wb"),
+    (dim(mass: 1, time: -2, current: -1), "T"),
+    (dim(length: 2, mass: 1, time: -2, current: -2), "H"),
+    (dim(length: -2, luminosity: 1), "lx"),
+    (dim(time: -1, amount: 1), "kat"),
     (dim(current: 1), "A"),
     (dim(temperature: 1), "K"),
     (dim(amount: 1), "mol"),
@@ -776,23 +785,28 @@ let scientific-size-expression(size, notation: none) = {
   "10^(" + exponent-text + ")"
 }
 
-let sized-output-unit(dims, size, notation: none) = {
-  if dims == dim(length: 1) {
+let sized-output-unit(dims, size, opaque: (:), notation: none) = {
+  if opaque.len() == 0 and dims == dim(length: 1) {
     for (unit, scale) in engineering-length-units {
       if calc.abs(scale - size) <= calc.max(calc.abs(scale), calc.abs(size)) * 1e-12 { return unit }
     }
   }
+  let base-unit = if opaque.len() > 0 {
+    canonical-opaque-unit(opaque, dims: dims)
+  } else {
+    canonical-unit(dims)
+  }
   let expression = scientific-size-expression(size, notation: notation)
   if expression != none {
-    expression + " " + canonical-unit(dims)
+    expression + " " + base-unit
   } else {
-    "(" + str(size) + ") " + canonical-unit(dims)
+    "(" + str(size) + ") " + base-unit
   }
 }
 
-let sized-requested-unit(dims, unit, unit-scale, size, notation: none) = {
+let sized-requested-unit(dims, unit, unit-scale, size, opaque: (:), notation: none) = {
   let scale = unit-scale * size
-  let familiar = sized-output-unit(dims, scale)
+  let familiar = sized-output-unit(dims, scale, opaque: opaque)
   if not familiar.starts-with("(") and "10^(" not in familiar {
     familiar
   } else if size == 1 {
@@ -4918,6 +4932,31 @@ let normalize-size(size, soft: false) = {
   (value: value, notation: notation)
 }
 
+let normalize-math-unit-tokens(tokens) = {
+  let tokens = tokens.map(token => if token == "Omega" { "Ω" } else { token })
+  let normalized = ()
+  let position = 0
+  while position < tokens.len() {
+    let token = tokens.at(position)
+    let next = tokens.at(position + 1, default: none)
+    let combined = if token == "°" and next in ("C", "F", "R") {
+      token + next
+    } else if token == "mu" and next != none {
+      "µ" + next
+    } else {
+      none
+    }
+    if combined != none and resolve-unit(combined) != none {
+      normalized.push(combined)
+      position += 2
+    } else {
+      normalized.push(token)
+      position += 1
+    }
+  }
+  normalized
+}
+
 /// Evaluate a unit-aware expression containing numbers, units, variables,
 /// `sin`, `cos`, `tan`, `abs`, `floor`, `ceil`, `round`, absolute-value bars,
 /// and the operators `+`, `-`, `*`, `/`, `^`, `±`, and `∓`.
@@ -4933,6 +4972,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   let size-notation = if normalized-size == none { none } else { normalized-size.notation }
   // Preserve quoted Typst math text so `"m"` remains an explicit metre even
   // when the bare name `m` has been unloaded for use as a variable.
+  let source-is-math = type(source) == content and source.func() == math.equation
   let source = input-source(source, preserve-text: true)
   let raw-tokens = tokenize(source)
   let absolute-tokens = absolute-value-tokens(raw-tokens)
@@ -4963,11 +5003,12 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   }
   let expression-tokens = if conversion-index == none { raw-tokens } else { raw-tokens.slice(0, conversion-index) }
   let target-tokens = if conversion-index != none {
-    raw-tokens.slice(conversion-index + 1)
+    let tokens = raw-tokens.slice(conversion-index + 1)
+    if source-is-math { normalize-math-unit-tokens(tokens) } else { tokens }
   } else if unit != none {
     let tokens = compact-unit-tokens(tokenize(input-source(unit, preserve-text: true)))
     if type(unit) == content and unit.func() == math.equation {
-      tokens.map(token => if token == "Omega" { "Ω" } else { token })
+      normalize-math-unit-tokens(tokens)
     } else {
       tokens
     }
@@ -5088,7 +5129,12 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
       return calculation-fail("size cannot scale an affine output unit", soft: soft)
     }
     if target-tokens == none {
-      output-unit = sized-output-unit(result.dims, size, notation: size-notation)
+      output-unit = sized-output-unit(
+        result.dims,
+        size,
+        opaque: result.opaque,
+        notation: size-notation,
+      )
       output-scale = size
     } else {
       output-unit = sized-requested-unit(
@@ -5096,6 +5142,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
         output-unit,
         output-scale,
         size,
+        opaque: result.opaque,
         notation: size-notation,
       )
       output-scale *= size

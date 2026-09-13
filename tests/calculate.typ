@@ -77,6 +77,49 @@
 #assert(omega-resistance.value == 0.0599)
 #assert(omega-resistance.unit == "Ω")
 
+// Unambiguous coherent SI dimensions use their derived-unit symbols.
+#let derived-unit-cases = (
+  (`1 A * 1 s`, "C"),
+  (`1 W / (1 A)`, "V"),
+  (`1 C / (1 V)`, "F"),
+  (`1 A / (1 V)`, "S"),
+  (`1 V * 1 s`, "Wb"),
+  (`1 Wb / (1 m)^2`, "T"),
+  (`1 Wb / (1 A)`, "H"),
+  (`1 cd / (1 m)^2`, "lx"),
+  (`1 mol / (1 s)`, "kat"),
+)
+#for (source, expected) in derived-unit-cases {
+  assert(calculate(source).unit == expected, message: "wrong derived unit for " + source.text)
+}
+
+// Common Typst math spellings remain single physical output units.
+#let celsius-output = calculate($20$, unit: $degree C$)
+#assert(celsius-output.unit == "°C")
+#assert(celsius-output.exact == 20.0)
+#assert(celsius-output.si-value == 293.15)
+#let fahrenheit-output = calculate($68$, unit: $degree F$)
+#assert(fahrenheit-output.unit == "°F")
+#assert(calc.abs(fahrenheit-output.exact - 68.0) < 0.000000000001)
+#assert(calc.abs(fahrenheit-output.si-value - 293.15) < 0.000000000001)
+#let rankine-output = calculate($491.67$, unit: $degree R$)
+#assert(rankine-output.unit == "°R")
+#assert(calc.abs(rankine-output.si-value - 273.15) < 0.000000001)
+#let micrometre-output = calculate($1$, unit: $mu m$)
+#assert(micrometre-output.unit == "µm")
+#assert(micrometre-output.si-value == 0.000001)
+#let microfarad-output = calculate($1$, unit: $mu F$)
+#assert(microfarad-output.unit == "µF")
+#assert(microfarad-output.si-value == 0.000001)
+#let celsius-conversion = calculate($293.15 K = degree C$, digits: 2)
+#assert(celsius-conversion.unit == "°C")
+#assert(celsius-conversion.value == 20.0)
+#let omega-conversion = calculate($1 "ohm" = Omega$)
+#assert(omega-conversion.unit == "Ω")
+#let micrometre-conversion = calculate($1 m = mu m$)
+#assert(micrometre-conversion.unit == "µm")
+#assert(micrometre-conversion.value == 1000000.0)
+
 #let area = calculate(`(2 m + 30 cm)^2`, digits: 2)
 #assert(area.value == 5.29)
 #assert(area.unit == "m^2")
@@ -103,6 +146,11 @@
 #energy.display \
 #resistance.display \
 #omega-resistance.display \
+#celsius-output.display \
+#fahrenheit-output.display \
+#rankine-output.display \
+#micrometre-output.display \
+#microfarad-output.display \
 #area.display \
 #volume.display
 
