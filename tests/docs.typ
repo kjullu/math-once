@@ -162,3 +162,17 @@ Inline: #evaluate-code(`2 + 2`, block: false).display.
 #calculate(`1 MJ to kWh`).display
 #calculate(`1 mph to km/h`).display
 #calculate(`1 s^-1 to Hz`).display
+
+// Review fixes documented for literal structures and compound-unit rounding.
+#let revised = calculation-builder(key: "docs-review-fixes", strict: true)
+#revised(`vv := vec(1, 2)`)
+#revised(`ww := vec(3, 4)`)
+#revised(`-vv + ww`)
+#revised(`-(vv + ww)`)
+#revised(`vec(1, 2) + vec(3, 4)`)
+#revised(`mat(1, 2; 3, 4) + mat(5, 6; 7, 8)`)
+#revised($M(t) := mat(t, 0; 0, t)$)
+#revised($M(3)$)
+#let preferred-speed = calculate(`3.7 km/h`, unit: `km/h`)
+#calculate(`floor(speed)`, scope: (speed: preferred-speed)).display
+#calculate(`303.15 K - 20 celsius`, unit: `celsius`).display

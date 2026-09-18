@@ -319,7 +319,7 @@ language or giving one family of calculations its own name.
 
 `bool` — optional, named — default: `false`
 
-With `true`, calculation errors panic and stop compilation instead of becoming red equations. Use this in CI when a broken calculation must fail the document build. Unknown symbolic equations remain display-only because they are not calculation failures.
+With `true`, calculation errors panic and stop compilation instead of becoming red equations. Use this in CI when a broken calculation must fail the document build. Invalid real powers such as `(-1)^0.5`, negative powers of zero, and negative-index roots of zero follow this setting too. With the default `false`, they render an error and do not store a result. Use `root(3, -8)` for a real odd root of a negative number. Unknown symbolic equations remain display-only because they are not calculation failures.
 
 ```typ
 #let checked = calculation-builder(key: "checked", strict: true)
@@ -330,7 +330,7 @@ With `true`, calculation errors panic and stop compilation instead of becoming r
 
 `bool` — optional, named — default: `false`
 
-With `true`, unknown quoted unit names fail instead of becoming opaque custom units. Known catalog units and explicit `text-unit(...)` output labels still work.
+With `true`, unknown quoted unit names fail instead of becoming opaque custom units. This also checks vector components, matrix cells, and expressions expanded from stored functions. Known catalog units and explicit `text-unit(...)` output labels still work.
 
 ## Returned runner
 
@@ -568,6 +568,18 @@ Import `matrix` with `calculation-builder` when you want the readable `matrix(..
 
 The builder supports vector or matrix addition and subtraction with matching shapes, scalar multiplication, division of a vector or matrix by a scalar, matrix multiplication, matrix–vector multiplication, and row-vector–matrix multiplication. `vector * vector` is rejected because it is ambiguous between a dot product, an outer product, and component-wise multiplication.
 
+Unary minus binds before addition and subtraction. You can also combine literals directly:
+
+```typ
+#eq(`vv := vec(1, 2)`)
+#eq(`ww := vec(3, 4)`)
+#eq(`-vv + ww`) // vec(2, 2)
+#eq(`-(vv + ww)`) // vec(-4, -6)
+#eq(`vec(1, 2) + vec(3, 4)`) // vec(4, 6)
+#eq(`mat(1, 2; 3, 4) + mat(5, 6; 7, 8)`)
+// mat(6, 8; 10, 12)
+```
+
 Components and cells are calculated independently and may contain compatible physical or custom units. A whole vector or matrix cannot receive one `unit:` or `size:` option; put units in the individual component or cell expressions.
 
 Stored functions may return either structure:
@@ -577,9 +589,9 @@ Stored functions may return either structure:
 #eq($arrow(s)(2)$)
 // s⃗(2) = vec(0, 0)
 
-#eq($D(t) := matrix(t, 0; 0, t)$)
-#eq($D(3)$)
-// D(3) = mat(3, 0; 0, 3)
+#eq($M(t) := matrix(t, 0; 0, t)$)
+#eq($M(3)$)
+// M(3) = mat(3, 0; 0, 3)
 ```
 
 Calling a function with the wrong number of arguments produces a red inline error.

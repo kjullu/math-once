@@ -1,6 +1,6 @@
-#import "../math-once.typ": calculation-builder, matrix
+#import "../math-once.typ": calculation-builder, matrix, unload
 
-#let eq = calculation-builder(key: "vectors-matrices", digits: 2)
+#let eq = calculation-builder(key: "vectors-matrices", digits: 2, strict: true)
 
 // Arrow accents become stable variable names, while vec(...) stores a value.
 #eq($arrow(v) := vec(1 m, 2 m)$)
@@ -19,6 +19,7 @@
 
 // Stored functions may return vectors or matrices.
 #eq($arrow(p)(t) := vec(t, t^2)$)
+#unload("D", key: "vectors-matrices")
 #eq($D(t) := matrix(t, 0; 0, t)$)
 #eq($arrow(a) := arrow(p)(3)$)
 #eq($X_3 := D(3)$)
@@ -38,7 +39,7 @@
   assert(state.arrow_r.values == (7.0, 10.0))
   assert(state.X_2.values == ((0.5, 1.0), (1.5, 2.0)))
   assert(state.arrow_a.values == (3.0, 9.0))
-  assert(state.D.matrix)
+  assert(state.D.function)
   assert(state.X_3.values == ((3.0, 0.0), (0.0, 3.0)))
   assert(state.X_4.values == ((2.0, 0.0), (0.0, 2.0)))
 }
