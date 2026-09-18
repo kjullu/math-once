@@ -1,4 +1,4 @@
-// math-once v0.39.0
+// math-once v0.39.1
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3702,12 +3702,23 @@ let unwrap-tokens(tokens) = {
   tokens
 }
 
+let complete-structure-call(tokens) = {
+  let depth = 0
+  for (index, token) in tokens.slice(1).enumerate() {
+    if token == "(" { depth += 1 }
+    if token == ")" { depth -= 1 }
+    if depth == 0 and index < tokens.len() - 2 { return false }
+  }
+  depth == 0
+}
+
 let vector-components(tokens) = {
   tokens = unwrap-tokens(tokens)
   if (tokens.len() >= 3
   and tokens.first() == "vec"
   and tokens.at(1) == "("
-  and tokens.last() == ")") {
+  and tokens.last() == ")"
+  and complete-structure-call(tokens)) {
     split-top-level(tokens.slice(2, tokens.len() - 1))
   } else {
     none
@@ -3719,7 +3730,8 @@ let matrix-rows(tokens) = {
   if (tokens.len() >= 3
   and tokens.first() in ("matrix", "mat")
   and tokens.at(1) == "("
-  and tokens.last() == ")") {
+  and tokens.last() == ")"
+  and complete-structure-call(tokens)) {
     split-top-level(tokens.slice(2, tokens.len() - 1), separator: ";")
       .map(row => split-top-level(row))
   } else {
@@ -3964,6 +3976,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
         block: false,
         unloaded: unloaded,
         aliases: aliases,
+        strict-units: strict-units,
         soft: true,
       )
       if is-calculation-failure(result) { return result }
@@ -3998,6 +4011,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
           block: false,
           unloaded: unloaded,
           aliases: aliases,
+          strict-units: strict-units,
           soft: true,
         )
         if is-calculation-failure(result) { return result }
@@ -4014,15 +4028,6 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
   if tokens.len() == 1 {
     let stored = scope.at(tokens.first(), default: none)
     if is-structure-result(stored) { return stored }
-  }
-
-  if tokens.len() > 1 and tokens.first() == "-" {
-    let inner = evaluate-structure(calculate-fn, tokens.slice(1), digits, scope, aliases, unloaded, strict-units: strict-units)
-    if is-calculation-failure(inner) { return inner }
-    if inner != none {
-      let minus-one = calculate-fn("-1", digits: digits, block: false, soft: true)
-      return structure-operation(calculate-fn, minus-one, "*", inner, digits, aliases)
-    }
   }
 
   let operator-index = top-level-structure-operator(tokens)
@@ -4051,6 +4056,15 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
     return structure-operation(
       calculate-fn, left, tokens.at(operator-index), right, digits, aliases,
     )
+  }
+
+  if tokens.len() > 1 and tokens.first() == "-" {
+    let inner = evaluate-structure(calculate-fn, tokens.slice(1), digits, scope, aliases, unloaded, strict-units: strict-units)
+    if is-calculation-failure(inner) { return inner }
+    if inner != none {
+      let minus-one = calculate-fn("-1", digits: digits, block: false, soft: true)
+      return structure-operation(calculate-fn, minus-one, "*", inner, digits, aliases)
+    }
   }
 
   if tokens.any(token => is-structure-result(scope.at(token, default: none))) {
@@ -4574,6 +4588,13 @@ let apply-op(op, left, right, soft: false) = {
     }
     let left-kind = left.affine-kind
     let right-kind = right.affine-kind
+    // A plain Kelvin/Rankine quantity has no offset marker. In subtraction,
+    // treat an unmarked temperature as an absolute value; stored differences
+    // retain their explicit classification.
+    if op == "-" and left.dims == dim(temperature: 1) and left.opaque.len() == 0 {
+      if left-kind == none { left-kind = "absolute" }
+      if right-kind == none { right-kind = "absolute" }
+    }
     let result-kind = none
     if left-kind == "absolute" and right-kind == "absolute" {
       if op == "+" {
@@ -4674,6 +4695,12 @@ let apply-op(op, left, right, soft: false) = {
     if not is-dimensionless(left) and exponent != calc.round(exponent) {
       return calculation-fail("a unit may only be raised to an integer power", soft: soft)
     }
+    if left.si-value < 0 and exponent != calc.round(exponent) {
+      return calculation-fail("a negative base requires an integer exponent; use root for real odd roots", soft: soft)
+    }
+    if left.si-value == 0 and exponent < 0 {
+      return calculation-fail("cannot raise zero to a negative power", soft: soft)
+    }
     return quantity(
       calc.pow(left.si-value, exponent),
       dims: dims-scale(left.dims, exponent),
@@ -4700,17 +4727,13 @@ let apply-function(name, argument, soft: false) = {
   )
 }
 
-let apply-rounding(name, argument, aliases: (:), soft: false) = {
-  let scale = 1.0
-  let offset = 0.0
-  if argument.preferred != none and argument.opaque.len() == 0 {
-    let unit-name = aliases.at(argument.preferred, default: argument.preferred)
-    let unit = resolve-unit(unit-name)
-    if unit != none {
-      scale = unit.scale
-      offset = if argument.affine-kind == "difference" { 0.0 } else { unit.at("offset", default: 0.0) }
-    }
-  }
+let apply-rounding(name, argument, preferred-unit: none, soft: false) = {
+  let scale = if preferred-unit == none { 1.0 }
+    else if preferred-unit.affine == none { preferred-unit.si-value }
+    else { preferred-unit.affine.scale }
+  let offset = if (preferred-unit == none or preferred-unit.affine == none
+    or argument.affine-kind == "difference") { 0.0 }
+    else { preferred-unit.affine.offset }
   let value = (argument.si-value - offset) / scale
   let rounded = if name == "floor" { calc.floor(value) }
     else if name == "ceil" { calc.ceil(value) }
@@ -4756,6 +4779,9 @@ let apply-root(index, radicand, soft: false) = {
     if calc.rem(exponent, degree) != 0 {
       return calculation-fail("custom-unit dimensions must be divisible by the root index", soft: soft)
     }
+  }
+  if radicand.si-value == 0 and degree < 0 {
+    return calculation-fail("cannot take a negative-index root of zero", soft: soft)
   }
   let magnitude = calc.pow(calc.abs(radicand.si-value), 1 / degree)
   quantity(
@@ -4810,7 +4836,15 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
         } else if token == "abs" {
           apply-absolute(first)
         } else if token in rounding-functions {
-          apply-rounding(token, first, aliases: aliases, soft: soft)
+          let preferred-unit = none
+          if first.preferred != none and first.opaque.len() == 0 {
+            preferred-unit = parse(
+              add-implicit-multiplication(tokenize(first.preferred)),
+              aliases: aliases, custom-units: true, strict-units: strict-units, soft: soft,
+            )
+            if is-calculation-failure(preferred-unit) { return (preferred-unit, next + 1) }
+          }
+          apply-rounding(token, first, preferred-unit: preferred-unit, soft: soft)
         } else {
           apply-function(token, first, soft: soft)
         }

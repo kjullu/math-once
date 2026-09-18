@@ -80,7 +80,7 @@ Copy [`math-once.typ`](math-once.typ) into your project and import the
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.39.0": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.39.1": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline, evaluate-code, number-labelled-equations
 ```
 
 The package is implemented entirely in Typst. Symbolic builder operations use
@@ -119,6 +119,18 @@ A compilable example covering the complete public API is available in
 You can find all the supported units [here](doc/supported-units.md)
 
 See the [changelog](CHANGELOG.md) when upgrading.
+
+## Testing
+
+With Python 3.11 or newer and Typst installed, run:
+
+```sh
+python3 tools/test.py
+```
+
+The runner compiles all test fixtures and examples, checks expected-error diagnostics, and tests the local package import against this checkout. It stages the package and writes PDFs in a temporary directory that is removed when the run finishes. Dependencies use Typst's normal package cache. Use `--typst /path/to/typst` to check another compiler version.
+
+Successful compilation does not verify visual layout. Inspect rendered output when changing equation formatting.
 
 ## Why is it called `math-once`?
 

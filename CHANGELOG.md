@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.39.1
+
+- Fixed unary minus precedence and arithmetic between vector and matrix literals.
+- Applied strict unit checking to vector components, matrix cells, and expanded functions.
+- Rounded stored compound units in their preferred scale instead of SI base units.
+- Classified subtraction of Kelvin, Rankine, Celsius, and Fahrenheit absolute temperatures as temperature differences.
+- Reported non-real fractional powers, negative powers of zero, and negative-index roots of zero through the normal calculation error handling.
+- Corrected the reserved `D` function example and vector fixture, and added arithmetic regressions and a temporary-output test runner with expected diagnostic checks.
+
 ## 0.39.0
 
 - Required an explicit output unit when newly derived dimensions are inherently ambiguous, with direct suggestions for frequency/activity, energy/torque, absorbed/equivalent dose, and luminous intensity/flux.

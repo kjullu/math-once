@@ -216,7 +216,7 @@ Unit symbols are case-sensitive. In particular:
 
 - Unit names are reserved and take precedence over variables with the same
   name.
-- Celsius, Fahrenheit, Kelvin, and Rankine are supported. Affine temperature names must be multiplied by a plain number, for example `20 celsius`. Subtracting two absolute affine temperatures produces a temperature difference, so the output uses the scale without applying its absolute offset again.
+- Celsius, Fahrenheit, Kelvin, and Rankine are supported. Affine temperature names must be multiplied by a plain number, for example `20 celsius`. Subtracting two absolute temperatures produces a temperature difference, including mixed scales such as `303.15 K - 20 celsius`. Converting that difference to Celsius gives `10`, or `18` in Fahrenheit, without applying an absolute offset. For subtraction, an unmarked Kelvin or Rankine quantity is treated as absolute; a stored difference retains its difference classification.
 - Qalculate's `dBW` and `dBm` are not supported because they are logarithmic
   power-level transforms rather than fixed linear or affine units.
 - Currencies and context-dependent conversions are not supported.

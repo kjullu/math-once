@@ -284,12 +284,18 @@ Down and up refer to the number line. This matters for negative values:
 #calculate(`ceil(-3.2)`).display  // -3
 ```
 
-The functions preserve units and round in the input's preferred unit:
+The functions preserve units and round in the input's preferred unit, including stored compound units:
 
 ```typ
 #calculate(`floor(3.7 cm)`).display
 // floor(3.7 cm) = 3 cm
+
+#let speed = calculate(`3.7 km/h`, unit: `km/h`)
+#calculate(`floor(speed)`, scope: (speed: speed)).display
+// floor(speed) = 3 km/h
 ```
+
+Choose a compound preferred unit with `unit:` before storing the value. An expression such as `3.7 km/h` without an explicit output unit may use the canonical SI unit `m/s`, in which case rounding operates in `m/s`.
 
 ### `block`
 
