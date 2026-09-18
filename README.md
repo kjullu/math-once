@@ -70,18 +70,19 @@ Inline derivative: #eq(`diff(f, x)`, block: false)
 
 ## Install
 
-Copy [`math-once.typ`](math-once.typ) into your project and import the
-[functions](doc/README.md#functions) you need:
+Copy [`math-once.typ`](math-once.typ) into your project and import its functions:
 
 ```typ
-#import "math-once.typ": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "math-once.typ": *
 ```
 
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.39.1": calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline, evaluate-code, number-labelled-equations
+#import "@local/math-once:0.39.1": *
 ```
+
+> `*` imports all exported names. You can instead list only the [functions](doc/README.md#functions) you need, for example `#import "math-once.typ": calculation-builder`.
 
 The package is implemented entirely in Typst. Symbolic builder operations use
 the pinned `@preview/typcas:0.2.3` dependency, which Typst downloads and caches
