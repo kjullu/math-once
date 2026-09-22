@@ -34,5 +34,8 @@
   "unit-variable-scope.typ": "math-once calculate: `m` is a unit name and cannot be used as a variable",
   "negative-fractional-power.typ": "a negative base requires an integer exponent",
   "strict-vector-unit.typ": "unknown unit `meterrs`",
-  "strict-matrix-unit.typ": "unknown unit `meterrs`"
+  "strict-matrix-unit.typ": "unknown unit `meterrs`",
+  "invalid-reset-selection.typ": "math-once reset: variables must be auto, a boolean, or an array of names",
+  "invalid-reset-name.typ": "names must contain letters and optional letter or number subscripts",
+  "invalid-reset-units.typ": "math-once reset: units must be auto, a boolean, or an array of names"
 }

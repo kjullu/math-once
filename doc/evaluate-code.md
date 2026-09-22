@@ -7,6 +7,8 @@ the calculation.
 > **Security:** `evaluate-code` uses unrestricted Typst `eval`. Only pass source
 > that you trust.
 
+This is an advanced helper for Typst-code evaluation. For ordinary calculations, start with [`calculate`](calculate.md) or [`calculation-builder`](calculation-builder.md). Existing `evaluate-code` calls remain supported.
+
 ## Example
 
 ```typ

@@ -1,5 +1,7 @@
 # `reset-functions`
 
+Compatibility helper. For new documents, use [`reset(functions: true)`](reset.md) or `reset(functions: ("name",))`. Existing calls keep their behavior.
+
 Clears stored scalar, vector, or matrix function definitions without changing stored values or unit configuration.
 
 ## Import

@@ -1,5 +1,7 @@
 # `reset-variables`
 
+Compatibility helper. For new documents, use [`reset(variables: true)`](reset.md) or `reset(variables: ("name",))`. Existing calls keep their behavior.
+
 Clears stored calculation values while preserving stored functions, unloaded
 unit names, and unit aliases. Values configured through `initial-state` are
 restored to their original values instead of being removed.

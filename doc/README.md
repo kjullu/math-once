@@ -6,28 +6,40 @@ internally in SI base units, so compatible units can be combined safely.
 
 ## Functions
 
+Start with one of these two functions. Both understand physical dimensions and reject incompatible operations such as `10 m + 2 s`.
+
 | Function | Use it for |
 | --- | --- |
 | [`calculate`](calculate.md) | One unit-aware calculation with a reusable result. |
 | [`calculation-builder`](calculation-builder.md) | A sequence of equations with stored variables and visible substitution. |
-| [Symbolic calculations](symbolic-calculations.md) | CAS operations, stored expressions, roots, and direct typCAS access. |
-| [`reset`](reset.md) | Clear the complete calculation-builder state. |
-| [`reset-variables`](reset-variables.md) | Clear values while preserving functions and unit configuration. |
-| [`reset-functions`](reset-functions.md) | Clear stored scalar, vector, and matrix functions. |
-| [`restore-units`](restore-units.md) | Restore catalog names made available with `unload`. |
-| [`reset-unit-aliases`](reset-unit-aliases.md) | Remove `rename-unit` relationships. |
-| [`unload`](unload.md) | Temporarily use reserved unit names as builder variables. |
-| [`rename-unit`](rename-unit.md) | Move an active unit spelling to a custom alias. |
-| [`text-unit`](units.md#custom-output-labels) | Create an explicit symbolic output-unit label. |
-| [`matrix`](calculation-builder.md#vectors-arrow-names-and-matrices) | A readable alias for Typst's `mat` syntax in builder calculations. |
-| [`equation`](equation.md) | A figure-like wrapper for per-equation captions. |
-| [`equation-outline`](equation-outline.md) | A linked list of labelled, captioned equations. |
-| [`evaluate-code`](evaluate-code.md) | Trusted Typst code where a unit is only a display label. |
-| [`number-labelled-equations`](number-labelled-equations.md) | Number only labelled equations and make them referenceable. |
 
-For most documents, use `calculate` or `calculation-builder`. They understand physical
-dimensions and reject incompatible operations such as `10 m + 2 s`.
-`evaluate-code` uses unrestricted Typst evaluation and does not interpret units.
+### Builder state and calculations
+
+- [Symbolic calculations](symbolic-calculations.md): simplify, differentiate, solve, and reuse expressions through the builder.
+- [`reset`](reset.md): reset all state or select variables, functions, unloaded names, and aliases.
+- [Vectors and matrices](calculation-builder.md#vectors-arrow-names-and-matrices): use Typst's `vec` and `mat` syntax.
+
+### Units
+
+- [Units and prefixes](units.md) and the [supported units](supported-units.md).
+- [`text-unit`](units.md#custom-output-labels): add a display label that is not a physical unit.
+- Advanced unit management: [`unload`](unload.md) frees a reserved name; [`rename-unit`](rename-unit.md) moves a unit to an alias.
+
+### Equation layout
+
+- [`number-labelled-equations`](number-labelled-equations.md): number and reference labelled equations.
+- [`equation`](equation.md): add a caption to an equation.
+- [`equation-outline`](equation-outline.md): list captioned equations with page numbers.
+
+Use a postfix label such as `#eq($x := 2$) <result>` and put `caption:` on the equation itself. The builder's `label:` parameter remains useful for programmatic calls.
+
+### Advanced helpers and compatibility
+
+[`evaluate-code`](evaluate-code.md) evaluates trusted Typst code, with units used only as display labels. Use it when you need Typst code evaluation; use `calculate` for mathematical expressions with physical units.
+
+The focused reset functions remain supported: [`reset-variables`](reset-variables.md), [`reset-functions`](reset-functions.md), [`restore-units`](restore-units.md), and [`reset-unit-aliases`](reset-unit-aliases.md). New documents should use [`reset` selections](reset.md#compatibility).
+
+The `matrix` alias and central [`captions` dictionary](number-labelled-equations.md#captions) remain supported for existing documents. Prefer native `mat` and per-equation `caption:` in new code.
 
 ## Basic usage
 

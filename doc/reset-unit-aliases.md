@@ -1,5 +1,7 @@
 # `reset-unit-aliases`
 
+Compatibility helper. For new documents, use [`reset(aliases: true)`](reset.md) or `reset(aliases: ("name",))`. Existing calls keep their behavior.
+
 Removes relationships created by [`rename-unit`](rename-unit.md) and restores
 their original catalog spellings without clearing unrelated builder state.
 

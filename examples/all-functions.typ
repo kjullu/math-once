@@ -113,8 +113,7 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 
 = `reset`
 
-`reset()` is the broad operation. The focused reset functions in the following
-section preserve unrelated builder state.
+`reset()` clears everything. Named selections preserve unrelated builder state.
 
 // Reset clears the entire matching state, including initial values.
 #reset(key: "all-functions-example")
@@ -134,14 +133,20 @@ section preserve unrelated builder state.
 
 // Clear calculated values while restoring initial-state and retaining the
 // stored function, unloaded name, and unit alias.
-#reset-variables(key: "all-functions-focused-reset")
+#reset(variables: true, key: "all-functions-focused-reset")
 #context assert(focused().factor == 2 and focused().f.function)
 
 // Each remaining category can be reset independently.
-#reset-functions("f", key: "all-functions-focused-reset")
-#restore-units("a", key: "all-functions-focused-reset")
-#reset-unit-aliases("v", key: "all-functions-focused-reset")
+#reset(functions: ("f",), key: "all-functions-focused-reset")
+#reset(units: ("a",), key: "all-functions-focused-reset")
+#reset(aliases: ("v",), key: "all-functions-focused-reset")
 #context assert(focused().factor == 2)
+
+// Compatibility helpers still accept the original calls.
+#reset-variables(key: "all-functions-focused-reset")
+#reset-functions(key: "all-functions-focused-reset")
+#restore-units(key: "all-functions-focused-reset")
+#reset-unit-aliases(key: "all-functions-focused-reset")
 
 = `unload`
 
