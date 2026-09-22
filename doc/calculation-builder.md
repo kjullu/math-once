@@ -540,10 +540,10 @@ calculation:
 
 ## Vectors, arrow names, and matrices
 
-Import `matrix` with `calculation-builder` when you want the readable `matrix(...)` spelling. It is an alias for Typst's built-in `mat(...)`, and math-once understands both forms:
+Use Typst's built-in `mat(...)` for matrices. The imported `matrix(...)` alias remains supported for compatibility. Both spellings behave the same:
 
 ```typ
-#import "math-once.typ": calculation-builder, matrix
+#import "math-once.typ": calculation-builder
 
 #let eq = calculation-builder()
 
@@ -552,7 +552,7 @@ Import `matrix` with `calculation-builder` when you want the readable `matrix(..
 #eq($arrow(q) := arrow(v) + arrow(w)$)
 // q⃗ = v⃗ + w⃗ = vec(4, 6)
 
-#eq($X := matrix(1, 2; 3, 4)$)
+#eq($X := mat(1, 2; 3, 4)$)
 #eq($Y := mat(5, 6; 7, 8)$)
 #eq($Z := X + Y$)
 // Z = X + Y = mat(6, 8; 10, 12)
@@ -589,7 +589,7 @@ Stored functions may return either structure:
 #eq($arrow(s)(2)$)
 // s⃗(2) = vec(0, 0)
 
-#eq($M(t) := matrix(t, 0; 0, t)$)
+#eq($M(t) := mat(t, 0; 0, t)$)
 #eq($M(3)$)
 // M(3) = mat(3, 0; 0, 3)
 ```
@@ -804,7 +804,7 @@ layout.
 `label` or `none` — optional, named — default: `none`
 
 Attaches a Typst label directly to the generated equation so it can be
-referenced. It is an alternative to the more natural postfix syntax.
+referenced. Prefer the postfix syntax in documents; use `label:` for programmatic calls.
 
 ```typ
 #import "math-once.typ": calculation-builder, number-labelled-equations
@@ -898,8 +898,7 @@ Stored dimensioned variables include their unit in the visible substitution:
 // x = 20.556 m
 ```
 
-Use [`reset`](reset.md) with the same state `key` to remove selected variables
-or clear the complete builder state.
+Use [`reset(variables: ("x",))`](reset.md) with the same state `key` to remove selected variables. Use `reset(variables: true)` to restore initial values while keeping functions and unit settings, or `reset()` to clear the complete builder state.
 
 Use [`unload`](unload.md) before a definition when a reserved unit spelling
 must temporarily be used as a variable name.

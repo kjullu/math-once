@@ -1,5 +1,7 @@
 # `restore-units`
 
+Compatibility helper. For new documents, use [`reset(units: true)`](reset.md) or `reset(units: ("name",))`. Existing calls keep their behavior.
+
 Restores catalog unit names and built-in constants previously made available as variables with
 [`unload`](unload.md), without resetting unrelated builder state.
 

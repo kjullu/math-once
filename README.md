@@ -9,7 +9,7 @@ Unknown quoted unit names also work as opaque custom units. They support
 ordinary arithmetic with matching custom units, without physical conversion.
 
 ```typ
-#import "math-once.typ": calculation-builder, text-unit, matrix
+#import "math-once.typ": calculation-builder, text-unit
 
 #let eq = calculation-builder(digits: 2)
 
@@ -32,7 +32,7 @@ ordinary arithmetic with matching custom units, without physical conversion.
 // 10 ± 2 = 12 ∨ 8
 
 #eq($ arrow(v) := vec(1, 2) $)
-#eq($ X := matrix(1, 2; 3, 4) $)
+#eq($ X := mat(1, 2; 3, 4) $)
 #eq($ X arrow(v) $)
 // Xv⃗ = vec(5, 11)
 
@@ -97,22 +97,15 @@ Git release archives contain `examples/all-functions.typ`, `CHANGELOG.md`, the c
 
 ## Documentation
 
+Start with [`calculate`](doc/calculate.md) for one unit-aware expression, or [`calculation-builder`](doc/calculation-builder.md) to store variables and show substitutions across equations.
+
 - [Documentation overview](doc/README.md)
-- [`calculate`](doc/calculate.md) — evaluate one unit-aware expression
-- [`calculation-builder`](doc/calculation-builder.md) — store and reuse equation variables
-- [Symbolic calculations](doc/symbolic-calculations.md) — simplify, differentiate, solve, and reuse CAS results
-- [`reset`](doc/reset.md) — clear the complete builder state
-- [`reset-variables`](doc/reset-variables.md) — clear values while keeping builder configuration
-- [`reset-functions`](doc/reset-functions.md) — clear stored function definitions
-- [`restore-units`](doc/restore-units.md) — undo `unload` without resetting other state
-- [`reset-unit-aliases`](doc/reset-unit-aliases.md) — undo `rename-unit` relationships
-- [`unload`](doc/unload.md) — temporarily use unit names as variables
-- [`rename-unit`](doc/rename-unit.md) — move a unit spelling to a custom alias
-- [`equation`](doc/equation.md) — add a caption directly to an equation
-- [`equation-outline`](doc/equation-outline.md) — list captioned equations with page numbers
-- [`evaluate-code`](doc/evaluate-code.md) — evaluate trusted Typst code
-- [`number-labelled-equations`](doc/number-labelled-equations.md) — number and reference only labelled equations
-- [Units and prefixes](doc/units.md)
+- [Symbolic calculations](doc/symbolic-calculations.md)
+- [Reset all state or selected categories](doc/reset.md)
+- [Units and prefixes](doc/units.md), including `text-unit` for display labels
+- Advanced unit management: [`unload`](doc/unload.md) and [`rename-unit`](doc/rename-unit.md)
+- Equation layout: [`number-labelled-equations`](doc/number-labelled-equations.md), [`equation`](doc/equation.md), and [`equation-outline`](doc/equation-outline.md)
+- [Advanced helpers and compatibility](doc/README.md#advanced-helpers-and-compatibility), including Typst-code evaluation and older reset functions
 
 A compilable example covering the complete public API is available in
 [`examples/all-functions.typ`](examples/all-functions.typ).

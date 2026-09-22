@@ -1,5 +1,12 @@
 # Changelog
 
+## Unified reset API demo (based on 0.40.0)
+
+- Added explicit `variables`, `functions`, `units`, and `aliases` selections to `reset`, including combined operations and selective names. Empty selections leave state unchanged.
+- Preserved full reset behavior and all focused reset functions for compatibility, including initial values, builder keys, unloaded constants, and unit aliases.
+- Fixed focused resets of renamed unit spellings after a variable assignment overwrites their internal marker. Alias relationships now determine which names to restore or preserve.
+- Reorganized the documentation around `calculate` and `calculation-builder`; recommend native `mat`, per-equation captions, and postfix labels while retaining older forms. Keep `evaluate-code` as an advanced Typst-code helper. See [issue #5](https://github.com/kjullu/math-once/issues/5).
+
 ## 0.40.0
 
 - Added `asin`, `acos`, `atan`, and `atan2`; inverse trigonometric results use

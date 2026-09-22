@@ -68,3 +68,17 @@
 #reset-unit-aliases(key: "focused-reset")
 #reset(key: "focused-reset")
 #context assert(eq().len() == 0)
+
+// Alias relations survive assignments under their original spellings.
+#rename-unit($m$, $v$, key: "focused-reset")
+#eq($m := 8$)
+#restore-units("m", key: "focused-reset")
+#context assert(eq().m.exact == 8)
+#reset-variables("m", key: "focused-reset")
+#restore-units(key: "focused-reset")
+#eq($m := 9$)
+#context assert(eq().m.exact == 9)
+#reset-unit-aliases("m", key: "focused-reset")
+#context assert("m" not in eq())
+#eq(`metres := 3 m`)
+#context assert(eq().metres.si-value == 3)
