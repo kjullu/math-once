@@ -79,7 +79,7 @@ Copy [`math-once.typ`](math-once.typ) into your project and import its functions
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.39.1": *
+#import "@local/math-once:0.40.0": *
 ```
 
 > `*` imports all exported names. You can instead list only the [functions](doc/README.md#functions) you need, for example `#import "math-once.typ": calculation-builder`.

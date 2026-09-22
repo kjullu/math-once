@@ -23,3 +23,17 @@
 #assert(calculate(`sin(30)`).value == 0.5)
 #assert(calculate(`cos(60)`).value == 0.5)
 #assert(calculate(`tan(45)`).value == 1.0)
+#assert(calculate(`asin(0.5)`).value == 30.0)
+#assert(calculate(`acos(0.5)`).value == 60.0)
+#assert(calculate(`atan(1)`).value == 45.0)
+#assert(calculate(`atan2(1, 1)`).value == 45.0)
+#assert(calculate(`atan2(1 m, -1 m)`).value == 135.0)
+#assert(calc.abs(calculate(`acos(0) to rad`, digits: 9).value - calc.pi / 2) < 0.000000001)
+
+#let inverse = calculation-builder(key: "inverse-trigonometry-test", digits: 2)
+#inverse($theta := "acos"(0.5)$)
+#context {
+  let variables = inverse()
+  assert(variables.theta.value == 60.0)
+  assert(variables.theta.unit == "degree")
+}

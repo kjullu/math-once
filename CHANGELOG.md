@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.40.0
+
+- Added `asin`, `acos`, `atan`, and `atan2`; inverse trigonometric results use
+  degrees by default and support explicit conversion to radians.
+- Allowed `atan2(y, x)` to compare compatible quantities with matching units.
+
 ## 0.39.1
 
 - Fixed unary minus precedence and arithmetic between vector and matrix literals.

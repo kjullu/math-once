@@ -201,6 +201,9 @@ accepted forms are `$10^(-6)$`, `` `10^(-6)` ``, `"10^(-6)"`, and
 
 `sin`, `cos`, and `tan` accept a parenthesized angle. A bare number is treated
 as degrees. Add `rad`, `deg`, `degree`, or `°` to select an explicit angle unit.
+The inverse functions `asin`, `acos`, and `atan` return degrees by default.
+`atan2(y, x)` also returns degrees and accepts compatible unit-bearing values.
+Use `to rad` to request a result in radians.
 
 ```typ
 #calculate(`sin(30)`).display
@@ -211,6 +214,12 @@ as degrees. Add `rad`, `deg`, `degree`, or `°` to select an explicit angle unit
 
 #calculate(`tan(0.7853981634 rad)`, digits: 6).display
 // approximately 1
+
+#calculate(`acos(0.5)`).display
+// acos(0.5) = 60°
+
+#calculate(`atan2(1 m, -1 m) to rad`, digits: 6).display
+// atan2(1 m, -1 m) = 2.356194 rad
 ```
 
 ### Roots

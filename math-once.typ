@@ -1,4 +1,4 @@
-// math-once v0.39.1
+// math-once v0.40.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3134,7 +3134,9 @@ let variable-symbol-name(symbol) = {
 
 let cas-functions = ("simplify", "diff", "integrate", "solve", "factor", "limit", "taylor")
 let rounding-functions = ("floor", "ceil", "round")
-let math-functions = ("sin", "cos", "tan", "sqrt", "root", "abs") + rounding-functions
+let trigonometric-functions = ("sin", "cos", "tan")
+let inverse-trigonometric-functions = ("asin", "acos", "atan")
+let math-functions = trigonometric-functions + inverse-trigonometric-functions + ("atan2", "sqrt", "root", "abs") + rounding-functions
 let structure-functions = ("vec", "matrix", "mat")
 let source-functions = math-functions + cas-functions + structure-functions
 let text-unit-prefix = "⟦"
@@ -3273,7 +3275,7 @@ let input-source(source, preserve-text: false) = if type(source) == content and 
 }
 
 let tokenize(source) = {
-  let name = "[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*"
+  let name = "[\\p{L}°℃℉ℏ₂☉][\\p{L}0-9°℃℉ℏ₂☉]*(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*"
   let symbolic = "⟦[^⟦⟧]+⟧"
   let math-symbol = math-symbol-prefix + "[^" + math-symbol-prefix + math-symbol-suffix + "]+" + math-symbol-suffix
   let dotted-name = "[A-Za-z][A-Za-z0-9]*(?:\\.[A-Za-z0-9]+)+"
@@ -3308,7 +3310,7 @@ let tokenize(source) = {
 }
 
 let is-number(token) = regex("^(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?$") in token
-let is-name(token) = regex("^[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*$") in token
+let is-name(token) = regex("^[\\p{L}°℃℉ℏ₂☉][\\p{L}0-9°℃℉ℏ₂☉]*(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*$") in token
 let is-quoted-unit(token) = token.len() >= 2 and token.starts-with("\"") and token.ends-with("\"")
 let quoted-unit-name(token) = token.slice(1, token.len() - 1)
 let is-text-unit(token) = token.len() >= 2 and token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix)
@@ -3368,7 +3370,7 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
         "upright(\"" + name + "\")"
       }
     } else if is-name(token) {
-      if (token in cas-functions
+      if (token in cas-functions + inverse-trigonometric-functions + ("atan2",)
         and index + 1 < tokens.len()
         and tokens.at(index + 1) == "(") {
         "op(\"" + token + "\")"
@@ -4712,7 +4714,21 @@ let apply-op(op, left, right, soft: false) = {
 
 let apply-function(name, argument, soft: false) = {
   if not is-dimensionless(argument) {
-    return calculation-fail("`" + name + "` requires a dimensionless angle", soft: soft)
+    let requirement = if name in inverse-trigonometric-functions {
+      "a dimensionless number"
+    } else {
+      "a dimensionless angle"
+    }
+    return calculation-fail("`" + name + "` requires " + requirement, soft: soft)
+  }
+  if name in ("asin", "acos") and calc.abs(argument.si-value) > 1 {
+    return calculation-fail("`" + name + "` requires a value from -1 to 1", soft: soft)
+  }
+  if name in inverse-trigonometric-functions {
+    let angle = if name == "asin" { calc.asin(argument.si-value) }
+      else if name == "acos" { calc.acos(argument.si-value) }
+      else { calc.atan(argument.si-value) }
+    return quantity(angle.rad(), preferred: "degree")
   }
   let angle = if argument.preferred == none {
     argument.si-value * calc.pi / 180
@@ -4725,6 +4741,16 @@ let apply-function(name, argument, soft: false) = {
     else if name == "tan" { calc.tan(angle) }
     else { calculation-fail("unsupported function `" + name + "`", soft: soft) },
   )
+}
+
+let apply-atan2(y, x, soft: false) = {
+  if y.dims != x.dims or y.opaque != x.opaque {
+    return calculation-fail("`atan2` requires compatible y and x values", soft: soft)
+  }
+  if y.si-value == 0 and x.si-value == 0 {
+    return calculation-fail("`atan2` is undefined when y and x are both zero", soft: soft)
+  }
+  quantity(calc.atan2(x.si-value, y.si-value).rad(), preferred: "degree")
 }
 
 let apply-rounding(name, argument, preferred-unit: none, soft: false) = {
@@ -4815,16 +4841,21 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
       }
       let (first, next) = parse-expression(tokens, position + 2)
       if is-calculation-failure(first) { return (first, next) }
-      if token == "root" {
+      if token in ("root", "atan2") {
         if next >= tokens.len() or tokens.at(next) != "," {
-          return (calculation-fail("`root` requires an index and a radicand", soft: soft), next)
+          let arguments = if token == "root" { "an index and a radicand" } else { "y and x arguments" }
+          return (calculation-fail("`" + token + "` requires " + arguments, soft: soft), next)
         }
-        let (radicand, closing) = parse-expression(tokens, next + 1)
-        if is-calculation-failure(radicand) { return (radicand, closing) }
+        let (second, closing) = parse-expression(tokens, next + 1)
+        if is-calculation-failure(second) { return (second, closing) }
         if closing >= tokens.len() or tokens.at(closing) != ")" {
-          return (calculation-fail("missing closing parenthesis after `root`", soft: soft), closing)
+          return (calculation-fail("missing closing parenthesis after `" + token + "`", soft: soft), closing)
         }
-        left = apply-root(first, radicand, soft: soft)
+        left = if token == "root" {
+          apply-root(first, second, soft: soft)
+        } else {
+          apply-atan2(first, second, soft: soft)
+        }
         if is-calculation-failure(left) { return (left, closing + 1) }
         position = closing + 1
       } else {
@@ -5030,7 +5061,8 @@ let normalize-math-unit-tokens(tokens) = {
 }
 
 /// Evaluate a unit-aware expression containing numbers, units, variables,
-/// `sin`, `cos`, `tan`, `abs`, `floor`, `ceil`, `round`, absolute-value bars,
+/// `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`, `abs`, `floor`,
+/// `ceil`, `round`, absolute-value bars,
 /// and the operators `+`, `-`, `*`, `/`, `^`, `±`, and `∓`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
@@ -5922,7 +5954,8 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// Evaluate a dimensional, unit-aware expression.
 ///
 /// - `source`: A trusted string, raw block, or Typst math equation containing
-///   numbers, units, variables, parentheses, `sin`, `cos`, `tan`, `abs`,
+///   numbers, units, variables, parentheses, `sin`, `cos`, `tan`, `asin`,
+///   `acos`, `atan`, `atan2`, `abs`,
 ///   `floor`, `ceil`, `round`, absolute-value bars, `+`, `-`, `*`, `/`, `^`,
 ///   `±`, `∓`, and optionally `to` or `=` for output conversion.
 /// - `digits`: Decimal places used for the visible `value`. Default: `4`.

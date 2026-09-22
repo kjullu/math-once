@@ -692,7 +692,8 @@ the metre unit. Choose another name such as `n` or use `order` in raw input.
 
 `sin`, `cos`, and `tan` accept parenthesized angles. Bare numbers are treated
 as degrees, matching the common calculator convention. Explicit `deg`, `°`,
-`degree`, and `rad` units are also supported.
+`degree`, and `rad` units are also supported. `asin`, `acos`, `atan`, and
+`atan2(y, x)` return degrees by default; use `to rad` for radians.
 
 ```typ
 #let eq = calculation-builder(key: "diffraction", digits: 9)
@@ -705,6 +706,9 @@ as degrees, matching the common calculator convention. Explicit `deg`, `°`,
 
 #eq($x$)
 // x = 2.047762752 µm
+
+#eq($theta_2 := "acos"(0.5)$)
+// θ₂ = acos(0.5) = 60°
 ```
 
 Typst math requires quotes around multi-letter units such as `"nm"`. Raw input
