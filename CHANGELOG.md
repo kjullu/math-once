@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.40.1
+
+- Added the Typst-native `arcsin`, `arccos`, and `arctan` aliases so inverse
+  trigonometric functions can be used in math equations without quotes.
+
 ## 0.40.0
 
 - Added `asin`, `acos`, `atan`, and `atan2`; inverse trigonometric results use

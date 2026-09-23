@@ -1,4 +1,4 @@
-// math-once v0.40.0
+// math-once v0.40.1
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3136,7 +3136,9 @@ let cas-functions = ("simplify", "diff", "integrate", "solve", "factor", "limit"
 let rounding-functions = ("floor", "ceil", "round")
 let trigonometric-functions = ("sin", "cos", "tan")
 let inverse-trigonometric-functions = ("asin", "acos", "atan")
-let math-functions = trigonometric-functions + inverse-trigonometric-functions + ("atan2", "sqrt", "root", "abs") + rounding-functions
+let inverse-trigonometric-aliases = ("arcsin", "arccos", "arctan")
+let inverse-trigonometric-names = inverse-trigonometric-functions + inverse-trigonometric-aliases
+let math-functions = trigonometric-functions + inverse-trigonometric-names + ("atan2", "sqrt", "root", "abs") + rounding-functions
 let structure-functions = ("vec", "matrix", "mat")
 let source-functions = math-functions + cas-functions + structure-functions
 let text-unit-prefix = "⟦"
@@ -3370,7 +3372,7 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
         "upright(\"" + name + "\")"
       }
     } else if is-name(token) {
-      if (token in cas-functions + inverse-trigonometric-functions + ("atan2",)
+      if (token in cas-functions + inverse-trigonometric-names + ("atan2",)
         and index + 1 < tokens.len()
         and tokens.at(index + 1) == "(") {
         "op(\"" + token + "\")"
@@ -4713,20 +4715,24 @@ let apply-op(op, left, right, soft: false) = {
 }
 
 let apply-function(name, argument, soft: false) = {
+  let canonical-name = if name == "arcsin" { "asin" }
+    else if name == "arccos" { "acos" }
+    else if name == "arctan" { "atan" }
+    else { name }
   if not is-dimensionless(argument) {
-    let requirement = if name in inverse-trigonometric-functions {
+    let requirement = if canonical-name in inverse-trigonometric-functions {
       "a dimensionless number"
     } else {
       "a dimensionless angle"
     }
     return calculation-fail("`" + name + "` requires " + requirement, soft: soft)
   }
-  if name in ("asin", "acos") and calc.abs(argument.si-value) > 1 {
+  if canonical-name in ("asin", "acos") and calc.abs(argument.si-value) > 1 {
     return calculation-fail("`" + name + "` requires a value from -1 to 1", soft: soft)
   }
-  if name in inverse-trigonometric-functions {
-    let angle = if name == "asin" { calc.asin(argument.si-value) }
-      else if name == "acos" { calc.acos(argument.si-value) }
+  if canonical-name in inverse-trigonometric-functions {
+    let angle = if canonical-name == "asin" { calc.asin(argument.si-value) }
+      else if canonical-name == "acos" { calc.acos(argument.si-value) }
       else { calc.atan(argument.si-value) }
     return quantity(angle.rad(), preferred: "degree")
   }
@@ -5061,8 +5067,8 @@ let normalize-math-unit-tokens(tokens) = {
 }
 
 /// Evaluate a unit-aware expression containing numbers, units, variables,
-/// `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`, `abs`, `floor`,
-/// `ceil`, `round`, absolute-value bars,
+/// `sin`, `cos`, `tan`, `asin`/`arcsin`, `acos`/`arccos`, `atan`/`arctan`,
+/// `atan2`, `abs`, `floor`, `ceil`, `round`, absolute-value bars,
 /// and the operators `+`, `-`, `*`, `/`, `^`, `±`, and `∓`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
@@ -5954,8 +5960,8 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// Evaluate a dimensional, unit-aware expression.
 ///
 /// - `source`: A trusted string, raw block, or Typst math equation containing
-///   numbers, units, variables, parentheses, `sin`, `cos`, `tan`, `asin`,
-///   `acos`, `atan`, `atan2`, `abs`,
+///   numbers, units, variables, parentheses, `sin`, `cos`, `tan`,
+///   `asin`/`arcsin`, `acos`/`arccos`, `atan`/`arctan`, `atan2`, `abs`,
 ///   `floor`, `ceil`, `round`, absolute-value bars, `+`, `-`, `*`, `/`, `^`,
 ///   `±`, `∓`, and optionally `to` or `=` for output conversion.
 /// - `digits`: Decimal places used for the visible `value`. Default: `4`.

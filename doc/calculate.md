@@ -204,6 +204,8 @@ as degrees. Add `rad`, `deg`, `degree`, or `°` to select an explicit angle unit
 The inverse functions `asin`, `acos`, and `atan` return degrees by default.
 `atan2(y, x)` also returns degrees and accepts compatible unit-bearing values.
 Use `to rad` to request a result in radians.
+In Typst math equations, the native operator names `arcsin`, `arccos`, and
+`arctan` are aliases for these functions and do not need quotes.
 
 ```typ
 #calculate(`sin(30)`).display
