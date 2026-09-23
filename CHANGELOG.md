@@ -1,5 +1,11 @@
 # Changelog
 
+## PDF hash regression tests demo (based on 0.40.1)
+
+- Added reproducible PDF SHA-256 baselines for test fixtures and examples, with a fixed creation timestamp and embedded fonts only.
+- Changed PDF output now fails the test run with a review report and retained PDFs. Hashes are accepted separately after inspection; compilation and expected-diagnostic failures cannot be accepted.
+- Added a compilation-only mode for checking other compiler versions without updating PDF baselines.
+
 ## 0.40.1
 
 - Added the Typst-native `arcsin`, `arccos`, and `arctan` aliases so inverse
