@@ -1,6 +1,6 @@
 # Changelog
 
-## PDF hash regression tests demo (based on 0.40.1)
+## PDF hash regression tests (based on 0.40.1)
 
 - Added reproducible PDF SHA-256 baselines for test fixtures and examples, with a fixed creation timestamp and embedded fonts only.
 - Changed PDF output now fails the test run with a review report and retained PDFs. Hashes are accepted separately after inspection; compilation and expected-diagnostic failures cannot be accepted.
