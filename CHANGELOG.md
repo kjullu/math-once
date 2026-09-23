@@ -1,6 +1,8 @@
 # Changelog
 
-## Unified reset API demo (based on 0.40.0)
+## Unified reset API and inverse trigonometric aliases demo (based on 0.40.0)
+
+- Ported `cbcc3fe`: added the Typst-native `arcsin`, `arccos`, and `arctan` aliases so inverse trigonometric functions can be used in math equations without quotes.
 
 - Added explicit `variables`, `functions`, `units`, and `aliases` selections to `reset`, including combined operations and selective names. Empty selections leave state unchanged.
 - Preserved full reset behavior and all focused reset functions for compatibility, including initial values, builder keys, unloaded constants, and unit aliases.
