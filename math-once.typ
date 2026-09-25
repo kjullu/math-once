@@ -1,5 +1,5 @@
-// math-once v0.40.1
-// // Reusable calculations with a unit-aware evaluator.
+// Exact special-angle trigonometry (0.40.1)
+// Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
 
@@ -4714,6 +4714,84 @@ let apply-op(op, left, right, soft: false) = {
   calculation-fail("unsupported operator `" + op + "`", soft: soft)
 }
 
+let special-angle-sines = (
+  0.0,
+  (calc.sqrt(6) - calc.sqrt(2)) / 4,
+  0.5,
+  calc.sqrt(2) / 2,
+  calc.sqrt(3) / 2,
+  (calc.sqrt(6) + calc.sqrt(2)) / 4,
+  1.0,
+  (calc.sqrt(6) + calc.sqrt(2)) / 4,
+  calc.sqrt(3) / 2,
+  calc.sqrt(2) / 2,
+  0.5,
+  (calc.sqrt(6) - calc.sqrt(2)) / 4,
+  0.0,
+  -(calc.sqrt(6) - calc.sqrt(2)) / 4,
+  -0.5,
+  -calc.sqrt(2) / 2,
+  -calc.sqrt(3) / 2,
+  -(calc.sqrt(6) + calc.sqrt(2)) / 4,
+  -1.0,
+  -(calc.sqrt(6) + calc.sqrt(2)) / 4,
+  -calc.sqrt(3) / 2,
+  -calc.sqrt(2) / 2,
+  -0.5,
+  -(calc.sqrt(6) - calc.sqrt(2)) / 4,
+)
+
+let special-angle-tangents = (
+  0.0,
+  2 - calc.sqrt(3),
+  calc.sqrt(3) / 3,
+  1.0,
+  calc.sqrt(3),
+  2 + calc.sqrt(3),
+  0.0,
+  -(2 + calc.sqrt(3)),
+  -calc.sqrt(3),
+  -1.0,
+  -calc.sqrt(3) / 3,
+  -(2 - calc.sqrt(3)),
+  0.0,
+  2 - calc.sqrt(3),
+  calc.sqrt(3) / 3,
+  1.0,
+  calc.sqrt(3),
+  2 + calc.sqrt(3),
+  0.0,
+  -(2 + calc.sqrt(3)),
+  -calc.sqrt(3),
+  -1.0,
+  -calc.sqrt(3) / 3,
+  -(2 - calc.sqrt(3)),
+)
+
+// Exact values for angles within 0.000000001 degrees of a multiple of 15
+// degrees; the entry at index k is the value at a reduced angle of 15k
+// degrees in [0, 360). Returns none for angles that are not special, so
+// ordinary floating-point evaluation can take over.
+let special-angle-value(name, angle, soft: false) = {
+  let reduced = calc.rem(calc.rem(angle * 180 / calc.pi, 360) + 360, 360)
+  let step = calc.round(reduced / 15)
+  if not (calc.abs(step * 15 - reduced) <= 0.000000001) {
+    return none
+  }
+  let index = int(calc.rem(step, 24))
+  if name == "sin" {
+    special-angle-sines.at(index)
+  } else if name == "cos" {
+    special-angle-sines.at(int(calc.rem(6 - index + 24, 24)))
+  } else if name == "tan" {
+    if index == 6 or index == 18 {
+      calculation-fail("`tan` is undefined at odd multiples of 90 degrees", soft: soft)
+    } else {
+      special-angle-tangents.at(index)
+    }
+  }
+}
+
 let apply-function(name, argument, soft: false) = {
   let canonical-name = if name == "arcsin" { "asin" }
     else if name == "arccos" { "acos" }
@@ -4741,8 +4819,13 @@ let apply-function(name, argument, soft: false) = {
   } else {
     argument.si-value
   }
+  let special = special-angle-value(name, angle, soft: soft)
+  if is-calculation-failure(special) {
+    return special
+  }
   quantity(
-    if name == "sin" { calc.sin(angle) }
+    if special != none { special }
+    else if name == "sin" { calc.sin(angle) }
     else if name == "cos" { calc.cos(angle) }
     else if name == "tan" { calc.tan(angle) }
     else { calculation-fail("unsupported function `" + name + "`", soft: soft) },

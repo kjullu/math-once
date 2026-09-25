@@ -1,5 +1,16 @@
 # Changelog
 
+## Exact special-angle trigonometry demo (based on 0.40.1)
+
+- Fixed trigonometric functions at special angles: `sin(180 deg)` now returns
+  exactly `0` instead of `1.2246467991 · 10⁻¹⁶`, and `cos(90 deg)` returns `0`
+  instead of `6.12 · 10⁻¹⁷`.
+- Angles within a nanodegree of a multiple of 15 degrees evaluate to the exact
+  special value (0, ±1, ±0.5, ±√2/2, ±√3/2, and the corresponding tangents),
+  regardless of whether the angle was written as a bare number or with a unit.
+- `tan(90 deg)` and `tan(270 deg)` now report that tangent is undefined instead
+  of returning an enormous floating-point value.
+
 ## PDF hash regression tests (based on 0.40.1)
 
 - Added reproducible PDF SHA-256 baselines for test fixtures and examples, with a fixed creation timestamp and embedded fonts only.

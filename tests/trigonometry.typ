@@ -46,3 +46,30 @@
   assert(variables.beta.value == 30.0)
   assert(variables.gamma.value == 45.0)
 }
+
+// Special angles return exact values instead of floating-point noise, and the
+// result no longer depends on how the angle was written.
+#assert(calculate(`sin(180)`).exact == 0.0)
+#assert(calculate(`sin(180 deg)`).exact == 0.0)
+#assert(calculate(`cos(90)`).exact == 0.0)
+#assert(calculate(`cos(90 deg)`).exact == 0.0)
+#assert(calculate(`tan(180)`).exact == 0.0)
+#assert(calculate(`sin(30)`).exact == 0.5)
+#assert(calculate(`sin(45)`).exact == calc.sqrt(2) / 2)
+#assert(calculate(`sin(60)`).exact == calc.sqrt(3) / 2)
+#assert(calculate(`sin(15)`).exact == (calc.sqrt(6) - calc.sqrt(2)) / 4)
+#assert(calculate(`cos(15)`).exact == (calc.sqrt(6) + calc.sqrt(2)) / 4)
+#assert(calculate(`cos(75)`).exact == (calc.sqrt(6) - calc.sqrt(2)) / 4)
+#assert(calculate(`tan(15)`).exact == 2 - calc.sqrt(3))
+#assert(calculate(`tan(30)`).exact == calc.sqrt(3) / 3)
+#assert(calculate(`tan(60)`).exact == calc.sqrt(3))
+#assert(calculate(`tan(75)`).exact == 2 + calc.sqrt(3))
+#assert(calculate(`sin(390)`).exact == 0.5)
+#assert(calculate(`sin(750 deg)`).exact == 0.5)
+#assert(calculate(`sin(-30)`).exact == -0.5)
+#assert(calculate(`cos(-90)`).exact == 0.0)
+#assert(calculate(`tan(-45)`).exact == -1.0)
+#assert(calculate(`sin(1)`).exact == calc.sin(1 * calc.pi / 180))
+
+#let special-degrees = calculation-builder(key: "special-angle-degrees-test", digits: 9)
+#special-degrees($sin(180 deg)$)
