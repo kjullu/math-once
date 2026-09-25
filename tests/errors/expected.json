@@ -34,5 +34,6 @@
   "unit-variable-scope.typ": "math-once calculate: `m` is a unit name and cannot be used as a variable",
   "negative-fractional-power.typ": "a negative base requires an integer exponent",
   "strict-vector-unit.typ": "unknown unit `meterrs`",
-  "strict-matrix-unit.typ": "unknown unit `meterrs`"
+  "strict-matrix-unit.typ": "unknown unit `meterrs`",
+  "tan-undefined.typ": "math-once calculate: `tan` is undefined at odd multiples of 90 degrees"
 }

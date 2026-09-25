@@ -6,6 +6,7 @@
 #eq(`1 m + 2 s`)
 #eq(`1 m`, unit: `s`)
 #eq(`1 / 0`)
+#eq(`tan(90)`)
 #eq(`sin(1 m)`)
 #eq(`(1 m)^0.5`)
 #eq(`1 m`, size: 0)
