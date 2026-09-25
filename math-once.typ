@@ -1,5 +1,5 @@
-// PDF hash regression tests demo (0.40.1)
-// Reusable calculations with a unit-aware evaluator.
+// math-once v0.40.1
+// // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
 
