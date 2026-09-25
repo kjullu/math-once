@@ -1,4 +1,4 @@
-// Exact special-angle trigonometry (0.40.1)
+// math-once v0.41.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas

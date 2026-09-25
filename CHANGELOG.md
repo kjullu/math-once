@@ -1,6 +1,6 @@
 # Changelog
 
-## Exact special-angle trigonometry demo (based on 0.40.1)
+## 0.41.0
 
 - Fixed trigonometric functions at special angles: `sin(180 deg)` now returns
   exactly `0` instead of `1.2246467991 · 10⁻¹⁶`, and `cos(90 deg)` returns `0`
