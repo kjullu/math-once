@@ -33,13 +33,9 @@ Start with one of these two functions. Both understand physical dimensions and r
 
 Use a postfix label such as `#eq($x := 2$) <result>` and put `caption:` on the equation itself. The builder's `label:` parameter remains useful for programmatic calls.
 
-### Advanced helpers and compatibility
+### Advanced helpers
 
 [`evaluate-code`](evaluate-code.md) evaluates trusted Typst code, with units used only as display labels. Use it when you need Typst code evaluation; use `calculate` for mathematical expressions with physical units.
-
-The focused reset functions remain supported: [`reset-variables`](reset-variables.md), [`reset-functions`](reset-functions.md), [`restore-units`](restore-units.md), and [`reset-unit-aliases`](reset-unit-aliases.md). New documents should use [`reset` selections](reset.md#compatibility).
-
-The `matrix` alias and central [`captions` dictionary](number-labelled-equations.md#captions) remain supported for existing documents. Prefer native `mat` and per-equation `caption:` in new code.
 
 ## Basic usage
 

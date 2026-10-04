@@ -65,7 +65,7 @@ Symbolic calls follow the normal builder assignment rules:
 ```
 
 Symbolic results count as stored variables. They are removed by
-`reset-variables`, and a complete `reset` also removes them.
+`reset(variables: true)`, and a complete `reset` also removes them.
 
 ## Supported operations
 

@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit
+#import "../math-once.typ": calculation-builder, reset, unload, rename-unit
 
 #let eq = calculation-builder(
   key: "focused-reset",
@@ -13,7 +13,7 @@
 #eq(`distance := 4 v`)
 
 // Values can be cleared without changing functions or unit configuration.
-#reset-variables("x", key: "focused-reset")
+#reset(variables: ("x",), key: "focused-reset")
 #context {
   let values = eq()
   assert("x" not in values)
@@ -26,7 +26,7 @@
 
 // Clearing all values restores initial-state and retains unloaded names.
 #eq(`factor := 9`)
-#reset-variables(key: "focused-reset")
+#reset(variables: true, key: "focused-reset")
 #context {
   let values = eq()
   assert(values.factor == 2)
@@ -40,19 +40,19 @@
 
 // Functions are independent, and an overwritten initial value is restored.
 #eq(`factor(t) := t * 2`)
-#reset-functions("factor", key: "focused-reset")
+#reset(functions: ("factor",), key: "focused-reset")
 #context assert(eq().factor == 2)
-#reset-functions(key: "focused-reset")
+#reset(functions: true, key: "focused-reset")
 #context assert("f" not in eq())
 
 // Restoring an unloaded catalog name also removes a variable using that name.
-#restore-units("a", key: "focused-reset")
+#reset(units: ("a",), key: "focused-reset")
 #context assert("a" not in eq())
 #eq($a := 4$) // red error: a is the are unit again
 #context assert("a" not in eq())
 
 // Aliases survive value resets but can be reset separately.
-#reset-unit-aliases("v", key: "focused-reset")
+#reset(aliases: ("v",), key: "focused-reset")
 #eq($m := 2$) // red error: m is metre again
 #eq(`alias_result := 2 v`) // red error: v is no longer an alias
 #context {
@@ -63,22 +63,22 @@
 
 // Empty focused calls affect every item in only their own category.
 #unload("b", key: "focused-reset")
-#restore-units(key: "focused-reset")
+#reset(units: true, key: "focused-reset")
 #rename-unit($s$, $z$, key: "focused-reset")
-#reset-unit-aliases(key: "focused-reset")
+#reset(aliases: true, key: "focused-reset")
 #reset(key: "focused-reset")
 #context assert(eq().len() == 0)
 
 // Alias relations survive assignments under their original spellings.
 #rename-unit($m$, $v$, key: "focused-reset")
 #eq($m := 8$)
-#restore-units("m", key: "focused-reset")
+#reset(units: ("m",), key: "focused-reset")
 #context assert(eq().m.exact == 8)
-#reset-variables("m", key: "focused-reset")
-#restore-units(key: "focused-reset")
+#reset(variables: ("m",), key: "focused-reset")
+#reset(units: true, key: "focused-reset")
 #eq($m := 9$)
 #context assert(eq().m.exact == 9)
-#reset-unit-aliases("m", key: "focused-reset")
+#reset(aliases: ("m",), key: "focused-reset")
 #context assert("m" not in eq())
 #eq(`metres := 3 m`)
 #context assert(eq().metres.si-value == 3)

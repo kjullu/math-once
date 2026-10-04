@@ -5,7 +5,7 @@
     "typst": "typst 0.14.2 (b33de9de)"
   },
   "hashes": {
-    "examples/all-functions.typ": "0a821440c1648174d67d230012625da672b25f81ca94147d80aa260be5b7e7a6",
+    "examples/all-functions.typ": "2f1e945cb07d74117258992eb20ff669fbf198013e915fa5fe6dc769ce9449ff",
     "examples/basic.typ": "19e6da1da4974c23cfd8bf398ab9a852f7fda9cbb352bc0996d7d24b1a87ae30",
     "tests/absolute-value.typ": "fb3846fccc9ab4509da106a4bf066dfe8d0d94ab098cfd77ea925be08a27fe4a",
     "tests/affine-temperatures.typ": "e19d482592d48a5c29ee3c965bd17aa03c88087fc0fc2f9b83c1e2ef4c15627a",
@@ -24,11 +24,11 @@
     "tests/function-errors.typ": "9a31588a2d3454b52a694fd4770713648f8a6591d961982ec88c4f11dcbf16b9",
     "tests/functions.typ": "ef96dd8a13691b4a25010f4df5e544567940b6463225307d354365a16bb6aa9b",
     "tests/greek-variables.typ": "2992b5fd976d1c2bdc74e2d53048aa76543902f4fca32ea509f5bc56bf12a3f9",
-    "tests/labelled-equations.typ": "a982f08fc1b1cb86472a3847e8206596734fc104368a994de5afa091f4422bbc",
+    "tests/labelled-equations.typ": "29f0e37699b36b10a4a86427f3f8b48f1c009e78182dcad0087a6cbf0a05faf0",
     "tests/opaque-units.typ": "48e7ac45c0294db722a737cc1a16be39022f760c9aa64283aeb4ef05d8629624",
     "tests/package-import.typ": "4c92041582877f5f0c962e61d7e198c7c23396bdf6f7aae06553d5840ce4b74e",
     "tests/paired-signs.typ": "cfc891c64397e5b47a84e95d1ada4bf42f2a7cdc50fa6dafecbcf39e381a22d3",
-    "tests/public-api.typ": "94a77b358cdc2832cdad01618827753c2552a08f05144ced0440cc7655d8e923",
+    "tests/public-api.typ": "76f3f32b4bd2de8502501312154316e9c9e2b396701a44ad44cba0bf625bd842",
     "tests/qalc-units.typ": "97fe780ea0067489bf3a4230a6c0c05fbc8ce59ad28fac1195b74fdacfe9e646",
     "tests/rename-unit-errors.typ": "615f9d8334a25d0536d9ffede02f52c53a67389fc28d979c108d5ee154ea7a80",
     "tests/rename-unit.typ": "b7c7e679be500746544d487c776b718dec4fc95499e8b5588ef59b7893badf3a",

@@ -13,7 +13,7 @@
   "incompatible-dimension-details.typ": "math-once calculate: cannot convert dimensions `m^4 kg^2/s^6` to energy (`J`); check parentheses around compound denominators",
   "inline-equation-caption.typ": "math-once equation: captions require a block equation",
   "invalid-builder-block.typ": "math-once calculation-builder: block must be auto or a boolean",
-  "invalid-captions.typ": "math-once number-labelled-equations: captions must be a dictionary",
+  "invalid-captions.typ": "unexpected argument: captions",
   "invalid-equation-body.typ": "math-once equation: body must be a Typst math equation",
   "invalid-reset-argument.typ": "unexpected argument",
   "invalid-result-only.typ": "math-once calculation-builder: result-only must be a boolean",
@@ -38,5 +38,10 @@
   "invalid-reset-selection.typ": "math-once reset: variables must be auto, a boolean, or an array of names",
   "invalid-reset-name.typ": "names must contain letters and optional letter or number subscripts",
   "invalid-reset-units.typ": "math-once reset: units must be auto, a boolean, or an array of names",
-  "tan-undefined.typ": "math-once calculate: `tan` is undefined at odd multiples of 90 degrees"
+  "tan-undefined.typ": "math-once calculate: `tan` is undefined at odd multiples of 90 degrees",
+  "removed-reset-variables.typ": "unresolved import",
+  "removed-reset-functions.typ": "unresolved import",
+  "removed-restore-units.typ": "unresolved import",
+  "removed-reset-unit-aliases.typ": "unresolved import",
+  "removed-matrix.typ": "unresolved import"
 }

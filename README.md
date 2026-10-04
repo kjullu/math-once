@@ -105,7 +105,7 @@ Start with [`calculate`](doc/calculate.md) for one unit-aware expression, or [`c
 - [Units and prefixes](doc/units.md), including `text-unit` for display labels
 - Advanced unit management: [`unload`](doc/unload.md) and [`rename-unit`](doc/rename-unit.md)
 - Equation layout: [`number-labelled-equations`](doc/number-labelled-equations.md), [`equation`](doc/equation.md), and [`equation-outline`](doc/equation-outline.md)
-- [Advanced helpers and compatibility](doc/README.md#advanced-helpers-and-compatibility), including Typst-code evaluation and older reset functions
+- [Advanced helpers](doc/README.md#advanced-helpers), including Typst-code evaluation
 
 A compilable example covering the complete public API is available in
 [`examples/all-functions.typ`](examples/all-functions.typ).

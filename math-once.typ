@@ -6034,12 +6034,6 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// remains centimetres; `text-unit("cm")` is literal text instead.
 #let text-unit(label) = (_engine.text-unit)(label)
 
-/// Write a matrix as `matrix(1, 2; 3, 4)` inside Typst math.
-///
-/// Compatibility alias for Typst's built-in `mat` function. Prefer `mat`
-/// in new documents; the calculator understands both spellings.
-#let matrix = math.mat
-
 /// Evaluate a dimensional, unit-aware expression.
 ///
 /// - `source`: A trusted string, raw block, or Typst math equation containing
@@ -6100,7 +6094,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// `$M(t) := mat(t, 0; 0, t)$`, then evaluated by calling them.
 /// Stored vectors and matrices support matching-shape addition and subtraction,
 /// scalar multiplication and division, matrix multiplication, and matrix-vector
-/// products. Prefer Typst's built-in `mat`; `matrix` remains a compatibility alias.
+/// products. Use Typst's built-in `mat` for matrices.
 /// A definition like `$v := 10 m/s$` stores `v`; `$v = 10 m/s$` calculates and
 /// displays the result without storing `v`. Other equations that do not have a
 /// simple variable on the left remain display-only. Later expressions show an
@@ -6165,40 +6159,13 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   }
 }
 
-/// Clear selected or all stored values while preserving functions and unit
-/// configuration. Values from `initial-state` are restored instead of removed.
-#let reset-variables(..names, key: "math-once-calculation") = (_engine.reset-variables)(
-  ..names,
-  key: key,
-)
-
-/// Clear selected or all stored scalar, vector, and matrix function definitions.
-#let reset-functions(..names, key: "math-once-calculation") = (_engine.reset-functions)(
-  ..names,
-  key: key,
-)
-
-/// Restore selected or all catalog unit names made available with `unload`.
-/// Any stored variable using a restored unit name is removed.
-#let restore-units(..names, key: "math-once-calculation") = (_engine.restore-units)(
-  ..names,
-  key: key,
-)
-
-/// Remove selected or all `rename-unit` relationships and restore their
-/// original catalog unit spellings.
-#let reset-unit-aliases(..names, key: "math-once-calculation") = (_engine.reset-unit-aliases)(
-  ..names,
-  key: key,
-)
-
 /// Temporarily make unit names available as calculation-builder variables.
 ///
 /// - `names`: One or more known unit names as strings, raw text, or Typst math.
 /// - `key`: The state key of the matching calculation builder. Default:
 ///   `"math-once-calculation"`.
 ///
-/// The unload lasts until `restore-units(name)` restores that catalog spelling
+/// The unload lasts until `reset(units: (name,))` restores that catalog spelling
 /// or the complete state is cleared with `reset()`.
 #let unload(..names, key: "math-once-calculation") = (_engine.unload)(
   ..names,
@@ -6214,7 +6181,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 ///
 /// For example, `rename-unit($m$, $v$)` makes bare `m` available as a
 /// variable and makes `v` mean metres. A later `rename-unit($v$, $"vme"$)`
-/// moves that alias again. `reset-unit-aliases()` restores catalog spellings
+/// moves that alias again. `reset(aliases: true)` restores catalog spellings
 /// without clearing unrelated values.
 #let rename-unit(from, to, key: "math-once-calculation") = (_engine.rename-unit)(
   from,
@@ -6289,17 +6256,11 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// - `numbering`: Numbering pattern or function for labelled equations.
 ///   Default: `"(1)"`.
 /// - `supplement`: Name placed before equation references. Default: `auto`.
-/// - `captions`: Dictionary mapping label names to caption content.
-///   Default: empty.
 #let number-labelled-equations(
   body,
   numbering: "(1)",
   supplement: auto,
-  captions: (:),
 ) = {
-  if type(captions) != dictionary {
-    panic("math-once number-labelled-equations: captions must be a dictionary")
-  }
   set math.equation(numbering: numbering, supplement: supplement)
   show math.equation: equation => {
     if equation.block and not equation.has("label") and equation.numbering != none {
@@ -6312,12 +6273,6 @@ let rename-unit(from, to, key: "math-once-calculation") = {
         supplement: equation.supplement,
         alt: equation.alt,
       )
-    } else if equation.block and equation.has("label") and str(equation.label) in captions {
-      let caption = captions.at(str(equation.label))
-      [
-        #equation
-        #align(center, text(size: 0.9em)[#ref(equation.label): #caption])
-      ]
     } else if equation.block and equation.has("label") {
       [
         #_caption-label.update(equation.label)

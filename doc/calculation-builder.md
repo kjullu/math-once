@@ -39,7 +39,7 @@ either spelling as an ordinary variable, unload it first:
 #eq($pi := 4$)
 ```
 
-[`restore-units`](restore-units.md) restores their standard values, as does a
+[`reset(units: true)`](reset.md) restores their standard values, as does a
 complete [`reset`](reset.md). Built-in constants are omitted from the
 dictionary returned by `eq()` so it continues to contain user results only.
 
@@ -540,7 +540,7 @@ calculation:
 
 ## Vectors, arrow names, and matrices
 
-Use Typst's built-in `mat(...)` for matrices. The imported `matrix(...)` alias remains supported for compatibility. Both spellings behave the same:
+Use Typst's built-in `mat(...)` for matrices:
 
 ```typ
 #import "math-once.typ": calculation-builder
@@ -843,8 +843,7 @@ label still attaches to the generated equation and can be referenced normally.
 Se @speed.
 ```
 
-The older central [`captions` dictionary](number-labelled-equations.md#captions)
-is retained for compatibility.
+Place each caption on its equation using `caption:`; `number-labelled-equations` only controls numbering and reference names.
 
 ### `gap`
 

@@ -1,4 +1,4 @@
-#import "../math-once.typ": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, equation, equation-outline, number-labelled-equations
+#import "../math-once.typ": evaluate-code, calculate, calculation-builder, reset, unload, rename-unit, text-unit, equation, equation-outline, number-labelled-equations
 
 #calculate($1 / m$, unit: $#text-unit("lines") / m$).display
 
@@ -142,12 +142,6 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 #reset(aliases: ("v",), key: "all-functions-focused-reset")
 #context assert(focused().factor == 2)
 
-// Compatibility helpers still accept the original calls.
-#reset-variables(key: "all-functions-focused-reset")
-#reset-functions(key: "all-functions-focused-reset")
-#restore-units(key: "all-functions-focused-reset")
-#reset-unit-aliases(key: "all-functions-focused-reset")
-
 = `unload`
 
 // Reserved unit names can temporarily become variables in the same state.
@@ -174,13 +168,12 @@ Inline runner result: #run(`1 m/s`, unit: `km/h`, digits: 1, block: false).
 // Only labelled block equations receive a number and a reference name.
 #show: number-labelled-equations.with(
   supplement: [Equation],
-  captions: (energy: [Mass-energy equivalence]),
 )
 
 #equation-outline(title: [List of Equations])
 
 $ 1 + 1 = 2 $
-$ E = m c^2 $ <energy>
+#equation($ E = m c^2 $, caption: [Mass-energy equivalence]) <energy>
 
 = `equation`
 

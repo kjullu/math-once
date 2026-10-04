@@ -65,16 +65,16 @@ Use a matching key for a custom builder:
 #reset(variables: ("height",), key: "geometry")
 ```
 
-## Compatibility
+## Migration from the old API
 
-Existing focused functions remain available with their original behavior. Prefer the unified API in new documents.
+The focused reset functions have been removed. Replace them with explicit selections:
 
 | Existing call | Recommended call |
 | --- | --- |
-| [`reset-variables()`](reset-variables.md) | `reset(variables: true)` |
+| `reset-variables()` | `reset(variables: true)` |
 | `reset-variables("x", "y")` | `reset(variables: ("x", "y"))` |
-| [`reset-functions("f")`](reset-functions.md) | `reset(functions: ("f",))` |
-| [`restore-units("m", "pi")`](restore-units.md) | `reset(units: ("m", "pi"))` |
-| [`reset-unit-aliases("v")`](reset-unit-aliases.md) | `reset(aliases: ("v",))` |
+| `reset-functions("f")` | `reset(functions: ("f",))` |
+| `restore-units("m", "pi")` | `reset(units: ("m", "pi"))` |
+| `reset-unit-aliases("v")` | `reset(aliases: ("v",))` |
 
 An old focused call with no names resets its whole category, so use `true`, not an empty array, when migrating it. Pass the same `key` to either form.

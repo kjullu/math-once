@@ -2,13 +2,19 @@
 
 ## Unified reset API demo (based on 0.41.0)
 
-- **Breaking**: After `rename-unit("m", "v")` and a variable assignment to `m`, `restore-units("m")` now preserves the variable and the rename instead of restoring the original unit. Use `reset(aliases: ("m",))` or `reset-unit-aliases("m")` to restore the original unit spelling and remove that variable.
+- **Breaking**: Removed `reset-variables`. Replace `reset-variables("x")` with `reset(variables: ("x",))`, and `reset-variables()` with `reset(variables: true)`.
+- **Breaking**: Removed `reset-functions`. Replace `reset-functions("f")` with `reset(functions: ("f",))`, and `reset-functions()` with `reset(functions: true)`.
+- **Breaking**: Removed `restore-units`. Replace `restore-units("m", "pi")` with `reset(units: ("m", "pi"))`, and `restore-units()` with `reset(units: true)`.
+- **Breaking**: Removed `reset-unit-aliases`. Replace `reset-unit-aliases("v")` with `reset(aliases: ("v",))`, and `reset-unit-aliases()` with `reset(aliases: true)`.
+- **Breaking**: Removed the exported `matrix` alias. Remove it from imports and replace `matrix(...)` in Typst math with native `mat(...)`.
+- **Breaking**: Removed `number-labelled-equations(captions: ...)`. Put `caption:` directly on `equation(...)` for native math or on each calculation-builder call instead.
 - Merged `master`, preserving native inverse trigonometric aliases, exact special-angle evaluation, and PDF hash regression checks.
-- Added reviewed PDF baselines for unified reset coverage and updated the focused-reset and public API example baselines.
-- Added explicit `variables`, `functions`, `units`, and `aliases` selections to `reset`, including combined operations and selective names. Empty selections leave state unchanged.
-- Preserved full reset behavior and all focused reset functions for compatibility, including initial values, builder keys, unloaded constants, and unit aliases.
-- Migration to the unified API is optional: replace `reset-variables("x")` with `reset(variables: ("x",))`, and `reset-variables()` with `reset(variables: true)`. `reset()`, the focused reset helpers, and existing `calculation-builder` calls remain supported; no public functions were removed.
-- Reorganized the documentation around `calculate` and `calculation-builder`; recommend native `mat`, per-equation captions, and postfix labels while retaining older forms. Keep `evaluate-code` as an advanced Typst-code helper. See [issue #5](https://github.com/kjullu/math-once/issues/5).
+- Added explicit `variables`, `functions`, `units`, and `aliases` selections to `reset`, including combined operations and selective names. Empty selections leave state unchanged; use `true` to reset a complete category.
+- Preserved full `reset()` behavior, initial values during focused resets, builder keys, unloaded constants, and unit aliases.
+- Fixed focused resets of renamed unit spellings after a variable assignment overwrites their internal marker. `reset(units: ...)` preserves renamed spellings; use `reset(aliases: ...)` to restore the original unit and remove its variable.
+- Reduced the public API from fifteen functions to ten, migrated examples and fixtures, and added compiler checks for removed imports and the removed caption argument.
+- Reorganized documentation around `calculate` and `calculation-builder`. Kept `evaluate-code` for Typst-code evaluation, and `label:` for programmatic calls. See [issue #5](https://github.com/kjullu/math-once/issues/5).
+- Updated PDF baselines only after reviewing changed output.
 
 ## 0.41.0
 
