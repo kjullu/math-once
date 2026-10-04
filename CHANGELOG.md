@@ -1,13 +1,36 @@
 # Changelog
 
-## Unified reset API and inverse trigonometric aliases demo (based on 0.40.0)
+## Unified reset API demo (based on 0.41.0)
 
-- Ported `cbcc3fe`: added the Typst-native `arcsin`, `arccos`, and `arctan` aliases so inverse trigonometric functions can be used in math equations without quotes.
-
+- **Breaking**: After `rename-unit("m", "v")` and a variable assignment to `m`, `restore-units("m")` now preserves the variable and the rename instead of restoring the original unit. Use `reset(aliases: ("m",))` or `reset-unit-aliases("m")` to restore the original unit spelling and remove that variable.
+- Merged `master`, preserving native inverse trigonometric aliases, exact special-angle evaluation, and PDF hash regression checks.
+- Added reviewed PDF baselines for unified reset coverage and updated the focused-reset and public API example baselines.
 - Added explicit `variables`, `functions`, `units`, and `aliases` selections to `reset`, including combined operations and selective names. Empty selections leave state unchanged.
 - Preserved full reset behavior and all focused reset functions for compatibility, including initial values, builder keys, unloaded constants, and unit aliases.
-- Fixed focused resets of renamed unit spellings after a variable assignment overwrites their internal marker. Alias relationships now determine which names to restore or preserve.
+- Migration to the unified API is optional: replace `reset-variables("x")` with `reset(variables: ("x",))`, and `reset-variables()` with `reset(variables: true)`. `reset()`, the focused reset helpers, and existing `calculation-builder` calls remain supported; no public functions were removed.
 - Reorganized the documentation around `calculate` and `calculation-builder`; recommend native `mat`, per-equation captions, and postfix labels while retaining older forms. Keep `evaluate-code` as an advanced Typst-code helper. See [issue #5](https://github.com/kjullu/math-once/issues/5).
+
+## 0.41.0
+
+- Fixed trigonometric functions at special angles: `sin(180 deg)` now returns
+  exactly `0` instead of `1.2246467991 · 10⁻¹⁶`, and `cos(90 deg)` returns `0`
+  instead of `6.12 · 10⁻¹⁷`.
+- Angles within a nanodegree of a multiple of 15 degrees evaluate to the exact
+  special value (0, ±1, ±0.5, ±√2/2, ±√3/2, and the corresponding tangents),
+  regardless of whether the angle was written as a bare number or with a unit.
+- `tan(90 deg)` and `tan(270 deg)` now report that tangent is undefined instead
+  of returning an enormous floating-point value.
+
+## PDF hash regression tests (based on 0.40.1)
+
+- Added reproducible PDF SHA-256 baselines for test fixtures and examples, with a fixed creation timestamp and embedded fonts only.
+- Changed PDF output now fails the test run with a review report and retained PDFs. Hashes are accepted separately after inspection; compilation and expected-diagnostic failures cannot be accepted.
+- Added a compilation-only mode for checking other compiler versions without updating PDF baselines.
+
+## 0.40.1
+
+- Added the Typst-native `arcsin`, `arccos`, and `arctan` aliases so inverse
+  trigonometric functions can be used in math equations without quotes.
 
 ## 0.40.0
 

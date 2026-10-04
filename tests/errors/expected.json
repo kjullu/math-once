@@ -37,5 +37,6 @@
   "strict-matrix-unit.typ": "unknown unit `meterrs`",
   "invalid-reset-selection.typ": "math-once reset: variables must be auto, a boolean, or an array of names",
   "invalid-reset-name.typ": "names must contain letters and optional letter or number subscripts",
-  "invalid-reset-units.typ": "math-once reset: units must be auto, a boolean, or an array of names"
+  "invalid-reset-units.typ": "math-once reset: units must be auto, a boolean, or an array of names",
+  "tan-undefined.typ": "math-once calculate: `tan` is undefined at odd multiples of 90 degrees"
 }
