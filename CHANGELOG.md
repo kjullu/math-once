@@ -15,6 +15,7 @@
 - Reduced the public API from fifteen functions to ten, migrated examples and fixtures, and added compiler checks for removed imports and the removed caption argument.
 - Reorganized documentation around `calculate` and `calculation-builder`. Kept `evaluate-code` for Typst-code evaluation, and `label:` for programmatic calls. See [issue #5](https://github.com/kjullu/math-once/issues/5).
 - Updated PDF baselines only after reviewing changed output.
+- Documented selective resets of subscripted variables using math or string names, including the trailing comma required for a one-item array.
 
 ## 0.41.0
 

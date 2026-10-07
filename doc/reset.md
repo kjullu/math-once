@@ -31,6 +31,20 @@ reset(
 
 Each option accepts `true` for the whole category or an array of names for selected items. Names may be strings, raw text, or Typst math. Unknown names do nothing. For aliases, pass either the original unit spelling or its current alias.
 
+For a single name, include the trailing comma: `("x",)` is a one-item array, while `("x")` is just a string. Wrap math names in `$...$`. Subscripted variables can be selected using their math form or their stored name:
+
+```typ
+#let eq = calculation-builder()
+#eq($v_"max" := 30 m/s$)
+
+#reset(variables: ($v_"max"$,))
+// Remove the stored maximum speed.
+// The equivalent string form is:
+// #reset(variables: ("v_max",))
+```
+
+See the [calculation-builder documentation](calculation-builder.md) for how math names map to stored names.
+
 `false` and empty arrays select nothing. `auto` is the default for omitted options. If every option is `auto`, the call clears the complete state, including `initial-state`, functions, unloaded names, and aliases, and restores the standard constants. Otherwise, only explicit selections take effect. Thus `reset(variables: ())` and `reset(variables: false)` leave everything unchanged.
 
 Multiple selections run in this order: variables, functions, units, aliases. Restoring a unit name takes precedence over preserving a variable under that name. Focused resets retain the builder's initial values for later variable resets; only a full reset discards them.
