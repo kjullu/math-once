@@ -2,10 +2,7 @@
 
 #show: number-labelled-equations.with(
   supplement: [Ligning],
-  captions: (
-    energy: [Sammenhængen mellem masse og energi],
-    calculation: [Den dobbelte hastighed],
-  ),
+
 )
 
 #equation-outline(title: [Ligningsoversigt])
@@ -14,7 +11,7 @@ Unlabelled native equation:
 $ 1 + 1 = 2 $
 
 Labelled native equation:
-$ E = m c^2 $ <energy>
+#equation($ E = m c^2 $, caption: [Sammenhængen mellem masse og energi]) <energy>
 
 Native reference: @energy.
 
@@ -37,7 +34,7 @@ Unlabelled calculator equation:
 #eq($v := 902 / 3.6$, unit: $m/s$)
 
 Labelled calculator equation:
-#eq($ x := v * 2 $) <calculation>
+#eq($ x := v * 2 $, caption: [Den dobbelte hastighed]) <calculation>
 
 Calculator reference: @calculation.
 
@@ -61,9 +58,9 @@ Captioned calculator reference: @captioned-calculation.
   assert(labelled.all(equation => equation.numbering == "(1)"))
   assert(labelled.map(equation => counter(math.equation).at(equation.location())) == ((1,), (2,), (3,), (4,), (5,), (6,)))
   // One reference in the prose and one in each generated caption.
-  assert(query(ref.where(target: <energy>)).len() == 2)
+  assert(query(ref.where(target: <energy>)).len() == 3)
   assert(query(ref.where(target: <force>)).len() == 1)
-  assert(query(ref.where(target: <calculation>)).len() == 2)
+  assert(query(ref.where(target: <calculation>)).len() == 3)
   assert(query(ref.where(target: <named-calculation>)).len() == 1)
   assert(query(ref.where(target: <momentum>)).len() == 3)
   assert(query(ref.where(target: <captioned-calculation>)).len() == 3)

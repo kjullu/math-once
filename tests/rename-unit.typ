@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculation-builder, rename-unit, reset, reset-unit-aliases, unload
+#import "../math-once.typ": calculation-builder, rename-unit, reset, unload
 
 #let eq = calculation-builder(key: "rename-unit-test")
 
@@ -19,7 +19,7 @@
   assert(eq().v.value == 5.0)
 }
 
-#reset-unit-aliases($"vme"$, key: "rename-unit-test")
+#reset(aliases: ($"vme"$,), key: "rename-unit-test")
 #context {
   assert("y" in eq())
   assert("v" in eq())

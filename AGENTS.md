@@ -1,6 +1,7 @@
 # Repository instructions
 
 - Every implementation change must include a corresponding entry in `CHANGELOG.md`.
+- Place breaking changes first under the relevant changelog version or demo heading. Give each breaking change its own entry beginning with `**Breaking**:` followed by the description on the same line. Explain the removed API or changed behavior and what users must change, including replacement calls where applicable. List ordinary features and fixes immediately afterward without separate `Breaking` or `Changes` headings. Do not label optional migrations as breaking changes.
 - Do not create a commit or release unless the user explicitly asks for it.
 
 ## PDF hash review

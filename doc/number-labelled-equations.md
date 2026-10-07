@@ -60,7 +60,6 @@ number-labelled-equations(
   body,
   numbering: "(1)",
   supplement: auto,
-  captions: (:),
 ) -> content
 ```
 
@@ -99,35 +98,9 @@ uses Typst's localized equation supplement. Set explicit Danish text with:
 #show: number-labelled-equations.with(supplement: [Ligning])
 ```
 
-### `captions`
+## Captions
 
-`dictionary` — optional, named — default: `(:)`
-
-Compatibility alternative for documents written before per-equation captions
-were added. Maps label names to caption content. Write dictionary keys without
-angle brackets. A caption is centered below its equation and prefixed with the
-equation's localized reference name and number.
-
-```typ
-#show: number-labelled-equations.with(
-  supplement: [Ligning],
-  captions: (
-    pythagoras: [Pythagoras' læresætning],
-    energy: [Sammenhængen mellem masse og energi],
-  ),
-)
-
-$ a^2 + b^2 = c^2 $ <pythagoras>
-$ E = m c^2 $ <energy>
-```
-
-Captions require a label because the label connects the caption, number, and
-reference target. Labels without a matching dictionary entry are still
-numbered normally but receive no caption.
-
-For new documents, prefer [`equation(..., caption: ...)`](equation.md) for
-native equations and `#eq(..., caption: ...)` for calculation-builder output.
-This keeps each caption beside the equation it describes.
+Use [`equation(..., caption: ...)`](equation.md) for native equations and `#eq(..., caption: ...)` for calculation-builder output. Put each caption beside the equation it describes.
 
 ## Equation outline
 

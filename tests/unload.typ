@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculation-builder, reset, restore-units, unload
+#import "../math-once.typ": calculation-builder, reset, unload
 
 #let eq = calculation-builder()
 
@@ -22,7 +22,7 @@
 #eq($pi := 4$)
 #eq($"custom_constants" := e + pi$)
 #context assert(eq().custom_constants.exact == 7)
-#restore-units("e", "pi")
+#reset(units: ("e", "pi"))
 #eq($"restored_constants" := e + pi$)
 #context assert(calc.abs(eq().restored_constants.exact - (calc.e + calc.pi)) < 0.000000000001)
 #eq($a := 2$)
@@ -40,7 +40,7 @@
 }
 
 // Selective reset restores only that unit name.
-#restore-units("a")
+#reset(units: ("a",))
 #eq($a := 4$) // red error: `a` is the are unit again
 #context {
   let variables = eq()

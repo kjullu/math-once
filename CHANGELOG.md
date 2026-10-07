@@ -1,5 +1,22 @@
 # Changelog
 
+## Unified reset API demo (based on 0.41.0)
+
+- **Breaking**: Removed `reset-variables`. Replace `reset-variables("x")` with `reset(variables: ("x",))`, and `reset-variables()` with `reset(variables: true)`.
+- **Breaking**: Removed `reset-functions`. Replace `reset-functions("f")` with `reset(functions: ("f",))`, and `reset-functions()` with `reset(functions: true)`.
+- **Breaking**: Removed `restore-units`. Replace `restore-units("m", "pi")` with `reset(units: ("m", "pi"))`, and `restore-units()` with `reset(units: true)`.
+- **Breaking**: Removed `reset-unit-aliases`. Replace `reset-unit-aliases("v")` with `reset(aliases: ("v",))`, and `reset-unit-aliases()` with `reset(aliases: true)`.
+- **Breaking**: Removed the exported `matrix` alias. Remove it from imports and replace `matrix(...)` in Typst math with native `mat(...)`.
+- **Breaking**: Removed `number-labelled-equations(captions: ...)`. Put `caption:` directly on `equation(...)` for native math or on each calculation-builder call instead.
+- Merged `master`, preserving native inverse trigonometric aliases, exact special-angle evaluation, and PDF hash regression checks.
+- Added explicit `variables`, `functions`, `units`, and `aliases` selections to `reset`, including combined operations and selective names. Empty selections leave state unchanged; use `true` to reset a complete category.
+- Preserved full `reset()` behavior, initial values during focused resets, builder keys, unloaded constants, and unit aliases.
+- Fixed focused resets of renamed unit spellings after a variable assignment overwrites their internal marker. `reset(units: ...)` preserves renamed spellings; use `reset(aliases: ...)` to restore the original unit and remove its variable.
+- Reduced the public API from fifteen functions to ten, migrated examples and fixtures, and added compiler checks for removed imports and the removed caption argument.
+- Reorganized documentation around `calculate` and `calculation-builder`. Kept `evaluate-code` for Typst-code evaluation, and `label:` for programmatic calls. See [issue #5](https://github.com/kjullu/math-once/issues/5).
+- Updated PDF baselines only after reviewing changed output.
+- Documented selective resets of subscripted variables using math or string names, including the trailing comma required for a one-item array.
+
 ## 0.41.0
 
 - Fixed trigonometric functions at special angles: `sin(180 deg)` now returns

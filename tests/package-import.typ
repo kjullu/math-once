@@ -1,4 +1,4 @@
-#import "@local/math-once:0.41.0": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline
+#import "@local/math-once:0.41.0": evaluate-code, calculate, calculation-builder, reset, unload, rename-unit, text-unit, equation, equation-outline
 
 #let result = evaluate-code(`6 * 7`, unit: `kg`)
 #assert(result.value == 42)
@@ -52,20 +52,20 @@
   assert(symbolic_unit_name().a.symbolic-kind == "expression")
   assert(symbolic_unit_name().second.symbolic-kind == "expression")
 }
-#reset-variables("x", key: "package-import-runner")
+#reset(variables: ("x",), key: "package-import-runner")
 #context assert("x" not in run())
 #run($f(t) := t + 1$)
 #unload("a", key: "package-import-runner")
 #run($a := 2$)
 #context assert(run().a.value == 2.0)
-#reset-variables(key: "package-import-runner")
+#reset(variables: true, key: "package-import-runner")
 #context assert(run().f.function and "a" not in run())
-#reset-functions(key: "package-import-runner")
-#restore-units(key: "package-import-runner")
+#reset(functions: true, key: "package-import-runner")
+#reset(units: true, key: "package-import-runner")
 #rename-unit($m$, $v$, key: "package-import-runner")
 #run($x := 2 v$)
 #context assert(run().x.si-value == 2.0)
-#reset-unit-aliases(key: "package-import-runner")
+#reset(aliases: true, key: "package-import-runner")
 #reset(key: "package-import-runner")
 
 #let symbolic = calculation-builder(key: "package-import-symbolic")
@@ -93,7 +93,7 @@
 
 #let structures = calculation-builder(key: "package-import-structures")
 #structures($arrow(v) := vec(1, 2)$)
-#structures($X := matrix(1, 2; 3, 4)$)
+#structures($X := mat(1, 2; 3, 4)$)
 #structures($arrow(w) := X arrow(v)$)
 #context {
   assert(structures().arrow_v.values == (1.0, 2.0))
