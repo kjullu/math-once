@@ -262,8 +262,12 @@ The key used for Typst state. Give each independent runner a unique key.
 Use `auto` to choose the fewest decimal places among the inputs used by each call, as described under [calculate digits](calculate.md#digits). Stored results retain their input precision for subsequent calls.
 
 The default number of displayed decimal places for runner calls. A call can
-override it. When rounding changes the value, the rendered result keeps any
+override it. In ordinary decimal notation, when rounding changes the value, the rendered result keeps any
 trailing zeros needed to show that precision. Exact values are not padded.
+For scientific notation, the decimal places apply to the coefficient, so
+`1.28e-6` with `digits: 1` is shown as $1.3 dot 10^(-6)$.
+The coefficient always includes the requested decimal places, including
+trailing zeros: `digits: 8` shows $1.28000000 dot 10^(-6)$.
 
 ```typ
 #let eq = calculation-builder(key: "rounding-example", digits: 2)

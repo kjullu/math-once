@@ -62,3 +62,14 @@
 #let override = calculation-builder(key: "auto-digits-override")
 #override(`x := 1.2 + 3.456`, digits: auto)
 #context { assert(override().x.value == 4.7) }
+
+// Automatic precision also controls scientific coefficients after the merge.
+#let scientific = calculate(`0.000001280`, digits: auto)
+#assert(scientific.digits == 9)
+#assert("[1.280000000]" in repr(scientific.display.body).split("[=]").last())
+#scientific.display
+#let scientific-reused = calculate(`x * 1.00`, scope: (x: scientific), digits: auto)
+#assert(scientific-reused.digits == 2)
+#assert("[1.28]" in repr(scientific-reused.display.body).split("[=]").last())
+#assert(calc.abs(scientific-reused.exact - 1.28e-6) < 1e-20)
+#scientific-reused.display
