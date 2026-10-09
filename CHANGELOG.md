@@ -1,5 +1,10 @@
 # Changelog
 
+## Scientific notation digits demo (based on 0.41.0)
+
+- Fixed `digits` being ignored for scientific notation. It now controls decimal places in the coefficient, including result-only output and stored-value substitutions, while calculations retain their exact values.
+- Scientific coefficients always show the requested decimal places, including trailing zeros for exact values. Normalized results that round up to the next power of ten.
+
 ## 0.41.0
 
 - Fixed trigonometric functions at special angles: `sin(180 deg)` now returns

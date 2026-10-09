@@ -1,4 +1,4 @@
-// math-once v0.41.0
+// Scientific notation digits demo (0.41.0)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -4160,19 +4160,29 @@ let display-number-tokens(value, exact: none, digits: none) = {
   }
   if exact < 0 { normalized = -normalized }
 
-  // Ten coefficient decimals suppress floating-point noise while retaining
-  // substantially more precision than the normal four displayed decimals.
-  let coefficient = calc.round(normalized, digits: 10)
+  // Scientific output applies display precision to the coefficient. Bare
+  // values without a precision setting retain the ten-decimal noise guard.
+  let coefficient-digits = if digits == none { 10 } else { digits }
+  let coefficient = calc.round(normalized, digits: coefficient-digits)
   if calc.abs(coefficient) >= 10 {
     coefficient /= 10
     exponent += 1
+  }
+  // Keep the requested coefficient precision visible even for exact values.
+  let rendered = str(coefficient)
+  if digits != none and digits > 0 {
+    let decimal-places = if "." in rendered { rendered.split(".").last().len() } else { 0 }
+    if decimal-places < digits {
+      rendered += if decimal-places == 0 { "." } else { "" }
+      rendered += range(digits - decimal-places).map(_ => "0").join()
+    }
   }
   let exponent-tokens = if exponent < 0 {
     ("-", str(-exponent))
   } else {
     (str(exponent),)
   }
-  (str(coefficient), "*", "10", "^", "(") + exponent-tokens + (")",)
+  (rendered, "*", "10", "^", "(") + exponent-tokens + (")",)
 }
 
 let is-scientific-size-unit(unit) = unit != none and "10^(" in unit
