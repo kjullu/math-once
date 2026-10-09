@@ -77,7 +77,13 @@ The number of decimal places used for `result.value` and the rendered result.
 The unrounded value remains available through `result.exact` and
 `result.si-value`.
 
-When rounding changes the value, the rendered result keeps any trailing zeros
+For scientific notation, `digits` controls decimal places in the coefficient.
+For example, `1.28e-6` with `digits: 1` is rendered as $1.3 dot 10^(-6)$.
+With `digits: 8`, it is rendered as $1.28000000 dot 10^(-6)$.
+Scientific coefficients always include the requested decimal places.
+`result.value` still rounds the number itself to the requested decimal places.
+
+In ordinary decimal notation, when rounding changes the value, the rendered result keeps any trailing zeros
 needed to show that precision. Exact values are not padded with zeros.
 
 ```typ
