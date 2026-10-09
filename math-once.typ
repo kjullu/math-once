@@ -1,4 +1,4 @@
-// Automatic input decimals demo (0.41.1)
+// math-once v0.42.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
