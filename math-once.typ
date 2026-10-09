@@ -1,4 +1,4 @@
-// Scientific notation digits demo (0.41.0)
+// math-once v0.41.1
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
