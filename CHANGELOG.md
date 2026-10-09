@@ -1,9 +1,9 @@
 # Changelog
 
-## Automatic input decimals demo (based on 0.41.1)
+## 0.42.0
 
 - Added `digits: auto` to `calculate` and calculation builders. Results use the fewest decimal places among the numeric inputs actually used, including stored input precision and scientific notation. Exact values remain available for later calculations.
-- Updated the demo to base version 0.41.1, preserving scientific coefficient rounding and trailing zeros alongside automatic input precision.
+- Preserved scientific coefficient rounding and trailing zeros alongside automatic input precision. Updated the package and local import examples to version 0.42.0.
 
 ## 0.41.1
 
