@@ -1,5 +1,9 @@
 # Changelog
 
+## Automatic input decimals demo (based on 0.41.0)
+
+- Added `digits: auto` to `calculate` and calculation builders. Results use the fewest decimal places among the numeric inputs actually used, including stored input precision and scientific notation. Exact values remain available for later calculations.
+
 ## 0.41.0
 
 - Fixed trigonometric functions at special angles: `sin(180 deg)` now returns

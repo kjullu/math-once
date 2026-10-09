@@ -257,7 +257,9 @@ The key used for Typst state. Give each independent runner a unique key.
 
 ### `digits`
 
-`int` — optional, named — default: `4`
+`int` or `auto` — optional, named — default: `4`
+
+Use `auto` to choose the fewest decimal places among the inputs used by each call, as described under [calculate digits](calculate.md#digits). Stored results retain their input precision for subsequent calls.
 
 The default number of displayed decimal places for runner calls. A call can
 override it. When rounding changes the value, the rendered result keeps any
@@ -720,7 +722,7 @@ a result of roughly `2047.76 nm` is displayed as roughly `2.04776 µm`.
 
 ### `digits`
 
-`int` — optional, named
+`int` or `auto` — optional, named
 
 Overrides the builder's `digits` value for this call.
 

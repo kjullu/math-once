@@ -71,7 +71,7 @@ Set `strict-units: true` to reject unknown quoted names. This catches spellings 
 
 ### `digits`
 
-`int` — optional, named — default: `4`
+`int` or `auto` — optional, named — default: `4`
 
 The number of decimal places used for `result.value` and the rendered result.
 The unrounded value remains available through `result.exact` and
@@ -83,6 +83,19 @@ needed to show that precision. Exact values are not padded with zeros.
 ```typ
 #calculate(`1 m / 3`, digits: 2).display
 // 1 m / 3 = 0.33 m
+```
+
+With `digits: auto`, the result uses the fewest decimal places among the numeric literals and referenced scope values. For example, `1.2 + 3.456` becomes `4.7`, while `1 + 3.456` becomes `4`. This rule applies to every operation, including multiplication and division; it does not implement significant-figure rules.
+
+Written trailing zeros count: `1.20` has two decimal places. Scientific notation counts after applying its exponent, so `1.20e-2` has four decimal places.
+
+Stored calculation results retain their input precision for reuse, even when their displayed value omits trailing zeros. Plain numeric scope values use their string representation, which cannot recover trailing zeros already lost by Typst.
+
+Unused scope values, unit conversion factors, and output-unit syntax do not affect the choice. Expressions without numeric inputs use four decimal places. Rounding happens in the chosen output unit.
+
+```typ
+#calculate(`1.2 + 3.456`, digits: auto).display
+// 1.2 + 3.456 = 4.7
 ```
 
 ### `scope`
@@ -328,6 +341,8 @@ Returns a dictionary with these fields:
 | `display` | math content | The rendered expression and result. |
 | `value` | number | The rounded value expressed in `unit`. |
 | `exact` | number | The unrounded value expressed in `unit`. |
+| `digits` | `int` | The decimal places used for rounding, including the resolved value of `auto`. |
+| `input-digits` | `int` | The fewest input decimal places, retained for reuse with `auto`. |
 | `si-value` | `float` | The unrounded value in SI base units. |
 | `dimensions` | dictionary | Exponents for the seven SI base dimensions. |
 | `unit` | `str` or `none` | The displayed output unit. |

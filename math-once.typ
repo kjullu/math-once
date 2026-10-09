@@ -1,4 +1,4 @@
-// math-once v0.41.0
+// Automatic input decimals demo (0.41.0)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3312,6 +3312,35 @@ let tokenize(source) = {
 }
 
 let is-number(token) = regex("^(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?$") in token
+// Count written decimal places, including trailing zeros and scientific notation.
+let input-decimal-places(token) = {
+  let parts = token.replace("E", "e").split("e")
+  let mantissa = parts.first()
+  let places = if "." in mantissa { mantissa.split(".").last().len() } else { 0 }
+  let exponent = if parts.len() > 1 { int(parts.last()) } else { 0 }
+  calc.max(0, places - exponent)
+}
+
+// Only referenced inputs contribute. Unit scales and output-unit syntax do not.
+let automatic-digits(tokens, scope, fallback: 4) = {
+  let places = ()
+  for token in tokens {
+    if is-number(token) {
+      places.push(input-decimal-places(token))
+    } else if token in scope {
+      let item = scope.at(token)
+      if type(item) in (int, float, decimal) {
+        places.push(input-decimal-places(str(item)))
+      } else if type(item) == dictionary and "exact" in item {
+        places.push(item.at("input-digits", default: item.at(
+          "digits", default: input-decimal-places(str(item.exact)),
+        )))
+      }
+    }
+  }
+  if places.len() == 0 { fallback } else { calc.min(..places) }
+}
+
 let is-name(token) = regex("^[\\p{L}°℃℉ℏ₂☉][\\p{L}0-9°℃℉ℏ₂☉]*(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*$") in token
 let is-quoted-unit(token) = token.len() >= 2 and token.starts-with("\"") and token.ends-with("\"")
 let quoted-unit-name(token) = token.slice(1, token.len() - 1)
@@ -5354,6 +5383,8 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   }
 
   let exact = (result.si-value - output-offset) / output-scale
+  let input-digits = automatic-digits(expression-tokens, scope)
+  if digits == auto { digits = input-digits }
   let value = calc.round(exact, digits: digits)
   let scientific-output = is-scientific-size-unit(output-unit)
   let display-body = render-tokens(expression-tokens, scope: scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em)
@@ -5390,6 +5421,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     unit-source: output-unit,
     size: size,
     digits: digits,
+    input-digits: input-digits,
     source: source,
     display: math.equation(display-body, block: block),
   )
@@ -6047,7 +6079,8 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 ///   `asin`/`arcsin`, `acos`/`arccos`, `atan`/`arctan`, `atan2`, `abs`,
 ///   `floor`, `ceil`, `round`, absolute-value bars, `+`, `-`, `*`, `/`, `^`,
 ///   `±`, `∓`, and optionally `to` or `=` for output conversion.
-/// - `digits`: Decimal places used for the visible `value`. Default: `4`.
+/// - `digits`: Decimal places, or `auto` for the fewest input decimal places.
+///   Default: `4`.
 /// - `scope`: Numbers or earlier calculate results available as variables.
 ///   Unit names are reserved and cannot be used as variable names. Stateful
 ///   calculation builders also reserve their built-in `e` and `pi` constants.
@@ -6079,7 +6112,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// - `initial-state`: Initial numeric values or calculate results. Unit names
 ///   are reserved and cannot be used as keys. Default: empty.
 /// - `key`: Typst state key. Give independent runners different keys.
-/// - `digits`: Default decimal places for runner calls. Default: `4`.
+/// - `digits`: Default decimal places for runner calls, or `auto`. Default: `4`.
 /// - `block`: `auto` follows Typst math input (`$x$` inline, `$ x $` block)
 ///   and keeps raw/string input centered. A boolean forces the layout.
 ///   Default: `auto`.
