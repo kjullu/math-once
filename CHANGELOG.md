@@ -1,5 +1,10 @@
 # Changelog
 
+## Reset checkpoints demo (based on 0.42.0)
+
+- Made each full `reset()` start a separate calculation state sequence, so unrelated sections can reuse cached state when equations change. Custom builder keys, initial-state clearing, focused resets, unloads, and unit aliases keep their existing behavior.
+- Added checkpoint regression coverage and a persistent `typst watch` benchmark for equation edits and insertions.
+
 ## 0.42.0
 
 - Added `digits: auto` to `calculate` and calculation builders. Results use the fewest decimal places among the numeric inputs actually used, including stored input precision and scientific notation. Exact values remain available for later calculations.

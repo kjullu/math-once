@@ -61,3 +61,23 @@ selective call, use the operation matching what should be removed:
 `str` — optional, named — default: `"math-once-calculation"`
 
 Must match the `key` passed to the associated builder.
+
+## Compilation checkpoints
+
+A full `reset()` also starts a separate calculation state sequence. Put it between independent exercises or sections to keep their calculation histories separate. Existing calls use this automatically, including custom `key` values.
+
+```typ
+#let eq = calculation-builder()
+#eq(`distance := 100 m`)
+#eq(`speed := distance / (5 s)`)
+
+#reset()
+#eq(`mass := 2 kg`)
+#eq(`force := mass * (3 m/s^2)`)
+```
+
+Changing the distance can reuse the force section's cached calculation state. This does not freeze the PDF layout. Page breaks, equation numbering, references, and Typst's own cache decisions can still require work elsewhere in the document. Adding or removing a reset changes section identities from that point onward. Inserting equations can also make Typst resolve document locations again, so a checkpoint does not guarantee that compilation visits only one section.
+
+Focused operations such as `reset-variables()` preserve part of the old state, so they do not create independent checkpoints. Within one section, calculations still read the accumulated state, including stored functions and unit settings. Use separate builder keys for independent calculations that should coexist without clearing each other.
+
+For a local incremental benchmark, run `python3 tools/benchmark-incremental.py --output build/benchmark-current`. This uses one persistent compiler process and measures edits and insertions, including edits in the first and last sections. Local timings do not measure the typst.app editor or its compiler service.

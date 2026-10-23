@@ -905,8 +905,7 @@ Stored dimensioned variables include their unit in the visible substitution:
 // x = 20.556 m
 ```
 
-Use [`reset`](reset.md) with the same state `key` to remove selected variables
-or clear the complete builder state.
+Use [`reset`](reset.md) with the same state `key` to clear the complete builder state and start an independent compilation checkpoint. Use [`reset-variables`](reset-variables.md) to remove selected variables while preserving the rest of the state.
 
 Use [`unload`](unload.md) before a definition when a reserved unit spelling
 must temporarily be used as a variable name.
