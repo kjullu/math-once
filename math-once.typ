@@ -4579,6 +4579,13 @@ let checkpoint-state(key, initial: (:)) = {
   )
 }
 
+// A new location initially sees the counter's final value. Skip the write
+// until Typst has placed the caller, but still lay out the content so its size
+// is close to final. This function requires the caller's document context.
+let checkpoint-update(variables, update) = if query(here()).len() > 0 {
+  variables.update(update)
+}
+
 let unit-aliases(scope) = {
   let aliases = (:)
   for (name, item) in scope {
@@ -5591,9 +5598,6 @@ let calculation-builder(
     }
 
     let equation-body = context {
-      // A new location initially sees the counter's final value. Wait until
-      // Typst has placed it before writing into a checkpoint's state.
-      if query(here()).len() == 0 { return }
       let variables = checkpoint-state(key, initial: initial-state)
       let current = variables.get()
       let aliases = unit-aliases(current)
@@ -5611,7 +5615,7 @@ let calculation-builder(
           builder-error("`" + parsed-function.name + "` is a reserved unit or constant name and cannot be used as a function")
           return
         }
-        variables.update(old => {
+        checkpoint-update(variables, old => {
           old.insert(parsed-function.name, parsed-function)
           old
         })
@@ -5704,7 +5708,7 @@ let calculation-builder(
         if stores-result {
           result.insert("display", math.equation(labelled-body, block: block))
           result.insert("variable", name)
-          variables.update(old => {
+          checkpoint-update(variables, old => {
             old.insert(name, result)
             old
           })
@@ -5748,7 +5752,7 @@ let calculation-builder(
         // second evaluation against the state seen by the update itself so a
         // chain of stored assignments can advance without one layout pass per
         // dependency.
-        variables.update(old => {
+        checkpoint-update(variables, old => {
           let update-aliases = unit-aliases(old)
           let update-unloaded = ()
           for (stored-name, item) in old {
@@ -5828,7 +5832,7 @@ let calculation-builder(
           result.insert("display", math.equation(visible-body, block: block))
           result.insert("variable", name)
           if assignment-is-unloaded { result.insert("unloaded", true) }
-          variables.update(old => {
+          checkpoint-update(variables, old => {
             old.insert(name, result)
             old
           })
@@ -5898,7 +5902,7 @@ let reset-variables(..names, key: "math-once-calculation") = {
   let selected = names.pos().map(value => state-name(value, "reset-variables"))
   context {
     let variables = checkpoint-state(key)
-    variables.update(old => {
+    checkpoint-update(variables, old => {
       let initial = state-initial-values(old)
       let kept = old
       let targets = if selected.len() == 0 { old.keys() } else { selected }
@@ -5932,7 +5936,7 @@ let reset-functions(..names, key: "math-once-calculation") = {
   let selected = names.pos().map(value => state-name(value, "reset-functions"))
   context {
     let variables = checkpoint-state(key)
-    variables.update(old => {
+    checkpoint-update(variables, old => {
       let initial = state-initial-values(old)
       let kept = old
       for (name, value) in old {
@@ -5951,7 +5955,7 @@ let restore-units(..names, key: "math-once-calculation") = {
   let selected = names.pos().map(value => state-name(value, "restore-units"))
   context {
     let variables = checkpoint-state(key)
-    variables.update(old => {
+    checkpoint-update(variables, old => {
       let kept = old
       for (name, value) in old {
         if (is-unloaded(value)
@@ -5974,7 +5978,7 @@ let reset-unit-aliases(..names, key: "math-once-calculation") = {
   let selected = names.pos().map(value => state-name(value, "reset-unit-aliases"))
   context {
     let variables = checkpoint-state(key)
-    variables.update(old => {
+    checkpoint-update(variables, old => {
       let originals = ()
       if selected.len() == 0 {
         for (_, value) in old {
@@ -6015,7 +6019,7 @@ let unload(..names, key: "math-once-calculation") = {
   }
   context {
     let variables = checkpoint-state(key)
-    variables.update(old => {
+    checkpoint-update(variables, old => {
       for name in selected {
         if is-built-in-constant(name) {
           old.insert(name, (unloaded: true))
@@ -6060,7 +6064,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
     if error != none {
       align(center, text(fill: red, [math-once: #error.]))
     } else {
-      variables.update(old => {
+      checkpoint-update(variables, old => {
         if from in aliases {
           let _ = old.remove(from)
         }

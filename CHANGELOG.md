@@ -3,6 +3,8 @@
 ## Reset checkpoints demo (based on 0.42.0)
 
 - Made each full `reset()` start a separate calculation state sequence, so unrelated sections can reuse cached state when equations change. Custom builder keys, initial-state clearing, focused resets, unloads, and unit aliases keep their existing behavior.
+- Builder state is no longer stored in `state(key)`. Code that read that state directly must use the builder's no-argument call, such as `eq()`, instead.
+- Calculations lay out normally during Typst's first introspection pass and defer only their state writes until placed, avoiding an extra relayout from empty content. Focused resets, unloads, and unit renames use the same guard.
 - Added checkpoint regression coverage and a persistent `typst watch` benchmark for equation edits and insertions.
 
 ## 0.42.0
