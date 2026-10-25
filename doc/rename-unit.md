@@ -4,12 +4,12 @@ Moves an active physical unit spelling to a different name within one
 [`calculation-builder`](calculation-builder.md) state. The new spelling keeps
 the original unit's dimensions and conversion factor. The old spelling is
 then free for use as a variable until
-[`reset-unit-aliases`](reset-unit-aliases.md) or [`reset`](reset.md).
+[`reset(aliases: true)`](reset.md) or [`reset`](reset.md).
 
 ## Import
 
 ```typ
-#import "math-once.typ": calculation-builder, rename-unit, reset, reset-unit-aliases, unload
+#import "math-once.typ": calculation-builder, rename-unit, reset, unload
 ```
 
 ## Signature
@@ -27,7 +27,7 @@ rename-unit(from, to, key: "math-once-calculation") -> content
 #eq($m := 2$)       // m is now a variable
 #eq($d := 3 v$)     // v means metre; d = 3 m
 
-#reset-unit-aliases()
+#reset(aliases: true)
 ```
 
 Aliases may be moved again. Quote multi-letter names in Typst math:
@@ -81,12 +81,12 @@ Must match the associated builder:
 
 ## Resetting aliases
 
-`reset-unit-aliases()` restores all original unit spellings without clearing
+`reset(aliases: true)` restores all original unit spellings without clearing
 unrelated values or functions. A selective call accepts either side of a
 rename and removes that complete relationship:
 
 ```typ
-#reset-unit-aliases($v$) // restores m and removes v as its alias
+#reset(aliases: ($v$,)) // restores m and removes v as its alias
 ```
 
 Unrelated variables remain stored. The broader `reset()` function also removes

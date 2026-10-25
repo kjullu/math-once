@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculation-builder, reset-variables
+#import "../math-once.typ": calculation-builder, reset
 #import "@preview/typcas:0.2.3": cas
 
 #let eq = calculation-builder(key: "symbolic-cas")
@@ -82,7 +82,7 @@
 #context assert("quiet" in eq())
 
 // Symbolic values are ordinary stored variables for focused resets.
-#reset-variables("quiet", key: "symbolic-cas")
+#reset(variables: ("quiet",), key: "symbolic-cas")
 #context assert("quiet" not in eq() and "f" in eq())
 
 // A user-defined function with the same name takes precedence in its builder.

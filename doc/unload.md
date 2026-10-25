@@ -2,13 +2,13 @@
 
 Temporarily makes reserved unit or built-in constant names available as variables in a
 [`calculation-builder`](calculation-builder.md). The setting is stored with the
-builder state and lasts until [`restore-units`](restore-units.md) or
+builder state and lasts until [`reset(units: true)`](reset.md) or
 [`reset`](reset.md) restores it.
 
 ## Import
 
 ```typ
-#import "math-once.typ": calculation-builder, reset, restore-units, unload
+#import "math-once.typ": calculation-builder, reset, unload
 ```
 
 ## Signature
@@ -60,7 +60,7 @@ before deliberately replacing either value:
 Restore one catalog name without changing other builder state:
 
 ```typ
-#restore-units("a")
+#reset(units: ("a",))
 #eq($a := 4$)
 // red message: a is a unit name again
 ```
@@ -69,7 +69,7 @@ A focused call can restore every unloaded unit without clearing unrelated
 values or functions:
 
 ```typ
-#restore-units()
+#reset(units: true)
 ```
 
 A complete reset also restores every unloaded unit, but clears the rest of the
@@ -80,7 +80,7 @@ builder state as well:
 ```
 
 Other selectively restored names do not affect an unloaded unit. If `b` is
-unloaded, `restore-units("a")` leaves `b` available as a variable.
+unloaded, `reset(units: ("a",))` leaves `b` available as a variable.
 
 ## Parameters
 
@@ -110,5 +110,5 @@ Must match the associated builder and any reset calls:
 #unload("m", key: "custom")
 #eq($m := 1$)
 
-#restore-units("m", key: "custom")
+#reset(units: ("m",), key: "custom")
 ```

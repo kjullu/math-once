@@ -1,4 +1,4 @@
-#import "../math-once.typ": calculation-builder, matrix, unload
+#import "../math-once.typ": calculation-builder, unload
 
 #let eq = calculation-builder(key: "vectors-matrices", digits: 2, strict: true)
 
@@ -8,8 +8,8 @@
 #eq($arrow(q) := arrow(v) + arrow(w)$)
 #eq($arrow(k) := 2 arrow(v)$)
 
-// matrix(...) is a public spelling of Typst's mat(...); both are understood.
-#eq($X := matrix(1, 2; 3, 4)$)
+// Native Typst mat(...) is understood without a package alias.
+#eq($X := mat(1, 2; 3, 4)$)
 #eq($Y := mat(5, 6; 7, 8)$)
 #eq($Z := X + Y$)
 #eq($X_1 := X Y$)
@@ -20,7 +20,7 @@
 // Stored functions may return vectors or matrices.
 #eq($arrow(p)(t) := vec(t, t^2)$)
 #unload("D", key: "vectors-matrices")
-#eq($D(t) := matrix(t, 0; 0, t)$)
+#eq($D(t) := mat(t, 0; 0, t)$)
 #eq($arrow(a) := arrow(p)(3)$)
 #eq($X_3 := D(3)$)
 #eq(`X_4 := mat(2, 0; 0, 2)`)
