@@ -8,6 +8,8 @@
 - Added category and name selections to `reset`, preserving all existing reset helpers, the `matrix` helper, and equation caption options.
 - Fixed selective resets of renamed unit spellings after stored assignments.
 
+- Render `deg`, `degree`, `degrees`, and `°` directly beside numbers, including results and substitutions.
+
 ## 0.42.0
 
 - Added `digits: auto` to `calculate` and calculation builders. Results use the fewest decimal places among the numeric inputs actually used, including stored input precision and scientific notation. Exact values remain available for later calculations.

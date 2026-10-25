@@ -224,6 +224,7 @@ let units = (
 units.insert("Ω", units.ohm)
 units.insert("°", units.deg)
 units.insert("degree", units.deg)
+units.insert("degrees", units.deg)
 units.insert("meter", units.m)
 units.insert("metre", units.m)
 units.insert("µm", units.um)
@@ -345,7 +346,7 @@ let qalc-unit-definitions = (
   (names: ("decare", "da"), scale: 1000, dims: dim(length: 2)),
   (names: ("decibel", "dB"), scale: 0.115129255, dims: dim(logratio: 1)),
   (names: ("declet",), scale: 10, dims: dim(information: 1)),
-  (names: ("degree", "deg", "°"), scale: 0.01745329252, dims: dim()),
+  (names: ("degree", "degrees", "deg", "°"), scale: 0.01745329252, dims: dim()),
   (names: ("dessertspoon",), scale: 1e-05, dims: dim(length: 3)),
   (names: ("didot", "dd"), scale: 0.000375971510383, dims: dim(length: 1)),
   (names: ("dram", "dr"), scale: 0.001771845195, dims: dim(mass: 1)),
@@ -494,7 +495,7 @@ units.insert("Nm", (scale: 1.0, dims: dim(length: 2, mass: 1, time: -2)))
 units.insert("Ncm", (scale: 0.01, dims: units.Nm.dims))
 units.insert("Nmm", (scale: 0.001, dims: units.Nm.dims))
 units.insert("Wh", (scale: 3600.0, dims: dim(length: 2, mass: 1, time: -2)))
-for name in ("degree", "deg", "°") {
+for name in ("degree", "degrees", "deg", "°") {
   units.insert(name, (scale: calc.pi / 180, dims: dim()))
 }
 for name in ("arcminute", "arcmin") {
@@ -3363,6 +3364,15 @@ let add-implicit-multiplication(tokens) = {
   result
 }
 
+let is-degree-token(token, scope: (:), aliases: (:)) = {
+  let name = if is-quoted-unit(token) { quoted-unit-name(token) } else { token }
+  name in ("deg", "degree", "degrees", "°") and name not in scope and name not in aliases
+}
+
+let unit-gap(tokens, aliases: (:)) = {
+  if tokens.len() > 0 and is-degree-token(tokens.first(), aliases: aliases) { h(0em) } else { h(0.2em) }
+}
+
 let render-tokens(tokens, scope: (:), aliases: (:)) = {
   let render-variable(token) = if "_" in token {
     let parts = token.split("_")
@@ -3390,6 +3400,8 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
       }
     } else if is-text-unit(token) {
       "upright(\"" + text-unit-name(token) + "\")"
+    } else if is-degree-token(token, scope: scope, aliases: aliases) {
+      "degree"
     } else if is-quoted-unit(token) {
       let name = quoted-unit-name(token)
       let symbol-tokens = tokenize(name)
@@ -4282,7 +4294,7 @@ let render-result(result, aliases: (:), show-unit: true) = {
       digits: result.at("digits", default: none),
     ))
     if show-unit and unit != none {
-      body += h(0.2em) + render-tokens(tokenize(unit), aliases: aliases)
+      body += unit-gap(tokenize(unit), aliases: aliases) + render-tokens(tokenize(unit), aliases: aliases)
     }
     body
   }
@@ -5427,7 +5439,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
       )
     } else {
       let rendered-value = render-tokens(display-number-tokens(value, exact: exact, digits: digits))
-      display-body += rendered-value + h(0.2em) + render-tokens(output-tokens, aliases: aliases)
+      display-body += rendered-value + unit-gap(output-tokens, aliases: aliases) + render-tokens(output-tokens, aliases: aliases)
     }
   } else {
     display-body += render-tokens(display-number-tokens(value, exact: exact, digits: digits))
