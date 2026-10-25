@@ -220,6 +220,7 @@ calculation-builder(
   initial-state: (:),
   key: "math-once-calculation",
   digits: 4,
+  auto-digits: "decimal",
   block: auto,
   supplement: auto,
   strict: false,
@@ -274,6 +275,24 @@ trailing zeros: `digits: 8` shows $1.28000000 dot 10^(-6)$.
 #eq(`x := 1 / 3`)
 #eq(`y := x * 2`, digits: 4)
 ```
+
+### `auto-digits`
+
+`"decimal"` or `"significant"`, optional, named, default: `"decimal"`.
+
+Choose how `digits: auto` determines precision. `"decimal"` keeps the existing behavior of using the fewest input decimal places. `"significant"` instead uses the fewest input significant figures, including after unit conversion. A fixed integer `digits` still means decimal places in either mode. Calculations always reuse exact stored values.
+
+```typ
+#let eq = calculation-builder(digits: auto, auto-digits: "significant")
+#eq(`torque := 4.00 cm * 8.00 N to N*m`) // 0.320 N m
+#eq(`tiny := 0.000001280`) // 1.280 × 10^(-6)
+#eq(`1 / 3`, digits: 3) // 0.333, fixed decimal places
+#eq(`1.2 + 3.456`, auto-digits: "decimal") // 4.7
+```
+
+The mode can be set on the builder or overridden on individual calls. Leading zeros do not count as significant figures; written trailing zeros do. For example, `4.0 cm * 8.00 N` has two significant figures. Stored results from significant mode retain that precision for later calls. Whole numbers such as `1200` count all written digits. Numeric formula constants also count as inputs, while numeric exponents are treated as exact; this option does not implement separate uncertainty rules for addition and multiplication.
+
+Trailing decimal zeros show significant precision, such as `0.320`. Whole-number results use ordinary notation, so `1200` alone does not distinguish two significant figures from four.
 
 ### `block`
 
@@ -346,6 +365,7 @@ With `true`, unknown quoted unit names fail instead of becoming opaque custom un
 runner(
   [source],
   digits: builder-digits,
+  auto-digits: builder-auto-digits,
   unit: none,
   size: none,
   show-result: true,

@@ -5,6 +5,8 @@ Write a calculation once, show the equation, and reuse its exact result.
 stateful equation variables, and symbolic calculations through
 [typCAS](https://github.com/sihooleebd/typCAS).
 
+Use `calculation-builder(digits: auto, auto-digits: "significant")` to make automatic rounding follow significant figures instead of decimal places. See [rounding options](doc/calculation-builder.md#auto-digits).
+
 Unknown quoted unit names also work as opaque custom units. They support
 ordinary arithmetic with matching custom units, without physical conversion.
 
@@ -79,7 +81,7 @@ Copy [`math-once.typ`](math-once.typ) into your project and import its functions
 When installed as a local Typst package, use:
 
 ```typ
-#import "@local/math-once:0.43.0": *
+#import "@local/math-once:0.44.0": *
 ```
 
 > `*` imports all exported names. You can instead list only the [functions](doc/README.md#functions) you need, for example `#import "math-once.typ": calculation-builder`.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.44.0
+
+- Added `auto-digits: "significant"` to calculation builders and individual calls so `digits: auto` follows the fewest input significant figures across unit conversions, scientific notation, and stored substitutions. The default `auto-digits: "decimal"` preserves existing automatic decimal rounding. Fixed integer `digits` settings and exact stored values are unchanged. Updated package imports to 0.44.0.
+
 ## 0.43.0
 
 - **Breaking**: Internal builder storage now uses checkpoint state. Code reading `state(key)` directly must use the supported no-argument builder call, such as `eq()`.
