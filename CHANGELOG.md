@@ -1,5 +1,9 @@
 # Changelog
 
+## Decimal unit display fix demo (based on 0.42.0)
+
+- Ignore floating-point conversion noise when deciding whether ordinary results need trailing decimal zeros. Reusing `56 cm` now displays `56 cm` instead of `56.0000 cm`, while actual rounding and scientific coefficient precision still follow `digits`.
+
 ## 0.42.0
 
 - Added `digits: auto` to `calculate` and calculation builders. Results use the fewest decimal places among the numeric inputs actually used, including stored input precision and scientific notation. Exact values remain available for later calculations.

@@ -1,4 +1,4 @@
-// math-once v0.42.0
+// Decimal unit display fix (0.42.0)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -4167,7 +4167,10 @@ let display-number-tokens(value, exact: none, digits: none) = {
   let magnitude = calc.abs(float(exact))
   if magnitude == 0 or (magnitude >= 0.0001 and magnitude < 1000000000) {
     let rendered = str(value)
-    if digits != none and digits > 0 and value != exact {
+    // Ignore a few floating-point ulps from unit conversion or arithmetic.
+    // Only real rounding should force trailing decimal places.
+    let rounding-noise = calc.max(calc.abs(value), magnitude) * 8.881784197001252e-16
+    if digits != none and digits > 0 and calc.abs(value - exact) > rounding-noise {
       let decimal-places = if "." in rendered { rendered.split(".").last().len() } else { 0 }
       if decimal-places < digits {
         rendered += if decimal-places == 0 { "." } else { "" }
