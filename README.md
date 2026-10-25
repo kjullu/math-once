@@ -5,6 +5,8 @@ Write a calculation once, show the equation, and reuse its exact result.
 stateful equation variables, and symbolic calculations through
 [typCAS](https://github.com/sihooleebd/typCAS).
 
+Use `calculation-builder(digits: auto, auto-digits: "significant")` to make automatic rounding follow significant figures instead of decimal places. See [rounding options](doc/calculation-builder.md#auto-digits).
+
 Unknown quoted unit names also work as opaque custom units. They support
 ordinary arithmetic with matching custom units, without physical conversion.
 
