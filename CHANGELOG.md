@@ -2,6 +2,9 @@
 
 ## 0.43.0
 
+- **Breaking**: Internal builder storage now uses checkpoint state. Code reading `state(key)` directly must use the supported no-argument builder call, such as `eq()`.
+- Full resets start independent compilation checkpoints while preserving custom keys, focused resets, initial-state clearing, unloads, and aliases.
+
 - Added category and name selections to `reset`, preserving all existing reset helpers, the `matrix` helper, and equation caption options.
 - Fixed selective resets of renamed unit spellings after stored assignments.
 

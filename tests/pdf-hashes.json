@@ -33,6 +33,7 @@
     "tests/qalc-units.typ": "97fe780ea0067489bf3a4230a6c0c05fbc8ce59ad28fac1195b74fdacfe9e646",
     "tests/rename-unit-errors.typ": "615f9d8334a25d0536d9ffede02f52c53a67389fc28d979c108d5ee154ea7a80",
     "tests/rename-unit.typ": "b7c7e679be500746544d487c776b718dec4fc95499e8b5588ef59b7893badf3a",
+    "tests/reset-checkpoints.typ": "0d7617add88f06679ea31b8e23375ee6b21b1413e2376c2139e07ea1a23ba857",
     "tests/reset.typ": "a1e161c829c3fcffefc8e17779906b58ae7e2c08b101dda5be253d2bf7bb8947",
     "tests/result-only.typ": "7b97fd64c58ee6dfed63807b4fdcd935ca726956b4d6a56cf4b6d93268d70d49",
     "tests/review-regressions.typ": "15e0b350637efce0bd6173bd3dc4f350d97007ea37d5cf95bc200e3c03c6708e",

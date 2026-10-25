@@ -4566,6 +4566,26 @@ let builder-initial-state(initial) = {
   result
 }
 
+// A full reset starts an independent state sequence. The counter only changes
+// at resets, so edits to equations do not invalidate other sections' state.
+let checkpoint-counter(key) = counter("math-once-checkpoint:" + key)
+
+// This function requires the caller's document context, just like state.get.
+let checkpoint-state(key, initial: (:)) = {
+  let checkpoint = checkpoint-counter(key).get().first()
+  state(
+    "math-once-checkpoint-state:" + repr((key, checkpoint)),
+    builder-initial-state(if checkpoint == 0 { initial } else { (:) }),
+  )
+}
+
+// A new location initially sees the counter's final value. Skip the write
+// until Typst has placed the caller, but still lay out the content so its size
+// is close to final. This function requires the caller's document context.
+let checkpoint-update(variables, update) = if query(here()).len() > 0 {
+  variables.update(update)
+}
+
 let unit-aliases(scope) = {
   let aliases = (:)
   for (name, item) in scope {
@@ -5478,7 +5498,6 @@ let calculation-builder(
       )
     }
   }
-  let variables = state(key, builder-initial-state(initial-state))
   let builder-error(message) = if strict {
     panic("math-once calculation-builder: " + message)
   } else {
@@ -5518,6 +5537,7 @@ let calculation-builder(
     }
     let source = args.pos().at(0, default: none)
     if source == none {
+      let variables = checkpoint-state(key, initial: initial-state)
       let visible = (:)
       for (name, value) in variables.get() {
         if (not is-unloaded-marker(value)
@@ -5578,6 +5598,7 @@ let calculation-builder(
     }
 
     let equation-body = context {
+      let variables = checkpoint-state(key, initial: initial-state)
       let current = variables.get()
       let aliases = unit-aliases(current)
       if parsed-function != none {
@@ -5594,7 +5615,7 @@ let calculation-builder(
           builder-error("`" + parsed-function.name + "` is a reserved unit or constant name and cannot be used as a function")
           return
         }
-        variables.update(old => {
+        checkpoint-update(variables, old => {
           old.insert(parsed-function.name, parsed-function)
           old
         })
@@ -5687,7 +5708,7 @@ let calculation-builder(
         if stores-result {
           result.insert("display", math.equation(labelled-body, block: block))
           result.insert("variable", name)
-          variables.update(old => {
+          checkpoint-update(variables, old => {
             old.insert(name, result)
             old
           })
@@ -5731,7 +5752,7 @@ let calculation-builder(
         // second evaluation against the state seen by the update itself so a
         // chain of stored assignments can advance without one layout pass per
         // dependency.
-        variables.update(old => {
+        checkpoint-update(variables, old => {
           let update-aliases = unit-aliases(old)
           let update-unloaded = ()
           for (stored-name, item) in old {
@@ -5811,7 +5832,7 @@ let calculation-builder(
           result.insert("display", math.equation(visible-body, block: block))
           result.insert("variable", name)
           if assignment-is-unloaded { result.insert("unloaded", true) }
-          variables.update(old => {
+          checkpoint-update(variables, old => {
             old.insert(name, result)
             old
           })
@@ -5873,114 +5894,121 @@ let state-name(value, action) = {
 
 /// Clear the complete calculation-builder state.
 let reset(key: "math-once-calculation") = {
-  let variables = state(key, (:))
-  variables.update(_ => builder-initial-state((:)))
+  checkpoint-counter(key).step()
 }
 
 /// Clear selected or all stored values while preserving builder configuration.
 let reset-variables(..names, key: "math-once-calculation") = {
   let selected = names.pos().map(value => state-name(value, "reset-variables"))
-  let variables = state(key, (:))
-  variables.update(old => {
-    let initial = state-initial-values(old)
-    let kept = old
-    let targets = if selected.len() == 0 { old.keys() } else { selected }
-    for name in targets {
-      let item = kept.at(name, default: none)
-      if item == none or is-stored-variable(item) {
-        if item != none and is-unloaded(item) {
-          let marker = (unloaded: true)
-          if name in unit-aliases(old).values() { marker.insert("renamed-unit", true) }
-          kept.insert(name, marker)
-        } else if item != none {
-          let _ = kept.remove(name)
-        }
-        if name in initial and name not in kept {
-          kept.insert(name, initial.at(name))
+  context {
+    let variables = checkpoint-state(key)
+    checkpoint-update(variables, old => {
+      let initial = state-initial-values(old)
+      let kept = old
+      let targets = if selected.len() == 0 { old.keys() } else { selected }
+      for name in targets {
+        let item = kept.at(name, default: none)
+        if item == none or is-stored-variable(item) {
+          if item != none and is-unloaded(item) {
+            let marker = (unloaded: true)
+            if name in unit-aliases(old).values() { marker.insert("renamed-unit", true) }
+            kept.insert(name, marker)
+          } else if item != none {
+            let _ = kept.remove(name)
+          }
+          if name in initial and name not in kept {
+            kept.insert(name, initial.at(name))
+          }
         }
       }
-    }
-    if selected.len() == 0 {
-      for (name, value) in initial {
-        if name not in kept { kept.insert(name, value) }
+      if selected.len() == 0 {
+        for (name, value) in initial {
+          if name not in kept { kept.insert(name, value) }
+        }
       }
-    }
-    kept
-  })
+      kept
+    })
+  }
 }
 
 /// Clear selected or all stored function definitions.
 let reset-functions(..names, key: "math-once-calculation") = {
   let selected = names.pos().map(value => state-name(value, "reset-functions"))
-  let variables = state(key, (:))
-  variables.update(old => {
-    let initial = state-initial-values(old)
-    let kept = old
-    for (name, value) in old {
-      if is-stored-function(value) and (selected.len() == 0 or name in selected) {
-        let _ = kept.remove(name)
-        if name in initial { kept.insert(name, initial.at(name)) }
+  context {
+    let variables = checkpoint-state(key)
+    checkpoint-update(variables, old => {
+      let initial = state-initial-values(old)
+      let kept = old
+      for (name, value) in old {
+        if is-stored-function(value) and (selected.len() == 0 or name in selected) {
+          let _ = kept.remove(name)
+          if name in initial { kept.insert(name, initial.at(name)) }
+        }
       }
-    }
-    kept
-  })
+      kept
+    })
+  }
 }
 
 /// Restore selected or all unit names made available with unload.
 let restore-units(..names, key: "math-once-calculation") = {
   let selected = names.pos().map(value => state-name(value, "restore-units"))
-  let variables = state(key, (:))
-  variables.update(old => {
-    let kept = old
-    for (name, value) in old {
-      if (is-unloaded(value)
-        and name not in unit-aliases(old).values()
-        and (selected.len() == 0 or name in selected)) {
-        if is-built-in-constant(name) {
-          kept.insert(name, built-in-constants.at(name))
-        } else {
-          let _ = kept.remove(name)
+  context {
+    let variables = checkpoint-state(key)
+    checkpoint-update(variables, old => {
+      let kept = old
+      for (name, value) in old {
+        if (is-unloaded(value)
+          and name not in unit-aliases(old).values()
+          and (selected.len() == 0 or name in selected)) {
+          if is-built-in-constant(name) {
+            kept.insert(name, built-in-constants.at(name))
+          } else {
+            let _ = kept.remove(name)
+          }
         }
       }
-    }
-    kept
-  })
+      kept
+    })
+  }
 }
 
 /// Remove selected or all rename-unit relationships.
 let reset-unit-aliases(..names, key: "math-once-calculation") = {
   let selected = names.pos().map(value => state-name(value, "reset-unit-aliases"))
-  let variables = state(key, (:))
-  variables.update(old => {
-    let originals = ()
-    if selected.len() == 0 {
-      for (_, value) in old {
-        if is-unit-alias(value) and value.original not in originals {
-          originals.push(value.original)
+  context {
+    let variables = checkpoint-state(key)
+    checkpoint-update(variables, old => {
+      let originals = ()
+      if selected.len() == 0 {
+        for (_, value) in old {
+          if is-unit-alias(value) and value.original not in originals {
+            originals.push(value.original)
+          }
+        }
+      } else {
+        for name in selected {
+          let item = old.at(name, default: none)
+          let original = if item != none and is-unit-alias(item) {
+            item.original
+          } else if name in unit-aliases(old).values() {
+            name
+          } else {
+            none
+          }
+          if original != none and original not in originals { originals.push(original) }
         }
       }
-    } else {
-      for name in selected {
-        let item = old.at(name, default: none)
-        let original = if item != none and is-unit-alias(item) {
-          item.original
-        } else if name in unit-aliases(old).values() {
-          name
-        } else {
-          none
+      let kept = (:)
+      for (name, value) in old {
+        let belongs-to-reset-alias = is-unit-alias(value) and value.original in originals
+        if name not in originals and not belongs-to-reset-alias {
+          kept.insert(name, value)
         }
-        if original != none and original not in originals { originals.push(original) }
       }
-    }
-    let kept = (:)
-    for (name, value) in old {
-      let belongs-to-reset-alias = is-unit-alias(value) and value.original in originals
-      if name not in originals and not belongs-to-reset-alias {
-        kept.insert(name, value)
-      }
-    }
-    kept
-  })
+      kept
+    })
+  }
 }
 
 /// Temporarily make unit names available as builder variable names.
@@ -5989,31 +6017,33 @@ let unload(..names, key: "math-once-calculation") = {
   if selected.len() == 0 {
     panic("math-once unload: pass at least one unit name")
   }
-  let variables = state(key, (:))
-  variables.update(old => {
-    for name in selected {
-      if is-built-in-constant(name) {
-        old.insert(name, (unloaded: true))
-      } else if resolve-unit(name) == none {
-        continue
-      } else if name in old and type(old.at(name)) == dictionary and "si-value" in old.at(name) {
-        let value = old.at(name)
-        value.insert("unloaded", true)
-        old.insert(name, value)
-      } else {
-        old.insert(name, (unloaded: true))
+  context {
+    let variables = checkpoint-state(key)
+    checkpoint-update(variables, old => {
+      for name in selected {
+        if is-built-in-constant(name) {
+          old.insert(name, (unloaded: true))
+        } else if resolve-unit(name) == none {
+          continue
+        } else if name in old and type(old.at(name)) == dictionary and "si-value" in old.at(name) {
+          let value = old.at(name)
+          value.insert("unloaded", true)
+          old.insert(name, value)
+        } else {
+          old.insert(name, (unloaded: true))
+        }
       }
-    }
-    old
-  })
+      old
+    })
+  }
 }
 
 /// Move an active unit spelling to a new alias until reset.
 let rename-unit(from, to, key: "math-once-calculation") = {
   let from = state-name(from, "rename-unit")
   let to = state-name(to, "rename-unit")
-  let variables = state(key, (:))
   context {
+    let variables = checkpoint-state(key)
     let old = variables.get()
     let aliases = unit-aliases(old)
     let original = aliases.at(from, default: from)
@@ -6034,7 +6064,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
     if error != none {
       align(center, text(fill: red, [math-once: #error.]))
     } else {
-      variables.update(old => {
+      checkpoint-update(variables, old => {
         if from in aliases {
           let _ = old.remove(from)
         }

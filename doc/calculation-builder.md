@@ -931,3 +931,5 @@ A failed `:=` definition is not stored. A later expression that uses its name
 therefore reports that the variable is not set. Direct [`calculate`](calculate.md)
 calls remain strict and panic on invalid input, which is useful when their
 return values are consumed programmatically.
+
+Full `reset()` calls also start independent compilation checkpoints. Focused resets keep the current checkpoint.
