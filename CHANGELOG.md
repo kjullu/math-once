@@ -1,5 +1,9 @@
 # Changelog
 
+## Compact degree symbols demo (based on 0.42.0)
+
+- Render `deg`, `degree`, `degrees`, and `°` as a degree symbol directly beside the number, including calculated results and stored-value substitutions.
+
 ## 0.42.0
 
 - Added `digits: auto` to `calculate` and calculation builders. Results use the fewest decimal places among the numeric inputs actually used, including stored input precision and scientific notation. Exact values remain available for later calculations.
