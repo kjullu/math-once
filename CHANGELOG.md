@@ -1,8 +1,8 @@
 # Changelog
 
-## Significant figures demo (based on 0.43.0)
+## 0.44.0
 
-- Added `auto-digits: "significant"` to calculation builders and individual calls so `digits: auto` follows the fewest input significant figures across unit conversions, scientific notation, and stored substitutions. The default `auto-digits: "decimal"` preserves existing automatic decimal rounding. Fixed integer `digits` settings and exact stored values are unchanged.
+- Added `auto-digits: "significant"` to calculation builders and individual calls so `digits: auto` follows the fewest input significant figures across unit conversions, scientific notation, and stored substitutions. The default `auto-digits: "decimal"` preserves existing automatic decimal rounding. Fixed integer `digits` settings and exact stored values are unchanged. Updated package imports to 0.44.0.
 
 ## 0.43.0
 

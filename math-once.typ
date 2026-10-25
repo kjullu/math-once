@@ -1,4 +1,4 @@
-// Significant figures demo (0.43.0)
+// math-once v0.44.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
