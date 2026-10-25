@@ -85,3 +85,23 @@
   assert(unusual().value.exact == 9)
   assert(checked().value.exact == 5)
 }
+
+// Selective reset options and legacy helpers share each active checkpoint.
+#let mixed = calculation-builder(key: "checkpoint-mixed", initial-state: (seed: 2))
+#reset(key: "checkpoint-mixed")
+#mixed(`x := 7`)
+#mixed(`f(t) := t + 1`)
+#reset(variables: ("x",), key: "checkpoint-mixed")
+#context assert("x" not in mixed() and mixed().f.function)
+#mixed(`x := 9`)
+#reset-functions("f", key: "checkpoint-mixed")
+#context assert(mixed().x.exact == 9 and "f" not in mixed())
+#rename-unit("m", "mixedmetre", key: "checkpoint-mixed")
+#mixed(`m := 4`)
+#reset(units: ("m",), key: "checkpoint-mixed")
+#context assert(mixed().m.exact == 4)
+#reset-unit-aliases("m", key: "checkpoint-mixed")
+#mixed(`distance := 2 m`)
+#context assert("m" not in mixed() and mixed().distance.exact == 2)
+#reset(key: "checkpoint-mixed")
+#context assert(mixed().len() == 0)

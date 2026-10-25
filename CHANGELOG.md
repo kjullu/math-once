@@ -4,11 +4,11 @@
 
 - **Breaking**: Internal builder storage now uses checkpoint state. Code reading `state(key)` directly must use the supported no-argument builder call, such as `eq()`.
 - Full resets start independent compilation checkpoints while preserving custom keys, focused resets, initial-state clearing, unloads, and aliases.
-
 - Added category and name selections to `reset`, preserving all existing reset helpers, the `matrix` helper, and equation caption options.
 - Fixed selective resets of renamed unit spellings after stored assignments.
-
 - Render `deg`, `degree`, `degrees`, and `°` directly beside numbers, including results and substitutions.
+- Ignore floating-point conversion noise in decimal padding. Reusing `56 cm` displays `56 cm`, while real rounding and scientific precision still follow `digits`.
+- Added coverage combining full checkpoints, selective reset options, and legacy helpers. Updated package imports to 0.43.0.
 
 ## 0.42.0
 
@@ -94,7 +94,6 @@
 - Added regression coverage for unloaded unit names used as variables in the chain `d -> R -> r -> A_l`.
 
 ## 0.37.0
-
 - Rendered quoted custom units that match Typst symbol names consistently on both sides of calculated equations, so `"Omega"` now appears as `Ω` in both the input and result while known units such as `"ohm"` remain upright text.
 - Distinguished absolute affine temperatures from temperature differences, so Celsius and Fahrenheit subtraction keeps the correct scale without reapplying an absolute offset.
 - Preserved physical dimensions when custom units and catalog units are combined, including cancellation from `DKK/kWh` to `DKK` after multiplication by energy.
@@ -354,7 +353,6 @@
   scientific `size:` output.
 
 ## 0.18.3
-
 - Rendered power-of-ten `size:` values as scientific notation. For example,
   `size: $10^5$` now displays `4.88 · 10^5 linjer/m` instead of
   `4.88 (100000) linjer/m`.
