@@ -1,8 +1,18 @@
 # Changelog
 
+## 0.45.0
+
+- `auto-digits: "significant"` now rounds automatically by itself. Builders and `calculate` without an explicit `digits` use `digits: auto` in significant mode and keep 4 decimal places in decimal mode.
+- Added `auto-digits` to `calculate`.
+- An invalid `auto-digits` on a single builder call renders a red error in non-strict builders instead of stopping compilation. An invalid builder setting reports a clear message.
+- Literals anywhere inside an exponent, such as `1.234^(1+2)` or `1.234^abs(2)`, no longer limit significant figures.
+- Results now always store their input significant figures, so a value stored in decimal mode keeps its precision when a later call uses significant mode.
+- Written scientific notation such as `1.5e3` and `1.5e-3` renders as `1.5 · 10³` instead of failing or showing `1.5e − 3`, and stays grouped in fractions and exponents.
+- Reusing a value with a quoted custom output label, such as `unit: "\"widget\""`, no longer fails in later calculations.
+
 ## 0.44.0
 
-- Added `auto-digits: "significant"` to calculation builders and individual calls so `digits: auto` follows the fewest input significant figures across unit conversions, scientific notation, and stored substitutions. The default `auto-digits: "decimal"` preserves existing automatic decimal rounding. Fixed integer `digits` settings and exact stored values are unchanged. Updated package imports to 0.44.0.
+- Added `auto-digits: "significant"` to calculation builders and individual calls so `digits: auto` follows the fewest input significant figures across unit conversions, scientific notation, and stored substitutions. The default `auto-digits: "decimal"` preserves existing automatic decimal rounding. Fixed integer `digits` settings and exact stored values are unchanged.
 
 ## 0.43.0
 
@@ -12,12 +22,12 @@
 - Fixed selective resets of renamed unit spellings after stored assignments.
 - Render `deg`, `degree`, `degrees`, and `°` directly beside numbers, including results and substitutions.
 - Ignore floating-point conversion noise in decimal padding. Reusing `56 cm` displays `56 cm`, while real rounding and scientific precision still follow `digits`.
-- Added coverage combining full checkpoints, selective reset options, and legacy helpers. Updated package imports to 0.43.0.
+- Added coverage combining full checkpoints, selective reset options, and legacy helpers.
 
 ## 0.42.0
 
 - Added `digits: auto` to `calculate` and calculation builders. Results use the fewest decimal places among the numeric inputs actually used, including stored input precision and scientific notation. Exact values remain available for later calculations.
-- Preserved scientific coefficient rounding and trailing zeros alongside automatic input precision. Updated the package and local import examples to version 0.42.0.
+- Preserved scientific coefficient rounding and trailing zeros alongside automatic input precision.
 
 ## 0.41.1
 
