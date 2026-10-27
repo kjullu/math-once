@@ -1,4 +1,4 @@
-// math-once v0.44.0
+// Significant-figure review fixes (0.44.0)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3351,14 +3351,29 @@ let input-significant-digits(token) = {
 
 let automatic-significant-digits(tokens, scope, fallback: 4) = {
   let counts = ()
+  // Powers describe the operation or unit, not measurement precision. Skip
+  // every literal inside an exponent, including parenthesized ones.
+  let exponent-end = -1
   for (index, token) in tokens.enumerate() {
-    if is-number(token) {
-      // Powers describe the operation or unit, not measurement precision.
-      let previous = index - 1
-      while previous >= 0 and tokens.at(previous) in ("(", "+", "-") {
-        previous -= 1
+    if token == "^" and index >= exponent-end {
+      let next = index + 1
+      while next < tokens.len() and tokens.at(next) in ("+", "-") { next += 1 }
+      // A function exponent such as `abs(2)` includes its argument list.
+      if next + 1 < tokens.len() and regex("^\\p{L}") in tokens.at(next) and tokens.at(next + 1) == "(" { next += 1 }
+      if next < tokens.len() and tokens.at(next) == "(" {
+        let depth = 0
+        while next < tokens.len() {
+          if tokens.at(next) == "(" { depth += 1 }
+          if tokens.at(next) == ")" { depth -= 1 }
+          if depth == 0 { break }
+          next += 1
+        }
       }
-      if previous >= 0 and tokens.at(previous) == "^" { continue }
+      exponent-end = next + 1
+      continue
+    }
+    if index < exponent-end and is-number(token) { continue }
+    if is-number(token) {
       counts.push(input-significant-digits(token))
     } else if token in scope {
       let item = scope.at(token)
@@ -3372,11 +3387,17 @@ let automatic-significant-digits(tokens, scope, fallback: 4) = {
   if counts.len() == 0 { fallback } else { calc.min(..counts) }
 }
 
+let valid-auto-digits(auto-digits) = auto-digits in ("decimal", "significant")
+let auto-digits-message = "auto-digits must be decimal or significant"
+
+// Unset digits (`none`) follow the rounding mode: significant mode rounds
+// automatically, decimal mode keeps the long-standing default of 4 places.
+let default-digits(digits, auto-digits) = if digits != none { digits } else if auto-digits == "significant" { auto } else { 4 }
+
 // Carry the automatic mode through scalar, paired, and structure evaluation.
 let automatic-precision(digits, auto-digits) = {
-  if auto-digits not in ("decimal", "significant") {
-    panic("math-once: auto-digits must be decimal or significant")
-  }
+  if not valid-auto-digits(auto-digits) { panic("math-once: " + auto-digits-message) }
+  let digits = default-digits(digits, auto-digits)
   if digits == auto and auto-digits == "significant" { (significant: auto) } else { digits }
 }
 
@@ -3482,6 +3503,13 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
       "plus.minus"
     } else if token == "∓" {
       "minus.plus"
+    } else if is-number(token) and regex("[eE]") in token {
+      // Written scientific notation renders as a coefficient times a power of ten.
+      let (mantissa, exponent) = token.replace("E", "e").split("e")
+      let power = mantissa + " dot 10^(" + str(int(exponent)) + ")"
+      // Group it where Typst math would otherwise split the product.
+      let neighbors = (tokens.at(index - 1, default: none), tokens.at(index + 1, default: none))
+      if neighbors.any(item => item in ("/", "^")) { "(" + power + ")" } else { power }
     } else {
       token
     }
@@ -5420,7 +5448,10 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
         )
       }
     }
-    output-unit = target-tokens.map(token => if is-quoted-unit(token) { quoted-unit-name(token) } else { token }).join("")
+    // Keep quotes on custom labels so a stored preferred unit can be parsed again.
+    output-unit = target-tokens.map(token => if is-quoted-unit(token) and resolve-unit(quoted-unit-name(token)) != none {
+      quoted-unit-name(token)
+    } else { token }).join("")
     output-scale = if target.affine == none { target.si-value } else { target.affine.scale }
     output-offset = if target.affine == none or result.affine-kind == "difference" { 0.0 } else { target.affine.offset }
   } else if output-unit == none and result.opaque.len() > 0 {
@@ -5508,9 +5539,12 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   let public-unit = if output-unit == none {
     none
   } else if text-unit-prefix not in output-unit {
-    output-unit
+    // Custom labels keep their quotes internally; expose the plain name.
+    output-unit.replace(regex("\"([^\"]*)\""), found => found.captures.first())
   } else {
-    tokenize(output-unit).map(token => if is-text-unit(token) { text-unit-name(token) } else { token }).join("")
+    tokenize(output-unit).map(token => if is-text-unit(token) { text-unit-name(token) } else if is-quoted-unit(token) {
+      quoted-unit-name(token)
+    } else { token }).join("")
   }
   (
     value: value,
@@ -5524,7 +5558,9 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     size: size,
     digits: digits,
     input-digits: input-digits,
-    ..if significant == none { (:) } else { (significant-digits: significant, input-significant-digits: significant) },
+    // Keep significant-figure precision so later significant-mode calls can reuse it.
+    input-significant-digits: if significant == none { input-significant } else { significant },
+    ..if significant == none { (:) } else { (significant-digits: significant) },
     source: source,
     display: math.equation(display-body, block: block),
   )
@@ -5539,13 +5575,16 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
 let calculation-builder(
   initial-state: (:),
   key: "math-once-calculation",
-  digits: 4,
+  digits: none,
   auto-digits: "decimal",
   block: auto,
   supplement: auto,
   strict: false,
   strict-units: false,
 ) = {
+  if not valid-auto-digits(auto-digits) {
+    panic("math-once calculation-builder: " + auto-digits-message)
+  }
   if block != auto and type(block) != bool {
     panic("math-once calculation-builder: block must be auto or a boolean")
   }
@@ -5609,6 +5648,9 @@ let calculation-builder(
     }
     if type(hidden) != bool {
       panic("math-once calculation-builder: hidden must be a boolean")
+    }
+    if not valid-auto-digits(auto-digits) {
+      return builder-error(auto-digits-message)
     }
     let source = args.pos().at(0, default: none)
     if source == none {
@@ -6160,6 +6202,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 
 (
   calculate: calculate,
+  automatic-precision: automatic-precision,
   calculation-builder: calculation-builder,
   reset: reset,
   reset-variables: reset-variables,
@@ -6188,8 +6231,11 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 ///   `asin`/`arcsin`, `acos`/`arccos`, `atan`/`arctan`, `atan2`, `abs`,
 ///   `floor`, `ceil`, `round`, absolute-value bars, `+`, `-`, `*`, `/`, `^`,
 ///   `±`, `∓`, and optionally `to` or `=` for output conversion.
-/// - `digits`: Decimal places, or `auto` for the fewest input decimal places.
-///   Default: `4`.
+/// - `digits`: Decimal places, or `auto` for automatic input precision.
+///   Default: `4`, or `auto` when `auto-digits` is "significant".
+/// - `auto-digits`: How `digits: auto` counts input precision: "decimal"
+///   for decimal places or "significant" for significant figures.
+///   Default: "decimal".
 /// - `scope`: Numbers or earlier calculate results available as variables.
 ///   Unit names are reserved and cannot be used as variable names. Stateful
 ///   calculation builders also reserve their built-in `e` and `pi` constants.
@@ -6206,9 +6252,9 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// `dimensions`, `unit`, `size`, and `source`.
 /// A paired-sign expression instead returns `alternatives: true`, `display`,
 /// and tuples named `branches`, `values`, `exacts`, `si-values`, and `units`.
-#let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, strict-units: false) = (_engine.calculate)(
+#let calculate(source, digits: none, auto-digits: "decimal", scope: (:), unit: none, size: none, block: true, strict-units: false) = (_engine.calculate)(
   source,
-  digits: digits,
+  digits: (_engine.automatic-precision)(digits, auto-digits),
   scope: scope,
   unit: unit,
   size: size,
@@ -6221,7 +6267,8 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// - `initial-state`: Initial numeric values or calculate results. Unit names
 ///   are reserved and cannot be used as keys. Default: empty.
 /// - `key`: Typst state key. Give independent runners different keys.
-/// - `digits`: Default decimal places for runner calls, or `auto`. Default: `4`.
+/// - `digits`: Default decimal places for runner calls, or `auto`. Default:
+///   `4`, or `auto` when `auto-digits` is "significant".
 /// - `auto-digits`: How `digits: auto` counts input precision: "decimal"
 ///   for decimal places or "significant" for significant figures. Fixed
 ///   integer `digits` settings are unchanged. Default: "decimal".
@@ -6258,7 +6305,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 #let calculation-builder(
   initial-state: (:),
   key: "math-once-calculation",
-  digits: 4,
+  digits: none,
   auto-digits: "decimal",
   block: auto,
   supplement: auto,
