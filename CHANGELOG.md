@@ -1,6 +1,6 @@
 # Changelog
 
-## Significant-figure review fixes demo (based on 0.44.0)
+## 0.45.0
 
 - `auto-digits: "significant"` now rounds automatically by itself. Builders and `calculate` without an explicit `digits` use `digits: auto` in significant mode and keep 4 decimal places in decimal mode.
 - Added `auto-digits` to `calculate`.
@@ -9,6 +9,7 @@
 - Results now always store their input significant figures, so a value stored in decimal mode keeps its precision when a later call uses significant mode.
 - Written scientific notation such as `1.5e3` and `1.5e-3` renders as `1.5 · 10³` instead of failing or showing `1.5e − 3`, and stays grouped in fractions and exponents.
 - Reusing a value with a quoted custom output label, such as `unit: "\"widget\""`, no longer fails in later calculations.
+- Updated package imports to 0.45.0.
 
 ## 0.44.0
 
