@@ -1,4 +1,4 @@
-// math-once v0.45.0
+// Dot product with bullet (0.45.0)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3066,6 +3066,7 @@ let normalized-symbol(name, value: none) = {
   else if name == "minus" { "-" }
   else if name in ("times", "dot.op", "ast.op") { "*" }
   else if name == "div" { "/" }
+  else if name in ("bullet", "bullet.op") { math-symbol-token("bullet") }
   else if name == "eq" { "=" }
   else if name == "plus.minus" { "±" }
   else if name == "minus.plus" { "∓" }
@@ -3633,7 +3634,10 @@ let absolute-value-tokens(tokens) = {
   if depth == 0 { result } else { none }
 }
 
-let is-display-only-token(token) = is-math-symbol(token) or token == "|"
+// `bullet` is the dot product operator for vectors, not a display-only symbol.
+let dot-product-token = math-symbol-prefix + "bullet" + math-symbol-suffix
+let dot-product-message = "`bullet` (dot product) requires two vectors with the same number of components"
+let is-display-only-token(token) = (is-math-symbol(token) and token != dot-product-token) or token == "|"
 
 let split-top-level(tokens, separator: ",") = {
   let parts = ()
@@ -3865,22 +3869,54 @@ let matrix-result(rows, source: none) = (
   source: source,
 )
 
-let combine-scalar-results(calculate-fn, left, operator, right, digits, aliases) = calculate-fn(
+let combine-scalar-results(calculate-fn, left, operator, right, digits, aliases, unit: none, size: none) = calculate-fn(
   "mathonceleft " + operator + " mathonceright",
   digits: digits,
   scope: (mathonceleft: left, mathonceright: right),
+  unit: unit,
+  size: size,
   block: false,
   aliases: aliases,
   soft: true,
 )
 
-let structure-operation(calculate-fn, left, operator, right, digits, aliases) = {
+// `unit` and `size` apply only when the operation yields the final scalar.
+let structure-operation(calculate-fn, left, operator, right, digits, aliases, unit: none, size: none) = {
   let left-vector = is-vector-result(left)
   let right-vector = is-vector-result(right)
   let left-matrix = is-matrix-result(left)
   let right-matrix = is-matrix-result(right)
   let left-structure = left-vector or left-matrix
   let right-structure = right-vector or right-matrix
+
+  // A dot product yields a scalar that later operators may combine further.
+  if not left-structure and not right-structure and operator in ("+", "-", "*", "/") {
+    return combine-scalar-results(calculate-fn, left, operator, right, digits, aliases, unit: unit, size: size)
+  }
+
+  if operator == dot-product-token {
+    if not (left-vector and right-vector) or left.components.len() != right.components.len() {
+      return calculation-failure(dot-product-message)
+    }
+    // Sum in one calculation so only the final result needs an output unit.
+    let scope = (:)
+    let terms = ()
+    for (index, (a, b)) in left.components.zip(right.components).enumerate() {
+      scope.insert("mathoncel" + str(index), a)
+      scope.insert("mathoncer" + str(index), b)
+      terms.push("mathoncel" + str(index) + " * mathoncer" + str(index))
+    }
+    return calculate-fn(
+      terms.join(" + "),
+      digits: digits,
+      scope: scope,
+      unit: unit,
+      size: size,
+      block: false,
+      aliases: aliases,
+      soft: true,
+    )
+  }
 
   if operator in ("+", "-") {
     if left-vector and right-vector {
@@ -3991,7 +4027,7 @@ let structure-operation(calculate-fn, left, operator, right, digits, aliases) = 
   }
 
   if left-vector and right-vector {
-    return calculation-failure("vector multiplication is ambiguous; use component expressions explicitly")
+    return calculation-failure("vector multiplication with `*` is ambiguous; use `bullet` for the dot product")
   }
 
   let multiply-and-sum(left-items, right-items) = {
@@ -4058,8 +4094,8 @@ let top-level-structure-operator(tokens) = {
   for (index, token) in tokens.enumerate() {
     if token == "(" { depth += 1 }
     if token == ")" { depth -= 1 }
-    let unary = index == 0 or tokens.at(index - 1) in ("(", ",", ";", "+", "-", "*", "/", "^")
-    if depth == 0 and token in ("+", "-", "*", "/") and not unary {
+    let unary = index == 0 or tokens.at(index - 1) in ("(", ",", ";", "+", "-", "*", "/", "^", dot-product-token)
+    if depth == 0 and token in ("+", "-", "*", "/", dot-product-token) and not unary {
       let precedence = if token in ("+", "-") { 1 } else { 2 }
       if precedence <= best-precedence {
         best-precedence = precedence
@@ -4070,7 +4106,7 @@ let top-level-structure-operator(tokens) = {
   best-index
 }
 
-let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, strict-units: false) = {
+let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, strict-units: false, unit: none, size: none) = {
   tokens = unwrap-tokens(tokens)
   let scalar-scope = numeric-scope(scope)
   let components = vector-components(tokens)
@@ -4165,7 +4201,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
       if is-calculation-failure(right) { return right }
     }
     return structure-operation(
-      calculate-fn, left, tokens.at(operator-index), right, digits, aliases,
+      calculate-fn, left, tokens.at(operator-index), right, digits, aliases, unit: unit, size: size,
     )
   }
 
@@ -4174,12 +4210,15 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
     if is-calculation-failure(inner) { return inner }
     if inner != none {
       let minus-one = calculate-fn("-1", digits: digits, block: false, soft: true)
-      return structure-operation(calculate-fn, minus-one, "*", inner, digits, aliases)
+      return structure-operation(calculate-fn, minus-one, "*", inner, digits, aliases, unit: unit, size: size)
     }
   }
 
+  if dot-product-token in tokens {
+    return calculation-failure(dot-product-message)
+  }
   if tokens.any(token => is-structure-result(scope.at(token, default: none))) {
-    return calculation-failure("vectors and matrices support only `+`, `-`, `*`, and scalar division")
+    return calculation-failure("vectors and matrices support only `+`, `-`, `*`, `bullet`, and scalar division")
   }
   none
 }
@@ -4198,6 +4237,8 @@ let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, u
     aliases,
     unloaded,
     strict-units: strict-units,
+    unit: unit,
+    size: size,
   )
   if result == none {
     return calculate-fn(
@@ -4214,7 +4255,7 @@ let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, u
     )
   }
   if is-calculation-failure(result) { return result }
-  if unit != none or size != none {
+  if is-structure-result(result) and (unit != none or size != none) {
     return calculation-failure("unit and size are not supported for a whole vector or matrix result")
   }
   result
@@ -5322,6 +5363,9 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   let raw-tokens = tokenize(source)
   let absolute-tokens = absolute-value-tokens(raw-tokens)
   if absolute-tokens != none { raw-tokens = absolute-tokens }
+  if dot-product-token in raw-tokens {
+    return calculation-fail(dot-product-message, soft: soft)
+  }
   if raw-tokens.any(is-display-only-token) {
     return calculation-fail(
       "display-only mathematical symbols cannot be evaluated as one numeric value",

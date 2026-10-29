@@ -23,6 +23,7 @@
     "tests/degree-rendering.typ": "a3b32ed5867e5f81ea88f5a1926d6c4a123a25f245a061e4501918d2e0b392b6",
     "tests/direct-assignment.typ": "1c12a0f5e5d3fc3f2676979d88a0ccef9df1df649c58cc31e5c5f57b55f9d2ff",
     "tests/docs.typ": "92f0442601684f8d9bcb5cfefcf8af1af1a1f05b617750d03e57c15ae38fa8d2",
+    "tests/dot-product.typ": "8399430c0a77c4e570c5c00665123529e9e27bce24503bd289c3df8cc7b6a19a",
     "tests/focused-reset.typ": "b2716ffa44724cda2df85a589bb494cebc6cbd56bb9107f6a326c110c17c7e05",
     "tests/function-errors.typ": "9a31588a2d3454b52a694fd4770713648f8a6591d961982ec88c4f11dcbf16b9",
     "tests/functions.typ": "ef96dd8a13691b4a25010f4df5e544567940b6463225307d354365a16bb6aa9b",
@@ -60,7 +61,7 @@
     "tests/unit-with-size.typ": "c2a2428c051f1e5540402ebcb46bbd1104bb9fdc562c04a6a4d4a04a2d2ffea8",
     "tests/units.typ": "9aa61851974ccd8d6aa7dc884ea0ca06dcba667ac6a75d2091836dc93f59460f",
     "tests/unload.typ": "71f84b4437e5b939482faf9f3bc8e9f5eadd9d4131a239e500d2db6bb9f6826a",
-    "tests/vector-matrix-errors.typ": "a8ab0fc84e026fabf48888c7cb1618dd5cf8c177e7c6f59deb1f2274046e7741",
+    "tests/vector-matrix-errors.typ": "9a90fb5c90c519c358b60dc2bfb7b510c5c9877540f931a13eab74eee469f942",
     "tests/vectors-matrices.typ": "83e517858ba03536bd85b2d8a5b03bef2273593d2b0f3777e5432c3381378b37"
   }
 }

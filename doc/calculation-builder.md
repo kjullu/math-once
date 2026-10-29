@@ -592,7 +592,21 @@ Use Typst's built-in `mat(...)` for matrices:
 
 `arrow(v)` changes how the stored name is drawn; its state key is `arrow_v`. `vec(...)` creates the vector value. Matrix rows are separated by semicolons and cells by commas, matching Typst's native matrix syntax.
 
-The builder supports vector or matrix addition and subtraction with matching shapes, scalar multiplication, division of a vector or matrix by a scalar, matrix multiplication, matrix–vector multiplication, and row-vector–matrix multiplication. `vector * vector` is rejected because it is ambiguous between a dot product, an outer product, and component-wise multiplication.
+The builder supports vector or matrix addition and subtraction with matching shapes, scalar multiplication, division of a vector or matrix by a scalar, matrix multiplication, matrix–vector multiplication, row-vector–matrix multiplication, and dot products. `vector * vector` is rejected because it is ambiguous; write `bullet` (•) for the dot product:
+
+```typ
+#eq($arrow(a) := vec(1, 2, 3)$)
+#eq($arrow(b) := vec(4, 5, 6)$)
+#eq($c := arrow(a) bullet arrow(b)$)
+// c = a⃗ • b⃗ = 32
+
+#eq($arrow(F) := vec(2 "N", 3 "N")$)
+#eq($arrow(s) := vec(4 "m", 1 "m")$)
+#eq($w_F := arrow(F) bullet arrow(s)$, unit: "J")
+// w_F = F⃗ • s⃗ = 11 J
+```
+
+Both vectors must have the same number of components. The dot product is a scalar, so it can be used further in the same expression, and `unit:` or `size:` applies to it.
 
 Unary minus binds before addition and subtraction. You can also combine literals directly:
 
