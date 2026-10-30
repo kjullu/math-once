@@ -1,7 +1,7 @@
 #import "../math-once.typ": calculation-builder, reset
 #import "@preview/typcas:0.2.3": cas
 
-#let eq = calculation-builder(key: "symbolic-cas")
+#let eq = calculation-builder(key: "symbolic-cas", angles: "radians")
 
 // CAS results keep their expression tree and can feed later operations.
 #eq(`f := simplify(x^2 + 2*x + 1)`)

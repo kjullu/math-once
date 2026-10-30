@@ -74,13 +74,15 @@ CAS operations must be the top-level operation on the right-hand side.
 | Operation | Meaning |
 | --- | --- |
 | `simplify(expression)` | Simplify an expression. |
+| `expand(expression)` | Expand products and powers. |
 | `diff(expression, variable)` | Differentiate with respect to `variable`. |
-| `integrate(expression, variable)` | Find an indefinite integral. |
+| `integrate(expression, variable)` | Find a supported indefinite integral, including constant multiples and sums. |
+| `integrate(expression, variable, lower, upper)` | Evaluate a supported antiderivative at finite real endpoints after interval domain checks. |
 | `solve(expression, variable)` | Solve `expression = 0`. |
 | `solve(left, right, variable)` | Solve `left = right`. |
 | `factor(expression)` | Factor with respect to `x`. |
 | `factor(expression, variable)` | Factor with respect to the chosen variable. |
-| `limit(expression, variable, target)` | Find the limit as the variable approaches the target. |
+| `limit(expression, variable, target)` | Find a supported limit; `oo` and `infinity` denote positive infinity. `limit(e^x,x,-oo)` is zero. Unsupported negative-infinity limits and singular two-sided limits produce diagnostics. |
 | `taylor(expression, variable, center, order)` | Create a Taylor polynomial with a non-negative integer order. |
 
 For example:
@@ -253,3 +255,35 @@ The supported algebra is ultimately determined by typCAS `0.2.3`. An operation
 can therefore return an unsimplified expression or report that it cannot solve
 a particular input. The pinned dependency keeps this behaviour stable for the
 current math-once release.
+
+The school adapter rejects unevaluated symbolic integrals and directs callers to `school.integral(callback, lower, upper)` on a verified real interval. Definite integration rejects denominator poles, including endpoint poles. Fractional-power and logarithm domains are checked at interval endpoints and supported stationary points; intervals that cannot be certified produce diagnostics. This does not implement improper integrals or principal values.
+
+Real solve supports constant powers on the nonnegative real branch, positive-base exponentials, reciprocal isolation, two exponential sides, shared nonzero exponential factors, and both absolute-value branches. Candidates are checked against the original equation. Negative arguments of noninteger powers remain constrained by typCAS's real-power convention; a general rational odd-root branch is not provided. Parameter-dependent constant equations and identities with denominator exclusions produce diagnostics rather than an unconditional solution set. General parameter case splitting remains unsupported.
+
+### Phase-one correctness guardrails
+
+Symbolic integration supports affine reciprocals through logarithms of absolute
+values, reciprocal powers, positive constant-base exponentials, monomial
+products (including square roots), and real quadratic reciprocals with distinct
+roots. Engine fallback primitives must pass derivative comparison at at least
+three independent real-domain samples; this is a numerical safeguard, not a
+symbolic proof. Unsupported primitives produce a diagnostic.
+
+Positive-infinity limits currently certify simple reciprocal and negative-power
+decay to exact zero. Growing exponentials, polynomials, square roots and logarithms
+at infinity produce an explicit unsupported-limit diagnostic before calling the
+engine. Finite poles and logarithmic domain boundaries require one-sided analysis
+and produce diagnostics. General negative infinity remains unsupported.
+
+Bounded numerical roots use local slope and curvature residual scales without
+an absolute unit floor. Multiplying a function by a nonzero constant therefore
+does not change the acceptance criterion. Stationary-point scans retain repeated
+roots; pole crossings must also pass the local residual check. Finite scans can
+still miss closely spaced roots and cannot certify arbitrary discontinuous
+callbacks. Inequalities use those same roots to classify interval endpoints.
+
+Definite reciprocal-power integrals preserve exact rational endpoint arithmetic.
+Affine trigonometric poles are checked across the whole interval using their
+period, including reciprocal sine/cosine denominators. Uncertified nonlinear
+trigonometric pole domains produce a diagnostic. Singular or unsupported
+removable limits produce diagnostics rather than unverified large finite values.

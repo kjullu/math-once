@@ -1,4 +1,4 @@
-#import "@local/math-once:0.45.0": evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline
+#import "@local/math-once:0.45.0": school, evaluate-code, calculate, calculation-builder, reset, reset-variables, reset-functions, restore-units, reset-unit-aliases, unload, rename-unit, text-unit, matrix, equation, equation-outline
 
 #let result = evaluate-code(`6 * 7`, unit: `kg`)
 #assert(result.value == 42)
@@ -100,3 +100,6 @@
   assert(structures().X.shape == (2, 2))
   assert(structures().arrow_w.values == (5.0, 11.0))
 }
+
+// School helpers must also be available from the staged local package.
+#assert(school.rank(((1,2),(2,4))) == 1)

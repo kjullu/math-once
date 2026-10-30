@@ -39,5 +39,16 @@
   "invalid-reset-name.typ": "names must contain letters and optional letter or number subscripts",
   "invalid-reset-units.typ": "math-once reset: units must be auto, a boolean, or an array of names",
   "tan-undefined.typ": "math-once calculate: `tan` is undefined at odd multiples of 90 degrees",
-  "invalid-auto-digits.typ": "math-once calculation-builder: auto-digits must be decimal or significant"
+  "invalid-auto-digits.typ": "math-once calculation-builder: auto-digits must be decimal or significant",
+  "school-singular.typ": "school: singular matrix or pivot below tolerance",
+  "school-root-bracket.typ": "school: root must be bracketed",
+  "school-regression-domain.typ": "school: y must be positive",
+  "school-nonlinear.typ": "school: nonlinear system did not converge",
+  "school-parallel.typ": "school: parallel or contained line has no unique intersection",
+  "cas-degree-operation.typ": "CAS trig calculus uses radians; select angles: radians",
+  "cas-degree-definition.typ": "CAS trig calculus uses radians; select angles: radians",
+  "bridge-degree-derived.typ": "CAS trig calculus uses radians; select angles: radians",
+  "bridge-degree-stored.typ": "CAS trig calculus uses radians; select angles: radians",
+  "bridge-degree-nested.typ": "CAS trig calculus uses radians; select angles: radians",
+  "builder-degree-nested.typ": "CAS trig calculus uses radians; select angles: radians"
 }
