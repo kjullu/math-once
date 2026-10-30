@@ -1,6 +1,6 @@
 # WordMat → MathOnce school workflow inventory
 
-Status: **phase one incomplete; independent Claude coverage gate pending**.
+Status: **phase one PASS**, independently reviewed by Claude Opus 5.5 on 2026-10-30 after six coverage rounds. Daily-school coverage is sufficient to proceed to the integration hill climb, subject to the explicit limits below.
 Research date: 2026-10-30. Base package: 0.45.0, school mathematics demo.
 
 ## Sources and method
@@ -22,34 +22,29 @@ listed where relevant. This is a workflow inventory, not a button-count score.
 
 ## Coverage
 
-| HTX task | MathOnce evidence / example | Status and limits |
+Existing builder evidence remains in `tests/calculate.typ`, `tests/functions.typ`, `tests/qalc-units.typ`, `tests/trigonometry.typ`, `tests/symbolic-cas.typ` and `tests/vectors-matrices.typ`. Those cover arithmetic, reusable definitions, units, symbolic simplification/factor/calculus, real polynomial solve and matrix/vector arithmetic. They do not prove arbitrary CAS equivalence.
+
+The original `tests/school.typ` exercises descriptive statistics, transformed regressions, binomial/normal distributions, scalar numerical calculus, SSS and pivoted systems. `tests/school-extended.typ` is the runnable evidence for this phase:
+
+| Manual workflow | Runnable evidence | Limits |
 | --- | --- | --- |
-| Arithmetic, substitutions, reusable definitions | `calculate`, builder assignments; `tests/calculate.typ`, `tests/functions.typ` | Existing; unit-aware. |
-| Units, conversion, degrees, precision | `tests/qalc-units.typ`, `tests/trigonometry.typ`, significant-digit fixtures | Existing; school numeric helpers below do not carry units. |
-| Simplify, factor, derivative, antiderivative, limits, Taylor | `tests/symbolic-cas.typ`; `diff(f,x)`, `integrate(2*x,x)` | Existing typCAS subset; operation names alone do not establish full algebraic coverage. |
-| Solve polynomial equation | `solve(x^2-4,x)` in symbolic fixture | Existing tested root set; transcendental/trigonometric families, assumptions and inequalities remain unverified/gaps. |
-| Numerical equation or intersection | `school.bisect(x => x*x - 2,0,2)` | Added; one continuous sign-changing bracket only. Tangent/even roots and all-root search remain gaps. |
-| Simultaneous linear equations | `school.linear-solve(((0,2),(1,1)),(4,3))` → (1,2) | Added pivoted numeric square systems; symbolic and nonlinear systems missing. |
-| Definite area/integral | Simpson cubic integral 0..2 → 4, reversed quadratic bounds tested | Added fixed-step finite numerical integral; improper integrals missing. |
-| Numerical derivative | Cubic at 2 → 12 | Added central difference; no symbolic working output. |
-| Differential equation with initial value | RK4 y′=y, y(0)=1 → y(1)≈e | Added scalar first order; symbolic, higher-order and coupled systems missing. |
-| Data summary and quartiles | Mean/variance assertions, interpolated quartile 1.75 | Added numeric API; grouped/weighted data and textbook quartile modes missing. |
-| Linear regression and prediction | y=2x+1; slope, prediction and R² checked | Added; inferential statistics and parameter confidence intervals missing. |
-| Exponential/power/log regression | Predict 24, 27, 7 from known synthetic models | Added transformed least squares; polynomial, sinus and custom regression missing. |
-| Combinations, binomial point/tail | C(5,2)=10; P(X=3)=.1171875, P(X≤3)=.171875 | Added; hypothesis tests and interval estimators missing. |
-| Normal density, interval, inverse | CDF ±1.96 and 97.5% quantile checked | Added approximation; tails have limited precision. |
-| t and chi-square distributions/tests | No public implementation | Gap; not excluded from school scope. |
-| Vector arithmetic | `tests/vectors-matrices.typ` | Existing unit-aware addition/scaling. |
-| Dot/cross, length, angle | Basis-vector cross and right angle checked; numeric `school` calls | Added; line/plane intersections and projection workflows remain gaps. |
-| Matrix arithmetic | Matrix multiplication and vector products asserted in existing fixture | Existing. |
-| Matrix inverse/system solve | Triangular inverse, row-pivoted solve checked | Added numerical arrays; standalone singular-safe determinant, rank and eigenvalues missing. |
-| Triangle geometry | SSS 3–4–5 area and right angle checked | Added SSS only; SAS/ASA/SSA and ambiguous two-solution cases missing. |
-| 2D plots, intersections visually | No MathOnce plot API | Gap; Typst drawing primitives alone do not count. |
-| Histograms, box plots, scatter/residual plots | No MathOnce chart API | Gap. |
-| Slope fields, parametric/3D plots | No implementation | Gap; 2D daily-use graphing has priority. |
-| Complex arithmetic and polar form | No verified public workflow | Gap. |
-| Lists, sums, products, piecewise | Typst arrays/map/sum and function `if` expressions | Available through Typst code, not builder expression syntax; school docs provide numeric callbacks. Symbolic sum/product remains unverified. |
-| Formula collection and physical constants | Unit catalogue exists; no comparable formula browser | Gap for reusable school formula recipes; browser UI is excluded below. |
+| Function/parametric graphs, §§8 | Two functions and closed circle | Fixed finite samples; split discontinuous domains manually. |
+| Histogram, box, scatter, residual charts, §8 | Rendered chart page for each | Explicit histogram edges, interpolated quartiles, min/max whiskers; no Tukey outlier convention; `normal-plot` adds a rendered normal QQ chart. |
+| Slope field, §8 | y′=x−y field | Fixed grid; no 3D surface renderer. |
+| Polynomial, sinus/custom regression, §9 | Known quadratic and recovered sine/line parameters | Polynomial normal equations can be ill-conditioned. Custom/sinus fit is local, must inspect `converged` and try plausible starts. |
+| Grouped/frequency data, §8 | Weighted and grouped means | Population moments; grouped midpoint approximation. |
+| t and chi-square, §10 | Cauchy CDF, t10 and chi-square4 reference quantiles, one-sample/Welch, GOF/independence | Numerical finite precision; modelling and expected-cell assumptions remain caller responsibility. |
+| Intervals and tests, §10 | Mean, variance, Wilson, regression intervals and exact binomial test | No automatic assumptions check or multiple-testing correction. |
+| Coupled/higher-order ODE, §12 | Harmonic oscillator reaches y=1 at π/2 | First-order state arrays; fixed RK4, not stiff/adaptive or symbolic solving. |
+| Vector geometry, §13 | Projection, line/plane, line/line, plane/plane | Unique intersections only; degenerate cases reject. |
+| Matrices, §14 | Singular-safe determinant, row swap and rectangular rank | Absolute numeric pivot tolerance; eigen decomposition remains unimplemented. |
+| Complex numbers, §15 | Product/division, polar argument, roots of −1 | Numeric Cartesian pairs, separate from builder expressions; no symbolic complex equation solving. |
+| Formula collection, §16 | Quadratic, interest/annuity, decay, constant acceleration | Callable recipes rather than formula browser; not a complete physics formula collection. |
+| General triangle, §19 | SAS, AAS, SSA zero and two solutions | Exactly three independent measurements; radians, no measurement uncertainty. |
+| Numerical equation systems, §6 | Two nonlinear equations from nearby start | Local damped Newton; singular Jacobian/nonconvergence reject. |
+| Multiple numerical roots, §6 | Simple and repeated roots from a non-aligned scan | Bounded smooth finite domain search; no completeness guarantee. Existing symbolic solve is preferable for exact polynomial root sets. |
+
+School helpers take plain numbers. Unit-aware builder calls remain available separately. `doc/school.md` specifies signatures, assumptions, numerical conventions and runnable recipes.
 
 ## Justified exclusions
 
@@ -67,27 +62,62 @@ this is a priority judgement, not proof that HTX never uses them.
 
 ## Gate and validation
 
-No complete-coverage claim and no phase-two integration score. Remaining school
-mathematics gaps above must be implemented or explicitly agreed with the parent
-and independent Claude reviewer before phase two. The module is a usable first
-increment, not completion of the requested hill climb.
+The independent Claude coverage gate passed after the removable-limit derivative guard and eight regression cases were added. No phase-two integration work or complete WordMat-equivalence claim has been made. Remaining gaps include eigenvalues, broader formula recipes, and symbolic inequality/assumption and general solution-family coverage. These remain visible for reviewer assessment, not silently excluded as exotic.
 
-Validation details are recorded after the test run below. Numeric fixture tests
-check answers rather than merely successful rendering; they do not establish
-WordMat UI fidelity or full CAS equivalence.
+The reference inventory was cross-checked against the official online contents and manual on 2026-10-30. No live WordMat or VBA/Maxima audit was performed. Installed typCAS 0.2.3 source and the existing dispatch/tests were inspected before adding separate numerical routines. Its solve engine already contains complex polynomial roots and inverse-function isolation; the builder now adds an adapter for common school equation classes and tests those branches explicitly. It does not claim complete CAS equivalence.
 
-### Validation result
+### Earlier school-expansion validation
 
-- `python3 tools/test.py`: **102/102 compilation and expected-diagnostic checks
-  passed**, with no pending PDF baseline changes on the final run (Typst 0.14.2).
-- `tests/school.typ`: 40 known-answer numerical comparisons and three explicit
-  assertions, including boundary binomial probabilities, transformed prediction,
-  noisy-data R², reversed integration and row-pivoted equations.
-- Three expected errors cover singular systems, an unbracketed root and invalid
-  regression domains. Broader invalid-input coverage remains desirable.
-- Reviewed the retained new school PDF from `build/pdf-review/review.md`, including
-  rendered text, before accepting only `tests/school.typ`. Existing PDF baselines
-  remained unchanged. The final run verified the accepted hash.
-- Local-package staging now includes `school.typ`; the package import fixture
-  passed. No live WordMat comparison or independent reviewer gate occurred.
-- `git diff --check` passed. No commits, tags, or other Git mutations were made.
+- `python3 tools/test.py`: 105/105 compilation and expected-diagnostic checks passed before acceptance, with only the new `tests/school-extended.typ` PDF awaiting review. Existing baselines remained unchanged.
+- The extended fixture contains 64 direct numeric/assertion checks, covering nonlinear residuals, repeated roots, degree-six polynomial fitting, sinus fitting and explicit nonconvergence, distribution reference quantiles, Welch degrees of freedom, chi-square p-values, weighted moments, SSA ambiguity, geometry and recipes. These supplement the original school fixture.
+- Two new expected diagnostics cover nonlinear nonconvergence and a parallel line/plane; the original three cover singular systems, root brackets and invalid transformed-regression domains.
+- Inspected all five pages of the retained PDF linked by `build/pdf-review/review.md`, including chart scaling, visible scatter markers, and the short-height grouped histogram. Accepted only `tests/school-extended.typ` after that inspection. The accepted SHA-256 is `ec9f369388419a1fc20fab50cfe80d823f359dee2b480e5fdab1134e14bed979`.
+- The staged local-package import fixture exercises `school.rank`; no additional modules require staging. Base version stays 0.45.0.
+- Post-acceptance `python3 tools/test.py`: **105/105 passed**, with no pending PDF reviews. `git diff --check` passed. No Git mutation, live WordMat run, independent Claude review or phase-two integration work was performed.
+
+
+### CAS blocker repair evidence awaiting independent re-review
+
+`tests/symbolic-school.typ` asserts numeric answers for every reported common-equation blocker, the parameter-quadratic root count, identity status, nested extrema roots, exact-e derivative evaluation, definite integral, expansion, both positive infinity spellings, real-only quadratic/cubic roots and unsupported periodic diagnostics. It checks first-order particular ODE initial conditions and differential residuals at several x values, symbolic parameter evaluation, inequality endpoint flags and isolated equality points, and bounded sine roots.
+
+The builder now offers `expand(expression)` and `integrate(expression,variable,lower,upper)`. `solve` keeps real numeric candidates that satisfy the original equation. Symbolic parameter formulas assume nondegenerate coefficients and require caller domain checks. Unsupported empty fallback solves emit diagnostics. Periodic equations require the explicit bounded `school.roots` route rather than displaying incomplete inverse-trigonometric branches as complete sets. `school.inequality` provides finite smooth-domain interval records with endpoint flags; it shares the numerical scan's completeness limits. `school.ode-particular` supplies exponential, affine and logistic symbolic initial-value recipes. See `doc/school.md` for signatures and examples.
+
+Remaining limits: no general symbolic inequality engine, periodic families, automatic assumptions/parameter case splitting, eigenvalues, or arbitrary symbolic integration. Numerical scans require finite smooth callbacks and cannot guarantee all roots. Symbolic `x*e^x` and `sin(x)*cos(x)` primitives are not promised. These limits remain part of the coverage gate, not phase-two work.
+
+Final local validation of these CAS repairs: `python3 tools/test.py` passed **106/106** compilation/diagnostic checks after acceptance, with no pending PDF differences. Inspected both actual retained pages of `tests/symbolic-school.typ`, reviewed its assertions and intended equations, and accepted only that fixture's new PDF baseline, SHA-256 `e5a525e2ea58c3067b493bc4cc2cde467eda4922f6c7bb38466baf3e875c894e`. Existing fixture baselines stayed unchanged during these repairs. `git diff --check` passed. No agents, Git mutations, WordMat live execution or phase-two work were performed; independent Claude re-review remains required.
+
+### Native Typst workflows
+
+| Workflow | Runnable route | Limit |
+| --- | --- | --- |
+| Piecewise functions | `let f(x) = if x < 0 {-x} else {x}; school.roots(x => f(x) - 2, -3, 3)` | Numeric callbacks only; no symbolic piecewise solver. Caller must split discontinuous domains. |
+| Finite sums | `range(1, 6).map(x => x*x).sum()` | No symbolic summation or infinite-series convergence engine. |
+| Lists | `let xs = (1, 2, 3); xs.map(x => 2*x)` | Native Typst arrays; no WordMat list-command parser. |
+
+The regression fixture executes these native workflows. Scale-aware numerical root validation rejects the tested jump and pole, but is not a continuity proof. The callback contract still requires a finite continuous real domain, and scanning does not guarantee completeness.
+
+### Phase-one correctness guardrails
+
+Symbolic integration supports affine reciprocals through logarithms of absolute
+values, reciprocal powers, positive constant-base exponentials, monomial
+products (including square roots), and real quadratic reciprocals with distinct
+roots. Engine fallback primitives must pass derivative comparison at at least
+three independent real-domain samples; this is a numerical safeguard, not a
+symbolic proof. Unsupported primitives produce a diagnostic.
+
+Positive-infinity limits currently certify simple reciprocal and negative-power
+decay to exact zero. Growing exponentials, polynomials, square roots and logarithms
+at infinity produce an explicit unsupported-limit diagnostic before calling the
+engine. Finite poles and logarithmic domain boundaries require one-sided analysis
+and produce diagnostics. General negative infinity remains unsupported.
+
+Bounded numerical roots use local slope and curvature residual scales without
+an absolute unit floor. Multiplying a function by a nonzero constant therefore
+does not change the acceptance criterion. Stationary-point scans retain repeated
+roots; pole crossings must also pass the local residual check. Finite scans can
+still miss closely spaced roots and cannot certify arbitrary discontinuous
+callbacks. Inequalities use those same roots to classify interval endpoints.
+
+### Independent coverage decision
+
+Claude Opus 5.5 passed phase one on 2026-10-30. The final focused review compiled all eight shifted/scaled square-root crash cases independently, confirmed diagnostics with no stored results, checked nearby singular expressions, and verified seven valid limits. Earlier rounds checked daily-school equation, calculus, statistics, geometry, graphing and numerical workflows. This is daily-school coverage approval under the documented limitations, not complete WordMat or CAS equivalence. The integration score remains pending.

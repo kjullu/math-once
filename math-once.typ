@@ -3134,7 +3134,7 @@ let variable-symbol-name(symbol) = {
   none
 }
 
-let cas-functions = ("simplify", "diff", "integrate", "solve", "factor", "limit", "taylor")
+let cas-functions = ("simplify", "expand", "diff", "integrate", "solve", "factor", "limit", "taylor")
 let rounding-functions = ("floor", "ceil", "round")
 let trigonometric-functions = ("sin", "cos", "tan")
 let inverse-trigonometric-functions = ("asin", "acos", "atan")
@@ -4501,10 +4501,23 @@ let symbolic-expression(tokens, scope) = {
     return calculation-failure("CAS arguments must not be empty")
   }
 
+  let nested = symbolic-call(tokens)
+  if nested != none {
+    let input = symbolic-expression(nested.arguments.first(), scope)
+    if is-calculation-failure(input) { return input }
+    let result = if nested.operation == "diff" and nested.arguments.len()==2 {
+      cas.diff(input, symbolic-name-argument(nested.arguments.at(1), "diff"))
+    } else if nested.operation in ("simplify", "expand") {
+      cas.simplify(input, expand: nested.operation=="expand")
+    } else { return calculation-failure("Nested call supports diff, simplify and expand; store other calls first") }
+    if not cas.ok(result) { return calculation-failure(cas.error-message(result)) }
+    return cas.expr-of(result)
+  }
   let names = tokens.map(symbolic-token-name)
   let expression = cas.parse(symbolic-source(tokens))
   for (name, item) in scope {
     if name not in names { continue }
+    if name in built-in-constants and item == built-in-constants.at(name) { continue }
 
     let replacement = none
     if is-symbolic-expression(item) {
@@ -4539,10 +4552,429 @@ let symbolic-expression(tokens, scope) = {
   expression
 }
 
+// Small expression constructors keep the adapter independent of typCAS internals.
+let sx-num(v) = (type: "num", val: v)
+let sx-add(a,b) = (type: "add", args: (a,b))
+let sx-neg(a) = (type: "neg", arg: a)
+let sx-sub(a,b) = sx-add(a,sx-neg(b))
+let sx-mul(a,b) = (type: "mul", args: (a,b))
+let sx-div(a,b) = (type: "div", num:a, den:b)
+let sx-pow(a,b) = (type:"pow", base:a, exp:b)
+let sx-simple(a) = {
+  let result=cas.simplify(a,expand:true)
+  if cas.ok(result) {cas.expr-of(result)} else {a}
+}
+let sx-zero(a) = sx-simple(a) == sx-num(0)
+let sx-has(a,v) = {
+  if type(a) != dictionary { return false }
+  if a.at("type",default:none) == "var" { return a.name == v }
+  a.values().any(x => if type(x)==array { x.any(y=>sx-has(y,v)) } else { sx-has(x,v) })
+}
+// Clear rational denominators, retaining original expressions for validation.
+let sx-fraction(a) = {
+  if a.type == "div" {
+    let n=sx-fraction(a.num); let d=sx-fraction(a.den)
+    return (sx-mul(n.at(0),d.at(1)),sx-mul(n.at(1),d.at(0)))
+  }
+  if a.type == "neg" { let p=sx-fraction(a.arg); return (sx-neg(p.at(0)),p.at(1)) }
+  if a.type in ("add","mul") {
+    let p=(if a.type=="add" { sx-num(0) } else { sx-num(1) },sx-num(1))
+    for term in a.args {
+      let q=sx-fraction(term)
+      p=if a.type=="add" { (sx-add(sx-mul(p.at(0),q.at(1)),sx-mul(q.at(0),p.at(1))),sx-mul(p.at(1),q.at(1))) }
+        else { (sx-mul(p.at(0),q.at(0)),sx-mul(p.at(1),q.at(1))) }
+    }
+    return p
+  }
+  (a,sx-num(1))
+}
+let sx-any-variable(a) = {
+  if type(a)!=dictionary { return false }
+  if a.at("type",default:none)=="var" { return true }
+  a.values().any(x=>if type(x)==array {x.any(sx-any-variable)} else {sx-any-variable(x)})
+}
+let sx-exp-factors(a,v) = {
+  if a.type=="pow" and a.base==cas.parse("e") {return (a,)}
+  if a.type=="neg" {return sx-exp-factors(a.arg,v)}
+  if a.type=="mul" {return a.args.fold((),(out,t)=>out+sx-exp-factors(t,v))}
+  ()
+}
+let sx-remove-factor(a,f) = {
+  if a==f {return sx-num(1)}
+  if a.type=="neg" {let p=sx-remove-factor(a.arg,f); return if p==none {none} else {sx-neg(p)}}
+  if a.type=="mul" {
+    let parts=a.args
+    for (i,t) in parts.enumerate() {
+      let p=sx-remove-factor(t,f)
+      if p!=none {parts.at(i)=p; return (type:"mul",args:parts)}
+    }
+  }
+  none
+}
+let sx-candidates(lhs,rhs,v,depth:0) = {
+  if depth > 12 { return none }
+  let l=sx-simple(lhs); let r=sx-simple(rhs)
+  let recur(a,b)=sx-candidates(a,b,v,depth:depth+1)
+  if not sx-has(l,v) and sx-has(r,v) { return recur(r,l) }
+  if l.type=="func" and l.name=="abs" {
+    let a=recur(l.arg,r); let b=recur(l.arg,sx-neg(r))
+    if a!=none and b!=none { return a+b }
+  }
+  if sx-zero(r) and l.type=="add" {
+    for factor in sx-exp-factors(l.args.first(),v) {
+      let parts=l.args.map(t=>sx-remove-factor(t,factor))
+      if parts.all(p=>p!=none) {return recur((type:"add",args:parts),r)}
+    }
+  }
+  if sx-zero(r) and l.type=="mul" {
+    let roots=()
+    for a in l.args {
+      if not sx-has(a,v) {
+        let value=cas.eval(a)
+        if cas.ok(value) and type(cas.value-of(value)) in (int,float) and cas.value-of(value)!=0 {continue}
+      }
+      if a.type=="pow" and not sx-has(a.base,v) {
+        let value=cas.eval(a.base)
+        if cas.ok(value) and type(cas.value-of(value)) in (int,float) and cas.value-of(value) > 0 {continue}
+      }
+      let part=recur(a,sx-num(0))
+      if part==none { return none }
+      roots+=part
+    }
+    return roots
+  }
+  if l.type=="div" and not sx-has(l.num,v) and not sx-zero(r) {
+    return recur(l.den,sx-div(l.num,r))
+  }
+  if l.type=="pow" {
+    let exponent=cas.eval(l.exp)
+    if cas.ok(exponent) and cas.value-of(exponent)==0.5 { return recur(l.base,sx-pow(r,sx-num(2))) }
+  }
+  if not sx-has(r,v) {
+    if l.type=="log" { return recur(l.arg,sx-pow(l.base,r)) }
+    if l.type=="add" and l.args.all(a=>a.type=="log") and l.args.all(a=>a.base==l.args.first().base) {
+      return recur(l.args.fold(sx-num(1),(p,a)=>sx-mul(p,a.arg)),sx-pow(l.args.first().base,r))
+    }
+    if l.type=="neg" { return recur(l.arg,sx-neg(r)) }
+    if l.type in ("add","mul") {
+      let dependent=l.args.filter(a=>sx-has(a,v))
+      let constant=l.args.filter(a=>not sx-has(a,v))
+      if dependent.len()==1 and constant.len() > 0 {
+        let c=constant.fold(sx-num(if l.type=="add" {0} else {1}), (a,b)=>if l.type=="add" {sx-add(a,b)} else {sx-mul(a,b)})
+        return recur(dependent.first(),if l.type=="add" {sx-sub(r,c)} else {sx-div(r,c)})
+      }
+    }
+    if l.type=="pow" {
+      if not sx-has(l.base,v) and sx-has(l.exp,v) {
+        let ln(a)=(type:"func",name:"ln",args:(a,),arg:a)
+        let base-value=cas.eval(l.base)
+        if not cas.ok(base-value) or type(cas.value-of(base-value)) not in (int,float) or cas.value-of(base-value) <= 0 or cas.value-of(base-value)==1 {return none}
+        let value=cas.eval(r)
+        if not cas.ok(value) or type(cas.value-of(value)) not in (int,float) {return none}
+        if cas.value-of(value) <= 0 { return () }
+        return recur(l.exp,sx-div(ln(r),ln(l.base)))
+      }
+      let exponent=cas.eval(l.exp)
+      if cas.ok(exponent) and type(cas.value-of(exponent)) in (int,float) and cas.value-of(exponent)!=0 {
+        let p=cas.value-of(exponent)
+        let value=cas.eval(r)
+        if cas.ok(value) and type(cas.value-of(value)) in (int,float) {
+          let c=cas.value-of(value)
+          if c==0 and p < 0 {return ()}
+          if c < 0 and p!=calc.floor(p) {return none}
+          if c < 0 and calc.rem(int(p),2)==0 { return () }
+          let root=if c < 0 {sx-neg(sx-pow(sx-neg(r),sx-div(sx-num(1),l.exp)))} else {sx-pow(r,sx-div(sx-num(1),l.exp))}
+          let a=recur(l.base,root)
+          if p==calc.floor(p) and calc.rem(int(p),2)==0 and c > 0 {
+            let b=recur(l.base,sx-neg(root))
+            if a!=none and b!=none {return a+b}
+          }
+          return a
+        }
+      }
+    }
+    if l.type=="func" and l.name=="abs" {
+      let a=recur(l.arg,r); let b=recur(l.arg,sx-neg(r))
+      if a!=none and b!=none { return a+b }
+    }
+  }
+  let exp-log(a) = {
+    if a.type=="pow" and not sx-has(a.base,v) {
+      let value=cas.eval(a.base)
+      if cas.ok(value) and type(cas.value-of(value)) in (int,float) and cas.value-of(value) > 0 {return sx-mul(a.exp,(type:"func",name:"ln",args:(a.base,),arg:a.base))}
+    }
+    if a.type=="mul" {
+      let parts=a.args.map(exp-log)
+      if parts.all(p=>p!=none) {return parts.fold(sx-num(0),sx-add)}
+    }
+    if not sx-has(a,v) {
+      let value=cas.eval(a)
+      if cas.ok(value) and type(cas.value-of(value)) in (int,float) and cas.value-of(value) > 0 {return (type:"func",name:"ln",args:(a,),arg:a)}
+    }
+    none
+  }
+  if sx-has(l,v) and sx-has(r,v) {
+    let a=exp-log(l); let b=exp-log(r)
+    if a!=none and b!=none {return recur(a,b)}
+  }
+  let f=sx-simple(sx-fraction(sx-sub(l,r)).first())
+  let dr=cas.diff(f,v)
+  if not cas.ok(dr) {return none}
+  let d=cas.expr-of(dr); let ddr=cas.diff(d,v)
+  if not cas.ok(ddr) {return none}
+  let dd=cas.expr-of(ddr); let dddr=cas.diff(dd,v)
+  if not cas.ok(dddr) {return none}
+  let ddd=cas.expr-of(dddr)
+  if sx-zero(ddd) {
+    let values=(f,d,dd).map(a=>cas.substitute(a,v,0))
+    if values.any(r=>not cas.ok(r)) {return none}
+    let c=sx-simple(cas.expr-of(values.at(0))); let b=sx-simple(cas.expr-of(values.at(1))); let a=sx-simple(sx-div(cas.expr-of(values.at(2)),sx-num(2)))
+    if not sx-zero(a) {
+      let disc=sx-sub(sx-pow(b,sx-num(2)),sx-mul(sx-num(4),sx-mul(a,c)))
+      let root=sx-pow(disc,sx-div(sx-num(1),sx-num(2)))
+      return (sx-simple(sx-div(sx-add(sx-neg(b),root),sx-mul(sx-num(2),a))),sx-simple(sx-div(sx-sub(sx-neg(b),root),sx-mul(sx-num(2),a))))
+    }
+    if not sx-zero(b) { return (sx-simple(sx-div(sx-neg(c),b)),) }
+  }
+  let result=cas.solve(l,rhs:r,var:v)
+  if not cas.ok(result) {return none}
+  let roots=cas.roots-of(result)
+  if roots.len() > 0 { return roots }
+  none
+}
+let sx-periodic(a,v) = {
+  if type(a)!=dictionary { return false }
+  if a.at("type",default:none)=="func" and a.at("name",default:"") in ("sin","cos","tan","cot","sec","csc") and sx-has(a,v) { return true }
+  a.values().any(x=>if type(x)==array {x.any(y=>sx-periodic(y,v))} else {sx-periodic(x,v)})
+}
+let sx-denominators(a) = {
+  if type(a)!=dictionary {return ()}
+  let found=if a.at("type",default:"")=="div" {(a.den,)} else {()}
+  if a.at("type",default:"")=="pow" {
+    let e=cas.eval(a.exp)
+    if cas.ok(e) and type(cas.value-of(e)) in (int,float) and cas.value-of(e) < 0 {found.push(a.base)}
+  }
+  for value in a.values() {
+    if type(value)==array {for child in value {found+=sx-denominators(child)}} else {found+=sx-denominators(value)}
+  }
+  found
+}
+let sx-domain-restricted(a,v) = {
+  if type(a)!=dictionary {return false}
+  if a.at("type",default:"")=="pow" and sx-has(a.base,v) {
+    let exponent=cas.eval(a.exp)
+    if not cas.ok(exponent) or type(cas.value-of(exponent)) not in (int,float) {return true}
+    let p=cas.value-of(exponent)
+    if p < 0 or p!=calc.floor(p) {return true}
+  }
+  if a.at("type",default:"")=="func" and a.at("name",default:"") in ("ln","log","sqrt","tan") and sx-has(a,v) {return true}
+  a.values().any(x=>if type(x)==array {x.any(t=>sx-domain-restricted(t,v))} else {sx-domain-restricted(x,v)})
+}
+let school-symbolic-solve(lhs,rhs,v,source) = {
+  if sx-periodic(lhs,v) or sx-periodic(rhs,v) {
+    return calculation-failure("Periodic solve requires a finite interval; use school.roots with explicit bounds in radians")
+  }
+  let difference=sx-simple(sx-sub(lhs,rhs))
+  let status=if sx-zero(difference) { "all" } else if not sx-has(difference,v) { "none" } else { "finite" }
+  if status=="all" and ((sx-denominators(lhs)+sx-denominators(rhs)).any(d=>sx-has(d,v)) or sx-domain-restricted(lhs,v) or sx-domain-restricted(rhs,v)) {
+    return calculation-failure("Identity has domain exclusions; solve on an explicit domain")
+  }
+  if status=="none" and sx-any-variable(difference) {
+    return calculation-failure("Parameter-dependent identity requires conditions; substitute parameter values first")
+  }
+  let candidates=if status=="finite" { sx-candidates(lhs,rhs,v) } else { () }
+  if candidates==none { return calculation-failure("Symbolic solve could not determine solutions; use school.roots with an explicit finite domain") }
+  let roots=()
+  for root in candidates {
+    if root==none { continue }
+    let value=cas.eval(root)
+    // Numeric candidates must satisfy the original equation in its real domain.
+    if cas.ok(value) and not sx-any-variable(root) {
+      let x=cas.value-of(value)
+      if type(x) not in (int,float) { continue }
+      let le=cas.eval(lhs,bindings: ((v):x)); let re=cas.eval(rhs,bindings:((v):x))
+      if not cas.ok(le) or not cas.ok(re) { continue }
+      let a=cas.value-of(le); let b=cas.value-of(re)
+      if type(a) not in (int,float) or type(b) not in (int,float) { continue }
+      if calc.abs(a - b) > 1e-7*calc.max(1,calc.abs(a),calc.abs(b)) { continue }
+    }
+    if root not in roots { roots.push(root) }
+  }
+  (symbolic:true,symbolic-kind:"roots",expression:none,roots:roots,operation:"solve",source:source,
+    solution-status:if status=="finite" and roots.len()==0 { "none" } else { status },restrictions:(),warnings:())
+}
+
+let sx-unevaluated(a) = {
+  if type(a)!=dictionary {return false}
+  if a.at("type",default:"") in ("integral","def-integral","limit") {return true}
+  a.values().any(x=>if type(x)==array {x.any(sx-unevaluated)} else {sx-unevaluated(x)})
+}
+// Period-aware poles for affine trig arguments. Uncertified nonlinear arguments fail closed.
+let sx-trig-domain(a,v,lo,hi,denominator:false) = {
+  if type(a)!=dictionary {return true}
+  let kind=a.at("type",default:"")
+  if kind=="func" {
+    let name=a.name
+    if name in ("tan","sec","cot","csc") or (denominator and name in ("sin","cos")) {
+      let dr=cas.diff(a.arg,v)
+      if not cas.ok(dr) {return false}
+      let slope=cas.expr-of(dr)
+      if sx-has(slope,v) {return false}
+      let ends=(lo,hi).map(x=>cas.eval(a.arg,bindings:((v):x)))
+      if ends.any(r=>not cas.ok(r) or type(cas.value-of(r)) not in (int,float)) {return false}
+      let phases=ends.map(cas.value-of)
+      let offset=if name in ("tan","sec","cos") {calc.pi/2} else {0}
+      let l=(calc.min(..phases)-offset)/calc.pi
+      let h=(calc.max(..phases)-offset)/calc.pi
+      let slack=1e-14*calc.max(1,calc.abs(l),calc.abs(h))
+      if calc.ceil(l - slack) <= calc.floor(h+slack) {return false}
+    }
+  }
+  if kind=="div" {
+    return sx-trig-domain(a.num,v,lo,hi) and sx-trig-domain(a.den,v,lo,hi,denominator:true)
+  }
+  if kind=="pow" {
+    let e=cas.eval(a.exp)
+    if cas.ok(e) and type(cas.value-of(e)) in (int,float) and cas.value-of(e) < 0 {
+      return sx-trig-domain(a.base,v,lo,hi,denominator:true)
+    }
+  }
+  a.values().all(x=>if type(x)==array {x.all(t=>sx-trig-domain(t,v,lo,hi,denominator:denominator))} else {sx-trig-domain(x,v,lo,hi,denominator:denominator)})
+}
+// Certify fractional-power and logarithm domains across the interval, including extrema.
+let sx-interval-domain(a,v,lo,hi) = {
+  if type(a)!=dictionary {return true}
+  let base=none; let strict=false
+  if a.at("type",default:"")=="pow" {
+    let p=cas.eval(a.exp)
+    if cas.ok(p) and type(cas.value-of(p)) in (int,float) and cas.value-of(p)!=calc.floor(cas.value-of(p)) {base=a.base}
+  }
+  if a.at("type",default:"")=="func" and a.at("name",default:"") in ("ln","log","sqrt") {
+    base=a.arg; strict=a.name!="sqrt"
+  }
+  if base!=none {
+    let points=(lo,hi)
+    let derivative=cas.diff(base,v)
+    if not cas.ok(derivative) {return false}
+    let d=cas.expr-of(derivative)
+    if sx-has(d,v) {
+      let extrema=sx-candidates(d,sx-num(0),v)
+      if extrema==none {return false}
+      for root in extrema {
+        let result=cas.eval(root)
+        if not cas.ok(result) or type(cas.value-of(result)) not in (int,float) {return false}
+        let x=cas.value-of(result)
+        if calc.min(lo,hi) < x and x < calc.max(lo,hi) {points.push(x)}
+      }
+    }
+    for x in points {
+      let result=cas.eval(base,bindings:((v):x))
+      if not cas.ok(result) or type(cas.value-of(result)) not in (int,float) {return false}
+      let y=cas.value-of(result)
+      if y < 0 or (strict and y==0) {return false}
+    }
+  }
+  a.values().all(x=>if type(x)==array {x.all(t=>sx-interval-domain(t,v,lo,hi))} else {sx-interval-domain(x,v,lo,hi)})
+}
+// Validate engine primitives at independent real-domain samples before use.
+let sx-verified-primitive(a,p,v) = {
+  let d=cas.diff(p,v)
+  if not cas.ok(d) {return false}
+  let checked=0
+  for x in (-3.7,-1.3,0.23,0.71,1.37,2.61,5.19) {
+    let expected=cas.eval(a,bindings:((v):x))
+    let actual=cas.eval(cas.expr-of(d),bindings:((v):x))
+    if cas.ok(expected) and cas.ok(actual) {
+      let y=cas.value-of(expected); let z=cas.value-of(actual)
+      if type(y) in (int,float) and type(z) in (int,float) {
+        if y!=y or z!=z or calc.abs(y)==calc.inf or calc.abs(z)==calc.inf {continue}
+        if calc.abs(y - z) > 1e-7*calc.max(calc.abs(y),calc.abs(z),1e-100) {return false}
+        checked+=1
+      }
+    }
+  }
+  checked >= 3
+}
+let sx-primitive(a,v) = {
+  if a.type=="div" and not sx-has(a.num,v) {
+    if a.den.type=="pow" and not sx-has(a.den.exp,v) {
+      return sx-primitive(sx-mul(a.num,sx-pow(a.den.base,sx-neg(a.den.exp))),v)
+    }
+    let first=cas.diff(a.den,v)
+    if not cas.ok(first) {return none}
+    let second-result=cas.diff(cas.expr-of(first),v)
+    if not cas.ok(second-result) {return none}
+    let second=cas.expr-of(second-result)
+    if not sx-has(second,v) and not sx-zero(sx-simple(second)) {
+      let roots=sx-candidates(a.den,sx-num(0),v)
+      if roots!=none and roots.len()==2 {
+        let r=roots.first(); let t=roots.last()
+        let logpart(z)=(type:"func",name:"ln",arg:(type:"func",name:"abs",arg:sx-sub(cas.parse(v),z)))
+        let p=sx-div(sx-mul(sx-num(2),sx-mul(a.num,sx-sub(logpart(r),logpart(t)))),sx-mul(second,sx-sub(r,t)))
+        if sx-verified-primitive(a,p,v) {return p}
+      }
+    }
+    return sx-primitive(sx-mul(a.num,sx-pow(a.den,sx-num(-1))),v)
+  }
+
+  if a.type=="add" {
+    let parts=a.args.map(t=>sx-primitive(t,v))
+    if parts.any(p=>p==none) {return none}
+    return parts.fold(sx-num(0),sx-add)
+  }
+  if a.type=="neg" {let p=sx-primitive(a.arg,v); return if p==none {none} else {sx-neg(p)}}
+  if a.type=="mul" {
+    let exponent(t)={
+      if t==cas.parse(v) {return sx-num(1)}
+      if t.type=="pow" and t.base==cas.parse(v) and not sx-has(t.exp,v) {return t.exp}
+      if t.type=="func" and t.name=="sqrt" and t.arg==cas.parse(v) {return sx-div(sx-num(1),sx-num(2))}
+      none
+    }
+    if a.args.all(t=>exponent(t)!=none) {
+      return sx-primitive(sx-pow(cas.parse(v),a.args.map(exponent).fold(sx-num(0),sx-add)),v)
+    }
+    let dependent=a.args.filter(t=>sx-has(t,v))
+    let constants=a.args.filter(t=>not sx-has(t,v))
+    if dependent.len()==1 and constants.len() > 0 {
+      let p=sx-primitive(dependent.first(),v)
+      return if p==none {none} else {sx-mul(constants.fold(sx-num(1),sx-mul),p)}
+    }
+  }
+  if a.type=="func" and a.name=="sqrt" {return sx-primitive(sx-pow(a.arg,sx-div(sx-num(1),sx-num(2))),v)}
+  if a.type=="pow" and not sx-has(a.exp,v) and sx-has(a.base,v) {
+    let derivative=cas.diff(a.base,v)
+    if not cas.ok(derivative) {return none}
+    let slope=sx-simple(cas.expr-of(derivative))
+    let power=cas.eval(a.exp)
+    if cas.ok(power) and type(cas.value-of(power)) in (int,float) and not sx-has(slope,v) and not sx-zero(slope) {
+      if cas.value-of(power)==-1 {
+        return sx-div((type:"func",name:"ln",arg:(type:"func",name:"abs",arg:a.base)),slope)
+      }
+      let next=sx-add(a.exp,sx-num(1))
+      if cas.value-of(power) < -1 {return sx-div(sx-num(1),sx-mul(sx-mul(slope,next),sx-pow(a.base,sx-neg(next))))}
+      return sx-div(sx-pow(a.base,next),sx-mul(slope,next))
+    }
+  }
+  if a.type=="pow" and not sx-has(a.base,v) {
+    let base=cas.eval(a.base)
+    if not cas.ok(base) or type(cas.value-of(base)) not in (int,float) or cas.value-of(base) <= 0 or cas.value-of(base)==1 {return none}
+    let derivative=cas.diff(a.exp,v)
+    if not cas.ok(derivative) {return none}
+    let slope=sx-simple(cas.expr-of(derivative))
+    if not sx-has(slope,v) and not sx-zero(slope) {return sx-div(a,sx-mul(slope,(type:"func",name:"ln",arg:a.base)))}
+  }
+  let result=cas.integrate(a,v)
+  if not cas.ok(result) {return none}
+  let substituted=cas.substitute(cas.expr-of(result),"C",0)
+  if not cas.ok(substituted) {return none}
+  let p=cas.expr-of(substituted)
+  if p==none or sx-unevaluated(p) or not sx-verified-primitive(a,p,v) {none} else {p}
+}
+
 let symbolic-result(call, scope) = {
   let operation = call.operation
   let arguments = call.arguments
-  let expected = if operation in ("simplify",) {
+  let expected = if operation in ("simplify", "expand") {
     "one expression"
   } else if operation in ("diff", "integrate") {
     "an expression and a variable"
@@ -4555,8 +4987,9 @@ let symbolic-result(call, scope) = {
   } else {
     "an expression, a variable, a center, and a non-negative integer order"
   }
-  let valid-arity = if operation == "simplify" { arguments.len() == 1 }
-    else if operation in ("diff", "integrate") { arguments.len() == 2 }
+  let valid-arity = if operation in ("simplify", "expand") { arguments.len() == 1 }
+    else if operation == "diff" { arguments.len() == 2 }
+    else if operation == "integrate" { arguments.len() in (2, 4) }
     else if operation == "solve" { arguments.len() in (2, 3) }
     else if operation == "factor" { arguments.len() in (1, 2) }
     else if operation == "limit" { arguments.len() == 3 }
@@ -4570,10 +5003,48 @@ let symbolic-result(call, scope) = {
 
   let result = if operation == "simplify" {
     cas.simplify(input)
+  } else if operation == "expand" {
+    cas.simplify(input, expand: true)
   } else if operation in ("diff", "integrate") {
     let variable = symbolic-name-argument(arguments.at(1), operation)
     if is-calculation-failure(variable) { return variable }
-    if operation == "diff" { cas.diff(input, variable) } else { cas.integrate(input, variable) }
+    if operation == "diff" { cas.diff(input, variable) } else {
+      let bounds = if arguments.len() == 4 { arguments.slice(2).map(a => symbolic-expression(a, scope)) } else { none }
+      if bounds != none and bounds.any(is-calculation-failure) { return bounds.find(is-calculation-failure) }
+      let primitive=sx-primitive(input,variable)
+      if primitive==none {return calculation-failure("Unsupported symbolic integral; use school.integral with a real-domain callback and bounds")}
+      if bounds==none {cas.simplify(sx-add(primitive,(type:"const",name:"C")))} else {
+        let values=bounds.map(b=>cas.eval(b))
+        if values.any(b=>not cas.ok(b)) {return calculation-failure("Integration bounds must be finite real numbers")}
+        let lo=cas.value-of(values.first()); let hi=cas.value-of(values.last())
+        if type(lo) not in (int,float) or type(hi) not in (int,float) {return calculation-failure("Integration bounds must be finite real numbers")}
+        if not sx-trig-domain(input,variable,lo,hi) {return calculation-failure("Integral interval contains a trig pole or uncertified trig domain")}
+        if not sx-interval-domain(input,variable,lo,hi) {return calculation-failure("Cannot certify real integral domain on the full interval")}
+        for den in sx-denominators(input) {
+          if not sx-has(den,variable) {
+            let value=cas.eval(den)
+            if cas.ok(value) and type(cas.value-of(value)) in (int,float) and cas.value-of(value)!=0 {continue}
+            return calculation-failure("Cannot certify integral denominator")
+          }
+          let zeros=sx-candidates(den,sx-num(0),variable)
+          if zeros==none {return calculation-failure("Cannot certify integral domain; use school.integral on a verified interval")}
+          for z in zeros {
+            let value=cas.eval(z)
+            if not cas.ok(value) {return calculation-failure("Cannot certify integral domain")}
+            let x=cas.value-of(value)
+            if type(x) in (int,float) and calc.min(lo,hi) <= x and x <= calc.max(lo,hi) {return calculation-failure("Integral interval contains a pole")}
+          }
+        }
+        let upper=cas.substitute(primitive,variable,bounds.last())
+        let lower=cas.substitute(primitive,variable,bounds.first())
+        if not cas.ok(upper) or not cas.ok(lower) {return calculation-failure("Unsupported integral endpoint")}
+        let answer=cas.simplify(sx-sub(cas.expr-of(upper),cas.expr-of(lower)))
+        if not cas.ok(answer) {return calculation-failure("Unsupported integral endpoint")}
+        let value=cas.eval(cas.expr-of(answer))
+        if not cas.ok(value) or type(cas.value-of(value)) not in (int,float) {return calculation-failure("Integral is not real on the supplied interval")}
+        answer
+      }
+    }
   } else if operation == "solve" {
     let variable-tokens = arguments.last()
     let variable = symbolic-name-argument(variable-tokens, operation)
@@ -4584,7 +5055,7 @@ let symbolic-result(call, scope) = {
       0
     }
     if is-calculation-failure(right) { return right }
-    cas.solve(input, rhs: right, var: variable)
+    return school-symbolic-solve(input, right, variable, symbolic-source(call.tokens))
   } else if operation == "factor" {
     let variable = if arguments.len() == 2 {
       symbolic-name-argument(arguments.at(1), operation)
@@ -4598,7 +5069,68 @@ let symbolic-result(call, scope) = {
     if is-calculation-failure(variable) { return variable }
     let target = symbolic-expression(arguments.at(2), scope)
     if is-calculation-failure(target) { return target }
-    cas.limit(input, variable, target)
+    let target-source=symbolic-source(arguments.at(2)).replace(" ","")
+    if target-source in ("-oo","-infinity","-inf","-∞","-∞", "−oo", "−infinity") or (target.at("type",default:"")=="neg" and target.arg.at("name",default:"") in ("oo","infinity","inf","∞")) {
+      if input.type=="pow" and input.base==cas.parse("e") and input.exp==cas.parse(variable) {return (symbolic:true,symbolic-kind:"expression",expression:sx-num(0),roots:(),operation:operation,source:symbolic-source(call.tokens),restrictions:(),warnings:())}
+      return calculation-failure("Unsupported negative-infinity limit")
+    }
+    // Infinity is handled structurally; typCAS numerical sampling is not proof.
+    if target.at("name",default:"") in ("oo","infinity","inf","∞") {
+      let decay(a) = {
+        if a.type=="div" and not sx-has(a.num,variable) and a.den==cas.parse(variable) {return true}
+        if a.type=="pow" and a.base==cas.parse(variable) {
+          let e=cas.eval(a.exp)
+          return cas.ok(e) and type(cas.value-of(e)) in (int,float) and cas.value-of(e) < 0
+        }
+        false
+      }
+      if decay(input) {cas.simplify(sx-num(0))} else {return calculation-failure("Unsupported positive-infinity limit; growth requires structural analysis")}
+    } else {
+      let at=cas.eval(target)
+      if not cas.ok(at) or type(cas.value-of(at)) not in (int,float) {return calculation-failure("Limit target must be real")}
+      if not sx-trig-domain(input,variable,cas.value-of(at),cas.value-of(at)) {return calculation-failure("Limit target is a trig pole or uncertified trig domain")}
+      // A removable quotient with a simple denominator zero has a derivative ratio.
+      if input.type=="div" {
+        let n=cas.eval(input.num,bindings:((variable):cas.value-of(at)))
+        let d=cas.eval(input.den,bindings:((variable):cas.value-of(at)))
+        if cas.ok(n) and cas.ok(d) and cas.value-of(n)==0 and cas.value-of(d)==0 {
+          let nr=cas.diff(input.num,variable); let dr=cas.diff(input.den,variable)
+          if not cas.ok(nr) or not cas.ok(dr) {return calculation-failure("Unsupported removable limit")}
+          let nd=cas.expr-of(nr)
+          let dd=cas.expr-of(dr)
+          // Check the numerator derivative before symbolic substitution can
+          // simplify a singular rational expression and panic inside typCAS.
+          let nv=cas.eval(nd,bindings:((variable):cas.value-of(at)))
+          if not cas.ok(nv) {return calculation-failure("Unsupported removable limit")}
+          let numerator-value=cas.value-of(nv)
+          if type(numerator-value) not in (int,float) {return calculation-failure("Unsupported removable limit")}
+          if numerator-value != numerator-value or calc.abs(numerator-value)==calc.inf {return calculation-failure("Unsupported removable limit")}
+          let dv=cas.eval(dd,bindings:((variable):cas.value-of(at)))
+          if cas.ok(dv) and type(cas.value-of(dv)) in (int,float) and cas.value-of(dv)!=0 and sx-interval-domain(nd,variable,cas.value-of(at),cas.value-of(at)) {
+            let substituted=cas.substitute(sx-div(nd,dd),variable,target)
+            if not cas.ok(substituted) {return calculation-failure("Unsupported removable limit")}
+            let answer=cas.simplify(cas.expr-of(substituted))
+            if not cas.ok(answer) {return calculation-failure("Unsupported removable limit")}
+            let checked=cas.eval(cas.expr-of(answer))
+            if cas.ok(checked) and type(cas.value-of(checked)) in (int,float) {
+              return (symbolic:true,symbolic-kind:"expression",expression:cas.expr-of(answer),roots:(),operation:operation,source:symbolic-source(call.tokens),restrictions:(),warnings:())
+            }
+          }
+        }
+      }
+      for den in sx-denominators(input) {
+        let value=cas.eval(den,bindings:((variable):cas.value-of(at)))
+        if not cas.ok(value) or cas.value-of(value)==0 {return calculation-failure("Two-sided limit at a singularity requires one-sided analysis")}
+      }
+      if not sx-interval-domain(input,variable,cas.value-of(at),cas.value-of(at)) {return calculation-failure("Limit at a domain boundary requires one-sided analysis")}
+      let value=cas.eval(input,bindings:((variable):cas.value-of(at)))
+      if not cas.ok(value) or type(cas.value-of(value)) not in (int,float) {return calculation-failure("Cannot certify finite real limit")}
+      let y=cas.value-of(value)
+      if y!=y or calc.abs(y)==calc.inf {return calculation-failure("Cannot certify finite real limit")}
+      let substituted=cas.substitute(input,variable,target)
+      if not cas.ok(substituted) {return calculation-failure("Unsupported finite limit substitution")}
+      cas.simplify(cas.expr-of(substituted))
+    }
   } else {
     let variable = symbolic-name-argument(arguments.at(1), operation)
     if is-calculation-failure(variable) { return variable }
@@ -4635,6 +5167,7 @@ let render-symbolic-result(result) = {
   if result.symbolic-kind == "expression" {
     return cas.display(result.expression)
   }
+  if result.at("solution-status", default: none) == "all" { return math.RR }
   if result.roots.len() == 0 { return math.emptyset }
   let body = []
   for (index, root) in result.roots.enumerate() {
@@ -5765,7 +6298,7 @@ let calculation-builder(
         return
       }
       let has-display-symbol = evaluation-tokens.any(is-display-only-token)
-      if has-display-symbol {
+      if has-display-symbol and symbolic-call(evaluation-tokens)==none {
         if illegal-assignment {
           builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
         } else if stores-result {
@@ -6298,7 +6831,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// displays the result without storing `v`. Other equations that do not have a
 /// simple variable on the left remain display-only. Later expressions show an
 /// extra step with stored variable values substituted. A label can be written after
-/// the call as `#runner(...) <name>` or passed with `label: <name>`. Calling
+/// the call as `#runner(...) < name>` or passed with `label: <name>`. Calling
 /// the runner without an expression returns its result dictionary and must
 /// happen in a `context` block. `caption` adds text below a block equation;
 /// `gap` controls the space above that caption. Assigning to a reserved unit
@@ -6398,7 +6931,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// - `supplement`: Optional reference and caption name. Default: `auto`.
 ///
 /// The result remains a real `math.equation`, so a postfix label can be added
-/// as `#equation($ ... $, caption: [...]) <label>` and referenced with `@label`.
+/// as `#equation($ ... $, caption: [...]) < label>` and referenced with `@label`.
 #let equation(body, caption: none, gap: 0.65em, supplement: auto) = {
   if type(body) != content or body.func() != math.equation {
     panic("math-once equation: body must be a Typst math equation")

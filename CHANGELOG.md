@@ -2,8 +2,26 @@
 
 ## School mathematics demo (based on 0.45.0)
 
+- **Breaking**: Builder `solve` now filters numeric candidates to real solutions of the original equation. Code needing complex polynomial roots must call typCAS directly with its complex field instead of relying on the builder's former implicit complex output.
+- **Breaking**: Builder periodic solves now report that an interval is required instead of returning incomplete inverse-trigonometric branches. Use `school.roots(callback, lower, upper)` with explicit bounds in radians.
+
+- Repair round-four phase-one blockers: retain exact reciprocal-power endpoint fractions, reject periodic trig poles, guard unsupported removable-limit CAS results, and preserve detected pole cuts in inequality charts. Add callback domain exclusions and document uncaught callback errors and finite-scan limits.
+
+- Check numerator derivatives before removable-limit substitution to diagnose shifted, scaled and quadratic square-root singularities without a typCAS panic.
+
+- Repair the second phase-one review blockers: reject nonpositive exponential targets, evaluate definite integrals through antiderivatives with interval checks, reject unevaluated integrals and poles, scale numerical root residuals, extend real equation isolation, and diagnose excluded or parameter-dependent identities and singular limits. Add executable positive and invalid-domain regressions and document native piecewise, sum and list workflows.
+
+- Fix phase-one correctness blockers: verify CAS antiderivatives against derivatives at multiple real samples; add affine reciprocal logarithms, reciprocal powers, positive-base exponentials, monomial products and real quadratic reciprocal primitives. Guard infinity limits before typCAS and diagnose unsupported growth and singular boundaries. Remove unit-scale root tolerances and use local slope/curvature residuals, including inequality endpoints.
+
+- Extended school workflows with portable function/parametric/data/slope-field charts, t and chi-square inference, polynomial and iterative custom/sinus fitting, weighted/grouped summaries, general triangles with SSA alternatives, complex pairs, line/plane geometry, determinant/rank, coupled RK4, numerical systems and bounded root scans, and reusable financial/physics recipes. Existing APIs remain available. See `doc/school.md` for assumptions and numerical limits.
+
 - Added the plain-number `school` API for descriptive statistics, four regression models, binomial and normal probabilities, numerical calculus, bracketed roots, scalar RK4 differential equations, vector/triangle geometry, and pivoted linear-system solving and matrix inversion. See `doc/school.md` for conventions and limits.
-- Added a sourced WordMat workflow coverage inventory; coverage remains incomplete pending further implementation and independent review.
+- Added a sourced WordMat workflow coverage inventory; independent Claude review passed daily-school coverage under the documented limits.
+
+- Repair common exponential, radical, rational, absolute-value, logarithmic and parameter-quadratic equations. Validate numeric candidates in the original real-domain equation, distinguish identities from unsupported solve fallbacks, and evaluate nested derivatives used in extrema calculations.
+- Preserve symbolic Euler's constant; add builder `expand`, four-argument definite integration, linear exponential primitives and positive-infinity limit targets.
+- Add symbolic first-order particular ODE recipes and bounded numerical inequality intervals with explicit endpoint flags. Document real-domain, periodic and unsupported-integral limits. Add result assertions in `tests/symbolic-school.typ`.
+
 
 ## 0.45.0
 

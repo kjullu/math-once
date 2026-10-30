@@ -42,5 +42,7 @@
   "invalid-auto-digits.typ": "math-once calculation-builder: auto-digits must be decimal or significant",
   "school-singular.typ": "school: singular matrix or pivot below tolerance",
   "school-root-bracket.typ": "school: root must be bracketed",
-  "school-regression-domain.typ": "school: y must be positive"
+  "school-regression-domain.typ": "school: y must be positive",
+  "school-nonlinear.typ": "school: nonlinear system did not converge",
+  "school-parallel.typ": "school: parallel or contained line has no unique intersection"
 }
