@@ -71,3 +71,5 @@ the simplest form for unit-heavy expressions.
 See [Units and prefixes](units.md) for the supported unit system and see [all Supported units](supported-units.md) for a list of all units.
 
 Existing documents can also use [`reset-variables`](reset-variables.md), [`reset-functions`](reset-functions.md), [`restore-units`](restore-units.md), and [`reset-unit-aliases`](reset-unit-aliases.md). The `matrix` alias and `number-labelled-equations(captions: ...)` remain supported.
+
+School workflows: [operations, numerical limits and builder bridge](school.md).

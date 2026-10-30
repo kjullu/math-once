@@ -62,7 +62,7 @@ this is a priority judgement, not proof that HTX never uses them.
 
 ## Gate and validation
 
-The independent Claude coverage gate passed after the removable-limit derivative guard and eight regression cases were added. No phase-two integration work or complete WordMat-equivalence claim has been made. Remaining gaps include eigenvalues, broader formula recipes, and symbolic inequality/assumption and general solution-family coverage. These remain visible for reviewer assessment, not silently excluded as exotic.
+The independent Claude coverage gate passed after the removable-limit derivative guard and eight regression cases were added. Phase two subsequently passed independent Claude integration review at 9.3/10. No complete WordMat-equivalence claim is made. Remaining gaps include eigenvalues, broader formula recipes, and symbolic inequality/assumption and general solution-family coverage. These remain visible for reviewer assessment, not silently excluded as exotic.
 
 The reference inventory was cross-checked against the official online contents and manual on 2026-10-30. No live WordMat or VBA/Maxima audit was performed. Installed typCAS 0.2.3 source and the existing dispatch/tests were inspected before adding separate numerical routines. Its solve engine already contains complex polynomial roots and inverse-function isolation; the builder now adds an adapter for common school equation classes and tests those branches explicitly. It does not claim complete CAS equivalence.
 
@@ -120,4 +120,8 @@ callbacks. Inequalities use those same roots to classify interval endpoints.
 
 ### Independent coverage decision
 
-Claude Opus 5.5 passed phase one on 2026-10-30. The final focused review compiled all eight shifted/scaled square-root crash cases independently, confirmed diagnostics with no stored results, checked nearby singular expressions, and verified seven valid limits. Earlier rounds checked daily-school equation, calculus, statistics, geometry, graphing and numerical workflows. This is daily-school coverage approval under the documented limitations, not complete WordMat or CAS equivalence. The integration score remains pending.
+Claude Opus 5.5 passed phase one on 2026-10-30. The final focused review compiled all eight shifted/scaled square-root crash cases independently, confirmed diagnostics with no stored results, checked nearby singular expressions, and verified seven valid limits. Earlier rounds checked daily-school equation, calculus, statistics, geometry, graphing and numerical workflows. This is daily-school coverage approval under the documented limitations, not complete WordMat or CAS equivalence. Claude Opus 5.5 subsequently scored integration 9.3/10, meeting the strictly-above-9 target.
+
+### Integration decision
+
+Claude Opus 5.5 scored phase two 9.3/10 on 2026-10-30 after five integration reviews. Independent probes confirmed the complete school workflow, angle safety, exact constant reuse, compiled callbacks, and hidden second-derivative storage on A4. Residual limits include manual hiding of long formulas, callback domain exclusions, CAS coverage and formatting limitations, and raw float serialization handled through the documented hidden-storage recipe. The implementing agents reviewed changed PDFs; the final full suite covers 116 compilation and diagnostic checks.

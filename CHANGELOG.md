@@ -2,8 +2,20 @@
 
 ## School mathematics demo (based on 0.45.0)
 
+- **Breaking**: Trigonometric CAS calculus now requires an explicitly radians builder. Use `calculation-builder(angles: "radians")`. Degree bridge callbacks reject calculus-derived trigonometry, including compositions.
+
+- **Breaking**: Stored function calls may now use unit names such as `g`, `h`, `l` and `m`; bare names retain unit meaning. Code relying on rejection of those function definitions must rename or remove them.
+
 - **Breaking**: Builder `solve` now filters numeric candidates to real solutions of the original equation. Code needing complex polynomial roots must call typCAS directly with its complex field instead of relying on the builder's former implicit complex output.
 - **Breaking**: Builder periodic solves now report that an interval is required instead of returning incomplete inverse-trigonometric branches. Use `school.roots(callback, lower, upper)` with explicit bounds in radians.
+
+- Allow hidden function definitions so long second derivatives remain reusable without printing an overflowing formula. Add a default-step A4 benchmark regression for the hidden second derivative and its numerical evaluation.
+- Simplify compiled calculus functions before storage, show their formulas in definitions, and omit expanded substitution steps for derived calls. Reuse finite constant CAS expressions numerically while retaining their exact symbolic AST. Remove the default plot caption while retaining custom axis captions.
+
+- Respect explicit degree/radian units in radians builders, preserve inverse-trig conventions, retain stored derivative variables, remember rejected function names, and support verified antiderivative function definitions with C = 0. Trig bridge callbacks require explicit angle selection; symbolic calculus assumes radians. Add two-curve legends, a hidden-storage precision recipe, explicit log arity guidance, scalar atan2 callbacks, and a measured composite calculus benchmark.
+
+- Integrate numerical school workflows through `school-bridge`, numeric result storage via `school.value-source`, digit-bearing assignment names, a shared explicit degree/radian helper set, and consistent selectable median-of-halves quartiles. Copy both Typst modules for local installation.
+- Compile school callbacks once with captured symbolic scope and explicit radians/degrees; add reusable symbolic derivative function bodies, logarithm/exponential evaluation, malformed-body guards, natural solve equations, and a pedagogical default-sampling workflow. Builder numerical trig accepts an explicit radians option. Normalize CAS display signs and repeated factors without altering stored exact expressions. Reject nonfinite school value serialization; allow explicitly quoted coefficient variables while preserving bare physical units.
 
 - Repair round-four phase-one blockers: retain exact reciprocal-power endpoint fractions, reject periodic trig poles, guard unsupported removable-limit CAS results, and preserve detected pole cuts in inequality charts. Add callback domain exclusions and document uncaught callback errors and finite-scan limits.
 

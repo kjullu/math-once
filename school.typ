@@ -9,17 +9,26 @@
   let m = mean(xs)
   xs.map(x => (x - m) * (x - m)).sum() / (xs.len() - if sample { 1 } else { 0 })
 }
-#let quantile(xs, p) = {
+#let quantile(xs, p, method: "linear") = {
   check-data(xs)
   assert(0 <= p and p <= 1, message: "school: probability must be in [0,1]")
   let ys = xs.sorted()
+  assert(method in ("linear", "median-halves"), message: "school: unknown quantile method")
+  if method == "median-halves" {
+    assert(p in (0, 0.25, 0.5, 0.75, 1), message: "school: median-halves supports quartiles only")
+    if p == 0 { return ys.first() }
+    if p == 1 { return ys.last() }
+    if p == 0.5 or ys.len() == 1 { return quantile(ys, 0.5) }
+    let half = int(calc.floor(ys.len()/2))
+    return quantile(if p == 0.25 { ys.slice(0, half) } else { ys.slice(ys.len() - half) }, 0.5)
+  }
   let h = (ys.len() - 1) * p
   let i = int(calc.floor(h))
   ys.at(i) + (h - i) * (ys.at(calc.min(i + 1, ys.len() - 1)) - ys.at(i))
 }
-#let describe(xs) = (
+#let describe(xs, method: "linear") = (
   count: xs.len(), mean: mean(xs), median: quantile(xs, 0.5),
-  q1: quantile(xs, 0.25), q3: quantile(xs, 0.75),
+  q1: quantile(xs, 0.25, method: method), q3: quantile(xs, 0.75, method: method),
   min: calc.min(..xs), max: calc.max(..xs),
   variance: variance(xs, sample: false), sd: calc.sqrt(variance(xs, sample: false)),
 )
@@ -540,7 +549,7 @@
   (p-value:calc.min(1,probability))
 }
 // SVG output is portable to PDF and requires no external plotting package.
-#let chart(series,x-range:none,y-range:none,width:12cm,height:7cm,x-label:"x",y-label:"y",equal-scale:false) = {
+#let chart(series,x-range:none,y-range:none,width:12cm,height:7cm,x-label:"x",y-label:"y",labels:(),equal-scale:false) = {
   assert(series.len() > 0)
   let points=series.fold((),(acc,s)=>acc+s.points)
   assert(points.len() > 0)
@@ -588,7 +597,9 @@
     }
   }
   svg+="</g></svg>"
-  stack(spacing:3pt,image(bytes(svg),width:width,height:height,fit:"contain"),align(center,[#y-label versus #x-label]))
+  assert(labels.len() == 0 or labels.len() == series.len(), message: "school: one label per series required")
+  let legend = labels.enumerate().map(((i,label)) => text(fill: rgb(colors.at(calc.rem(i,colors.len()))), label)).join(h(1em))
+  stack(spacing:3pt,image(bytes(svg),width:width,height:height,fit:"contain"), ..if x-label == "x" and y-label == "y" { () } else { (align(center,[#y-label versus #x-label]),) }, ..if labels.len() == 0 { () } else { (align(center,legend),) })
 }
 #let plot(functions,a,b,steps:200,..options) = {
   assert(a < b and type(steps)==int and steps > 0)
@@ -610,8 +621,8 @@
   })
   chart(bars,..options)
 }
-#let box-plot(xs,..options) = {
-  let d=describe(xs)
+#let box-plot(xs,method: "linear",..options) = {
+  let d=describe(xs, method: method)
   chart(((points:((d.min,0.5),(d.q1,0.5),(d.q1,0),(d.q3,0),(d.q3,1),(d.q1,1),(d.q1,0.5),(d.max,0.5))),
     (points:((d.median,0),(d.median,1)))),y-range:( - 0.5,1.5),..options)
 }
@@ -745,4 +756,42 @@
     }
   }
   intervals.sorted(key:i=>i.lo)
+}
+
+// One explicit convention shared by trigonometry, geometry and complex numbers.
+#let angles(mode: "radians") = {
+  assert(mode in ("radians", "degrees"), message: "school: angle mode must be radians or degrees")
+  let scale = if mode == "degrees" { calc.pi/180 } else { 1 }
+  let convert(t) = {
+    for name in ("alpha", "beta", "gamma") { t.at(name) /= scale }
+    t
+  }
+  (
+    sin: x => calc.sin(x*scale*1rad),
+    cos: x => calc.cos(x*scale*1rad),
+    tan: x => calc.tan(x*scale*1rad),
+    vector-angle: (u,v) => vector-angle(u,v)/scale,
+    triangle: (a,b,c) => convert(triangle(a,b,c)),
+    triangles: (a:none,b:none,c:none,alpha:none,beta:none,gamma:none) => triangles(
+      a:a,b:b,c:c,
+      alpha:if alpha==none { none } else { alpha*scale },
+      beta:if beta==none { none } else { beta*scale },
+      gamma:if gamma==none { none } else { gamma*scale }).map(convert),
+    complex-polar: z => { let p=complex-polar(z); p.argument /= scale; p },
+    complex-cartesian: (r,theta) => complex-cartesian(r,theta*scale),
+  )
+}
+
+// Serialize only numeric scalars/vectors/matrices for the existing builder API.
+#let value-source(value) = {
+  if type(value) in (int,float) {
+    assert(value == value and calc.abs(value) != calc.inf, message: "school: only finite values can be stored")
+    return str(value)
+  }
+  assert(type(value)==array and value.len()>0, message: "school: store a numeric field, vector or matrix")
+  if type(value.first())==array {
+    assert(value.all(row=>type(row)==array and row.len()==value.first().len()), message: "school: rectangular matrix required")
+    return "mat(" + value.map(row=>row.map(value-source).join(",")).join(";") + ")"
+  }
+  "vec(" + value.map(value-source).join(",") + ")"
 }

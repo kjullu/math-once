@@ -2,7 +2,8 @@
 
 Import `school` from `math-once.typ`. These are Typst functions operating on plain
 numbers and arrays, separate from the builder expression parser. They do not
-carry physical units, store builder state, or automatically print working.
+carry physical units or automatically print working. Use `school-bridge` and
+`school.value-source` below to exchange functions and numerical values with the builder.
 Angles returned by geometry functions are **radians as numbers**; multiply by
 `180 / calc.pi` for degrees. Never pass Typst angles to these helpers.
 
@@ -18,8 +19,8 @@ Area: #school.integral(x => x*x, 0, 2)
 | --- | --- |
 | `mean(xs)` | Arithmetic mean; nonempty numeric array. |
 | `variance(xs, sample: true)` | Sample variance divides by n−1; population option divides by n. |
-| `quantile(xs, p)` | Sorted linear interpolation at index `(n−1)p`, not a Danish textbook-specific quartile convention. |
-| `describe(xs)` | Count, mean, median, q1, q3, min, max, population variance and sd. |
+| `quantile(xs, p, method: "linear")` | Sorted linear interpolation at index `(n−1)p`, or selectable `"median-halves"` quartiles. |
+| `describe(xs, method: "linear")` | Count, mean, median, q1, q3, min, max, population variance and sd. |
 | `choose(n, k)` | Binomial coefficient for integers 0 ≤ k ≤ n. Floating arithmetic. |
 | `binomial(n, p, k, cumulative: false)` | P(X=k), or P(X≤k); tails outside support handled. |
 | `normal-pdf(x, mean: 0, sd: 1)` | Normal density, positive sd. |
@@ -57,7 +58,7 @@ All calls below are members of `school`. Callback arguments are Typst code, not 
 | `chart(series, x-range: none, y-range: none, width: 12cm, height: 7cm, x-label: "x", y-label: "y")` | Each series is `(points: ((x,y), ...), scatter: false)`. Explicit ranges clip the plot. Automatic ranges have 5% padding. `equal-scale: true` expands ranges to preserve coordinate aspect. Tick numbers show coordinate ranges; label arguments render below it. |
 | `scatter(xs, ys, ..options)`, `residual-plot(xs, fit, ..options)` | Observations or original-space fit residuals. |
 | `histogram(xs, edges, density: false, ..options)` | Explicit strictly increasing edges covering all data. Bins are left-closed, right-open except the last includes its endpoint. Density divides counts by sample size and bin width. |
-| `box-plot(xs, ..options)` | Interpolated quartiles and median; whiskers reach min/max. This is **not** a Tukey outlier plot. |
+| `box-plot(xs, method: "linear", ..options)` | Interpolated quartiles and median; whiskers reach min/max. This is **not** a Tukey outlier plot. |
 | `slope-field(f, x-range, y-range, columns: 16, rows: 12, ..options)` | Short normalized direction segments for y′=f(x,y). |
 | `weighted-summary(values, weights)` | Nonnegative weights, positive total. Population moments, not an unbiased sample estimator. Frequency or probability weights accepted. |
 | `grouped-summary(edges, counts)` | Midpoint approximation of grouped population moments. Bin edges strictly increase. |
@@ -169,3 +170,65 @@ derivative stencil can still stop compilation. Scanning cannot certify an
 arbitrary callback's domain or discover every discontinuity. Exclusions also
 leave a small numerical guard region during root search; roots inside that
 region require a separate verified interval.
+
+## Using builder functions and results
+
+`school-bridge(callback => content, key: "math-once-calculation")` reads the
+builder state at its document position. Inside it, `callback("g(x)")` returns a
+numeric Typst function usable by `plot`, `integral`, `derivative`, `roots` and
+other callback APIs. Multiple parameters use `callback("f(x,y)", parameters:
+("x", "y"))`. Values and function definitions come from that snapshot; place
+the bridge after the definitions. Results must be dimensionless numeric scalars.
+Errors stop compilation instead of supplying invented numeric values.
+
+```typ
+#let run = calculation-builder(digits: 3)
+#run("g(x) := x^2 - 4")
+#school-bridge(callback => {
+  let g = callback("g(x)")
+  school.plot(g, 0, 3)
+  run("area := " + school.value-source(school.integral(g, 0, 3)))
+})
+#run("area / 3")
+```
+
+`school.value-source(value)` converts numeric scalars, vectors and matrices into
+builder input. Select numeric fields from result records, for example
+`school.value-source(school.describe(data).mean)`. Store numerical outputs this
+way to reuse the builder's rounding, unit and rendering options. Computation in
+callbacks uses unrounded values; the bridge does not turn numerical estimates
+into symbolic exact results. Callback domain and accuracy restrictions still apply.
+
+Function names can shadow unit names in calls: `g(x)` is a function while bare
+`g` remains grams. Scalar unit assignments still require `unload`. Names such as
+`a1`, `t2`, and `ln5` are accepted in assignments and references.
+
+`school.angles(mode: "degrees")` returns `sin`, `cos`, `tan`, `vector-angle`,
+`triangle`, `triangles`, `complex-polar` and `complex-cartesian` using one angle
+convention. Use its trigonometric functions in chart callbacks too. Default mode
+is `"radians"`; original school functions retain their radians convention.
+This setting is explicit and does not change builder trigonometric semantics.
+
+`quantile`, `describe` and `box-plot` accept `method: "median-halves"`.
+This excludes an odd sample's median from both halves and takes each half's
+median. A singleton has identical quartiles. This method supports quartiles
+only; default `"linear"` retains interpolated arbitrary quantiles.
+
+For example, degree-based charting and geometry share the same settings object:
+
+```typ
+#let deg = school.angles(mode: "degrees")
+#let right = (deg.triangle)(3, 4, 5)
+#assert(calc.abs(right.gamma - 90) < 1e-8)
+#school.plot(x => (deg.sin)(x), 0, 360)
+```
+
+Typst requires parentheses when calling functions stored in these dictionaries.
+
+### Builder callbacks and angles
+
+`school-bridge(callback => ..., angles: "radians")` captures the builder state when its context is evaluated. Each callback compiles once; sampling does not tokenize or expand stored functions again. Trig callbacks require an explicit angle choice. Use `angles: "radians"` for symbolic calculus results, whose derivatives assume radians. Use `angles: "degrees"` for numerical trigonometric callbacks with degree arguments. Numerical `school.derivative` then measures change per degree; symbolic `diff` continues to assume radians.
+
+The calculation builder retains its historical degree default. Set `calculation-builder(angles: "radians")` when using numerical trigonometric results alongside CAS derivatives and integrals. CAS calculus always uses radians. Geometry has its own explicit `school.angles(mode: "degrees")` adapter.
+
+Natural logarithms, base-ten logarithms and exponentials use `ln(x)`, `log(x)` and `exp(x)`. Logarithms require positive dimensionless arguments. Define a reusable derivative with `df(x) := diff(f(x),x)` before creating its callback. For fitted coefficients use descriptive names, or explicitly quoted variables such as `"a" := 2` and `"b" := 1`. Refer to these as `"a"*x + "b"`; bare `a` and `b` retain their physical unit meanings.

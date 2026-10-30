@@ -1,4 +1,4 @@
-// School mathematics demo (0.45.0)
+// Integrated school workflows (0.45.0)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3140,7 +3140,7 @@ let trigonometric-functions = ("sin", "cos", "tan")
 let inverse-trigonometric-functions = ("asin", "acos", "atan")
 let inverse-trigonometric-aliases = ("arcsin", "arccos", "arctan")
 let inverse-trigonometric-names = inverse-trigonometric-functions + inverse-trigonometric-aliases
-let math-functions = trigonometric-functions + inverse-trigonometric-names + ("atan2", "sqrt", "root", "abs") + rounding-functions
+let math-functions = trigonometric-functions + inverse-trigonometric-names + ("atan2", "sqrt", "root", "abs", "ln", "log", "exp") + rounding-functions
 let structure-functions = ("vec", "matrix", "mat")
 let source-functions = math-functions + cas-functions + structure-functions
 let text-unit-prefix = "⟦"
@@ -3655,7 +3655,7 @@ let split-top-level(tokens, separator: ",") = {
 }
 
 let function-definition(source) = {
-  let matched = source.match(regex("^\\s*([A-Za-z]+(?:_[A-Za-z0-9]+)*)\\s*\\(([^()]*)\\)\\s*:=\\s*(.+)$"))
+  let matched = source.match(regex("^\\s*([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*)\\s*\\(([^()]*)\\)\\s*:=\\s*(.+)$"))
   if matched == none { return none }
   let parameters = matched.captures.at(1).split(",").map(item => item.trim())
   if parameters.len() == 0 or parameters.any(item => not is-name(item)) {
@@ -3700,6 +3700,29 @@ let substitute-function(definition, arguments) = {
   result
 }
 
+let symbolic-free-variables(a) = {
+  if type(a) != dictionary { return () }
+  if a.at("type", default: "") == "var" { return (a.name,) }
+  let names = ()
+  for value in a.values() {
+    if type(value) == dictionary { names += symbolic-free-variables(value) }
+    if type(value) == array { for child in value { names += symbolic-free-variables(child) } }
+  }
+  names.dedup()
+}
+
+let symbolic-code(a) = {
+  if a.type == "num" { return str(a.val) }
+  if a.type in ("var","const") { return a.name }
+  if a.type == "log" { return "(ln(" + symbolic-code(a.arg) + ")/ln(" + symbolic-code(a.base) + "))" }
+  if a.type == "neg" { return "(-(" + symbolic-code(a.arg) + "))" }
+  if a.type in ("add","mul") { return "(" + a.args.map(symbolic-code).join(if a.type == "add" { "+" } else { "*" }) + ")" }
+  if a.type == "div" { return "(" + symbolic-code(a.num) + ")/(" + symbolic-code(a.den) + ")" }
+  if a.type == "pow" { return "(" + symbolic-code(a.base) + ")^(" + symbolic-code(a.exp) + ")" }
+  if a.type == "func" { return a.name + "(" + symbolic-code(a.arg) + ")" }
+  ""
+}
+
 let expand-function-calls(tokens, scope, stack: (), depth: 0) = {
   if depth > 64 {
     return calculation-failure("stored function expansion exceeded 64 nested calls")
@@ -3710,6 +3733,10 @@ let expand-function-calls(tokens, scope, stack: (), depth: 0) = {
   while index < tokens.len() {
     let token = tokens.at(index)
     let definition = scope.at(token, default: none)
+    if type(definition) == dictionary and definition.at("failed-function", default: false) { return calculation-failure("function `" + token + "` has a rejected definition; redefine it before use") }
+    if type(definition) == dictionary and definition.at("symbolic-kind", default:"") == "expression" and index + 1 < tokens.len() and tokens.at(index+1) == "(" {
+      definition = (function:true, name:token, parameters:definition.at("parameters", default: symbolic-free-variables(definition.expression)), body-tokens:tokenize(symbolic-code(definition.expression)))
+    }
     if (type(definition) == dictionary
       and definition.at("function", default: false)
       and index + 1 < tokens.len()
@@ -3778,6 +3805,8 @@ let is-vector-result(result) = type(result) == dictionary and result.at("vector"
 let is-matrix-result(result) = type(result) == dictionary and result.at("matrix", default: false)
 let is-structure-result(result) = is-vector-result(result) or is-matrix-result(result)
 
+let is-failed-function(item) = type(item) == dictionary and item.at("failed-function", default: false)
+
 let numeric-scope(scope) = {
   let result = (:)
   for (name, value) in scope {
@@ -3787,11 +3816,12 @@ let numeric-scope(scope) = {
     let stored-function = type(value) == dictionary and value.at("function", default: false)
     let symbolic-result = type(value) == dictionary and value.at("symbolic", default: false)
     let structure-result = is-structure-result(value)
-    if (not unloaded-marker
+    if (not is-failed-function(value)
+      and not unloaded-marker
       and not unit-alias
       and not initial-state-marker
       and not stored-function
-      and not symbolic-result
+      and (not symbolic-result or (value.at("symbolic-kind", default: "") == "expression" and symbolic-free-variables(value.expression).len() == 0))
       and not structure-result) {
       result.insert(name, value)
     }
@@ -4071,7 +4101,7 @@ let top-level-structure-operator(tokens) = {
   best-index
 }
 
-let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, strict-units: false) = {
+let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, angles: "degrees", strict-units: false) = {
   tokens = unwrap-tokens(tokens)
   let scalar-scope = numeric-scope(scope)
   let components = vector-components(tokens)
@@ -4088,7 +4118,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
         block: false,
         unloaded: unloaded,
         aliases: aliases,
-        strict-units: strict-units,
+        angles: angles, strict-units: strict-units,
         soft: true,
       )
       if is-calculation-failure(result) { return result }
@@ -4123,7 +4153,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
           block: false,
           unloaded: unloaded,
           aliases: aliases,
-          strict-units: strict-units,
+          angles: angles, strict-units: strict-units,
           soft: true,
         )
         if is-calculation-failure(result) { return result }
@@ -4146,22 +4176,22 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
   if operator-index != none {
     let left-tokens = tokens.slice(0, operator-index)
     let right-tokens = tokens.slice(operator-index + 1)
-    let left = evaluate-structure(calculate-fn, left-tokens, digits, scope, aliases, unloaded, strict-units: strict-units)
+    let left = evaluate-structure(calculate-fn, left-tokens, digits, scope, aliases, unloaded, angles: angles, strict-units: strict-units)
     if is-calculation-failure(left) { return left }
-    let right = evaluate-structure(calculate-fn, right-tokens, digits, scope, aliases, unloaded, strict-units: strict-units)
+    let right = evaluate-structure(calculate-fn, right-tokens, digits, scope, aliases, unloaded, angles: angles, strict-units: strict-units)
     if is-calculation-failure(right) { return right }
     if left == none and right == none { return none }
     if left == none {
       left = calculate-fn(
         left-tokens.join(" "), digits: digits, scope: scalar-scope, block: false,
-        unloaded: unloaded, aliases: aliases, strict-units: strict-units, soft: true,
+        unloaded: unloaded, aliases: aliases, angles: angles, strict-units: strict-units, soft: true,
       )
       if is-calculation-failure(left) { return left }
     }
     if right == none {
       right = calculate-fn(
         right-tokens.join(" "), digits: digits, scope: scalar-scope, block: false,
-        unloaded: unloaded, aliases: aliases, strict-units: strict-units, soft: true,
+        unloaded: unloaded, aliases: aliases, angles: angles, strict-units: strict-units, soft: true,
       )
       if is-calculation-failure(right) { return right }
     }
@@ -4171,7 +4201,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
   }
 
   if tokens.len() > 1 and tokens.first() == "-" {
-    let inner = evaluate-structure(calculate-fn, tokens.slice(1), digits, scope, aliases, unloaded, strict-units: strict-units)
+    let inner = evaluate-structure(calculate-fn, tokens.slice(1), digits, scope, aliases, unloaded, angles: angles, strict-units: strict-units)
     if is-calculation-failure(inner) { return inner }
     if inner != none {
       let minus-one = calculate-fn("-1", digits: digits, block: false, soft: true)
@@ -4190,7 +4220,7 @@ let paired-sign-branches(tokens) = (
   tokens.map(token => if token == "±" { "-" } else if token == "∓" { "+" } else { token }),
 )
 
-let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, unloaded, aliases, strict-units: false) = {
+let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, unloaded, aliases, angles: "degrees", strict-units: false) = {
   let result = evaluate-structure(
     calculate-fn,
     add-implicit-multiplication(tokens),
@@ -4198,7 +4228,7 @@ let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, u
     scope,
     aliases,
     unloaded,
-    strict-units: strict-units,
+    angles: angles, strict-units: strict-units,
   )
   if result == none {
     return calculate-fn(
@@ -4210,7 +4240,7 @@ let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, u
       block: block,
       unloaded: unloaded,
       aliases: aliases,
-      strict-units: strict-units,
+      angles: angles, strict-units: strict-units,
       soft: true,
     )
   }
@@ -4496,7 +4526,44 @@ let symbolic-name-argument(tokens, operation) = {
   symbolic-token-name(tokens.first())
 }
 
+let symbolic-grammar(tokens) = {
+  let depth = 0
+  let operand = true
+  for token in tokens {
+    if token == "(" { depth += 1; operand = true }
+    else if token == ")" {
+      if operand or depth <= 0 { return false }
+      depth -= 1
+    } else if token in ("*", "/", "^", ",") {
+      if operand { return false }
+      operand = true
+    } else if token in ("+", "-") { operand = true }
+    else if token in ("=", ":=", ";") { return false }
+    else { operand = false }
+  }
+  depth == 0 and not operand
+}
+
 let symbolic-expression(tokens, scope) = {
+  let expanded = expand-function-calls(tokens, scope)
+  if is-calculation-failure(expanded) { return expanded }
+  tokens = expanded.first()
+  while tokens.len() > 2 and tokens.first() == "(" and tokens.last() == ")" {
+    let depth = 0
+    let wraps = true
+    for t in tokens.slice(0,-1) {
+      if t == "(" { depth += 1 }
+      if t == ")" { depth -= 1 }
+      if depth == 0 { wraps = false }
+    }
+    if not wraps { break }
+    tokens = tokens.slice(1,-1)
+  }
+  for token in tokens {
+    if is-stored-function(scope.at(token, default: none)) {
+      return calculation-failure("Function `" + token + "` requires arguments; use " + token + "(x)")
+    }
+  }
   if tokens.len() == 0 {
     return calculation-failure("CAS arguments must not be empty")
   }
@@ -4512,6 +4579,12 @@ let symbolic-expression(tokens, scope) = {
     } else { return calculation-failure("Nested call supports diff, simplify and expand; store other calls first") }
     if not cas.ok(result) { return calculation-failure(cas.error-message(result)) }
     return cas.expr-of(result)
+  }
+  if not symbolic-grammar(tokens) { return calculation-failure("Invalid symbolic expression: check operators and parentheses") }
+  for (i,t) in tokens.enumerate() {
+    if i + 1 < tokens.len() and tokens.at(i+1) == "(" and is-name(t) and t not in source-functions + ("cot","sec","csc") {
+      return calculation-failure("Unknown or rejected function: " + t)
+    }
   }
   let names = tokens.map(symbolic-token-name)
   let expression = cas.parse(symbolic-source(tokens))
@@ -4974,6 +5047,11 @@ let sx-primitive(a,v) = {
 let symbolic-result(call, scope) = {
   let operation = call.operation
   let arguments = call.arguments
+  if call.operation == "solve" and arguments.len() == 2 and "=" in arguments.first() {
+    let equation = arguments.first()
+    let index = equation.position(t => t == "=")
+    arguments = (equation.slice(0,index), equation.slice(index+1), arguments.last())
+  }
   let expected = if operation in ("simplify", "expand") {
     "one expression"
   } else if operation in ("diff", "integrate") {
@@ -5157,22 +5235,77 @@ let symbolic-result(call, scope) = {
     expression: expression,
     roots: roots,
     operation: operation,
+    parameters: if operation in ("diff", "integrate") { (symbolic-name-argument(arguments.at(1), operation),) + symbolic-free-variables(expression).filter(v => v != symbolic-name-argument(arguments.at(1), operation)) } else { symbolic-free-variables(expression) },
     source: symbolic-source(call.tokens),
     restrictions: result.at("restrictions", default: ()),
     warnings: result.at("warnings", default: ()),
   )
 }
 
-let render-symbolic-result(result) = {
+// Presentation-only normalization. Stored exact expressions are unchanged.
+let school-display-expression(a) = {
+  if type(a) != dictionary { return a }
+  let b = a
+  for (k,v) in a {
+    if type(v) == dictionary { b.insert(k,school-display-expression(v)) }
+    if type(v) == array { b.insert(k,v.map(school-display-expression)) }
+  }
+  if b.type == "neg" and b.arg.type == "neg" { return b.arg.arg }
+  if b.type == "neg" and b.arg.type == "num" { return sx-num(-b.arg.val) }
+  if b.type == "neg" and b.arg.type == "mul" {
+    return school-display-expression(sx-mul(sx-num(-1),b.arg))
+  }
+  if b.type == "mul" {
+    let factors = ()
+    for f in b.args { factors += if f.type == "mul" { f.args } else { (f,) } }
+    let coefficient = 1
+    let rest = ()
+    for f in factors {
+      if f.type == "num" { coefficient *= f.val }
+      else if f.type == "neg" { coefficient *= -1; rest.push(f.arg) }
+      else { rest.push(f) }
+    }
+    let grouped = ()
+    while rest.len() > 0 {
+      let f = rest.first()
+      let count = rest.filter(v=>v==f).len()
+      rest = rest.filter(v=>v!=f)
+      grouped.push(if count == 1 { f } else { sx-pow(f,sx-num(count)) })
+    }
+    if coefficient == 0 { return sx-num(0) }
+    if coefficient < 0 {
+      let positive = (sx-num(-coefficient),) + grouped
+      return (type: "neg", arg: positive.slice(1).fold(positive.first(),sx-mul))
+    }
+    if coefficient != 1 or grouped.len() == 0 { grouped.insert(0,sx-num(coefficient)) }
+    return grouped.slice(1).fold(grouped.first(),sx-mul)
+  }
+  if b.type == "div" and b.num.type == "neg" {
+    return (type: "neg", arg: sx-div(b.num.arg,b.den))
+  }
+  if b.type == "func" and b.name == "abs" and b.arg.at("name",default:"") == "e" { return b.arg }
+  if b.type == "add" and b.args.all(v=>v.type == "num" and type(v.val) == int) {
+    return sx-num(b.args.map(v=>v.val).sum())
+  }
+  if b.type == "func" and b.name == "cos" and b.arg.at("name",default:"") == "pi" { return sx-num(-1) }
+  if b.type == "log" and b.arg == b.base { return sx-num(1) }
+  b
+}
+
+let render-symbolic-result(result, digits: 4) = {
   if result.symbolic-kind == "expression" {
-    return cas.display(result.expression)
+    return cas.display(school-display-expression(result.expression))
   }
   if result.at("solution-status", default: none) == "all" { return math.RR }
   if result.roots.len() == 0 { return math.emptyset }
   let body = []
   for (index, root) in result.roots.enumerate() {
     if index > 0 { body += math.comma + h(0.25em) }
-    body += cas.display(root)
+    if root.at("type",default:"") == "num" and type(root.val) == float and root.val != calc.round(root.val) {
+      body += math.approx + cas.display(sx-num(calc.round(root.val,digits:if type(digits)==int {digits} else {4})))
+    } else {
+      body += cas.display(school-display-expression(root))
+    }
   }
   body
 }
@@ -5239,19 +5372,28 @@ let missing-variables(tokens, scope, unloaded, aliases: (:)) = {
 let normalize-scope(scope) = {
   let normalized = (:)
   for (name, item) in scope {
-    if (is-unloaded-marker(item)
+    if is-symbolic-expression(item) and symbolic-free-variables(item.expression).len() == 0 {
+      let evaluated = cas.eval(item.expression)
+      if cas.ok(evaluated) {
+        let value = cas.value-of(evaluated)
+        if type(value) in (int,float) and value == value and calc.abs(value) != calc.inf { normalized.insert(name, quantity(value)) }
+      }
+      continue
+    }
+    if (is-failed-function(item)
+      or is-unloaded-marker(item)
       or is-unit-alias(item)
       or is-initial-state-marker(item)
       or is-stored-function(item)
       or is-symbolic-result(item)) { continue }
-    if resolve-unit(name) != none and not is-unloaded(item) {
+    if resolve-unit(name) != none and not is-unloaded(item) and not (type(item) == dictionary and item.at("quoted-variable", default:false)) {
       panic(
         "math-once calculate: `" + name
         + "` is a unit name and cannot be used as a variable",
       )
     }
     if type(item) == dictionary and "si-value" in item and "dimensions" in item {
-      normalized.insert(name, quantity(
+      normalized.insert(if item.at("quoted-variable",default:false) { "\"" + name + "\"" } else { name }, quantity(
         item.si-value,
         dims: item.dimensions,
         preferred: item.at("unit-source", default: item.unit),
@@ -5478,7 +5620,7 @@ let special-angle-value(name, angle, soft: false) = {
   }
 }
 
-let apply-function(name, argument, soft: false) = {
+let apply-function(name, argument, angles: "degrees", soft: false) = {
   let canonical-name = if name == "arcsin" { "asin" }
     else if name == "arccos" { "acos" }
     else if name == "arctan" { "atan" }
@@ -5491,6 +5633,15 @@ let apply-function(name, argument, soft: false) = {
     }
     return calculation-fail("`" + name + "` requires " + requirement, soft: soft)
   }
+  if name in ("ln", "log", "exp") {
+    if name != "exp" and argument.si-value <= 0 {
+      return calculation-fail("logarithms require a positive argument", soft: soft)
+    }
+    let value = if name == "exp" { calc.exp(argument.si-value) }
+      else { calc.log(argument.si-value, base: if name == "ln" { calc.e } else { 10 }) }
+    if calc.abs(value) == calc.inf { return calculation-fail("nonfinite function result", soft: soft) }
+    return quantity(value)
+  }
   if canonical-name in ("asin", "acos") and calc.abs(argument.si-value) > 1 {
     return calculation-fail("`" + name + "` requires a value from -1 to 1", soft: soft)
   }
@@ -5498,9 +5649,9 @@ let apply-function(name, argument, soft: false) = {
     let angle = if canonical-name == "asin" { calc.asin(argument.si-value) }
       else if canonical-name == "acos" { calc.acos(argument.si-value) }
       else { calc.atan(argument.si-value) }
-    return quantity(angle.rad(), preferred: "degree")
+    return quantity(angle.rad(), preferred: if angles == "degrees" { "degree" } else { none })
   }
-  let angle = if argument.preferred == none {
+  let angle = if argument.preferred == none and angles == "degrees" {
     argument.si-value * calc.pi / 180
   } else {
     argument.si-value
@@ -5518,14 +5669,14 @@ let apply-function(name, argument, soft: false) = {
   )
 }
 
-let apply-atan2(y, x, soft: false) = {
+let apply-atan2(y, x, angles: "degrees", soft: false) = {
   if y.dims != x.dims or y.opaque != x.opaque {
     return calculation-fail("`atan2` requires compatible y and x values", soft: soft)
   }
   if y.si-value == 0 and x.si-value == 0 {
     return calculation-fail("`atan2` is undefined when y and x are both zero", soft: soft)
   }
-  quantity(calc.atan2(x.si-value, y.si-value).rad(), preferred: "degree")
+  quantity(calc.atan2(x.si-value, y.si-value).rad(), preferred: if angles == "degrees" { "degree" } else { none })
 }
 
 let apply-rounding(name, argument, preferred-unit: none, soft: false) = {
@@ -5592,7 +5743,7 @@ let apply-root(index, radicand, soft: false) = {
   )
 }
 
-let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, override-opaque: false, strict-units: false, soft: false) = {
+let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, override-opaque: false, angles: "degrees", strict-units: false, soft: false) = {
   let scope = normalize-scope(scope)
   if override-opaque {
     for (name, item) in scope {
@@ -5629,13 +5780,13 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
         left = if token == "root" {
           apply-root(first, second, soft: soft)
         } else {
-          apply-atan2(first, second, soft: soft)
+          apply-atan2(first, second, angles: angles, soft: soft)
         }
         if is-calculation-failure(left) { return (left, closing + 1) }
         position = closing + 1
       } else {
         if next >= tokens.len() or tokens.at(next) != ")" {
-          return (calculation-fail("missing closing parenthesis after `" + token + "`", soft: soft), next)
+          return (calculation-fail(if token == "log" and next < tokens.len() and tokens.at(next) == "," { "log accepts one argument (base 10); use ln(x)/ln(base) for another base" } else { "missing closing parenthesis after `" + token + "`" }, soft: soft), next)
         }
         left = if token == "sqrt" {
           apply-root(quantity(2.0), first, soft: soft)
@@ -5646,13 +5797,13 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
           if first.preferred != none and first.opaque.len() == 0 {
             preferred-unit = parse(
               add-implicit-multiplication(tokenize(first.preferred)),
-              aliases: aliases, custom-units: true, strict-units: strict-units, soft: soft,
+              aliases: aliases, custom-units: true, angles: angles, strict-units: strict-units, soft: soft,
             )
             if is-calculation-failure(preferred-unit) { return (preferred-unit, next + 1) }
           }
           apply-rounding(token, first, preferred-unit: preferred-unit, soft: soft)
         } else {
-          apply-function(token, first, soft: soft)
+          apply-function(token, first, angles: angles, soft: soft)
         }
         if is-calculation-failure(left) { return (left, next + 1) }
         position = next + 1
@@ -5841,7 +5992,7 @@ let normalize-math-unit-tokens(tokens) = {
 /// and the operators `+`, `-`, `*`, `/`, `^`, `±`, and `∓`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
-let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), aliases: (:), strict-units: false, soft: false) = {
+let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), aliases: (:), angles: "degrees", strict-units: false, soft: false) = {
   if type(strict-units) != bool {
     return calculation-fail("strict-units must be a boolean", soft: soft)
   }
@@ -5909,7 +6060,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
         block: false,
         unloaded: unloaded,
         aliases: aliases,
-        strict-units: strict-units,
+        angles: angles, strict-units: strict-units,
         soft: true,
       )
       if is-calculation-failure(branch) {
@@ -5938,7 +6089,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     unloaded: unloaded,
     aliases: aliases,
     override-opaque: unit != none,
-    strict-units: strict-units,
+    angles: angles, strict-units: strict-units,
     soft: soft,
   )
   if is-calculation-failure(result) { return result }
@@ -5950,7 +6101,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
       add-implicit-multiplication(target-tokens),
       aliases: aliases,
       custom-units: true,
-      strict-units: strict-units,
+      angles: angles, strict-units: strict-units,
       soft: soft,
     )
     if is-calculation-failure(target) { return target }
@@ -6001,7 +6152,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
       add-implicit-multiplication(tokenize(output-unit)),
       aliases: aliases,
       custom-units: true,
-      strict-units: strict-units,
+      angles: angles, strict-units: strict-units,
     )
     output-scale = if preferred.affine == none { preferred.si-value } else { preferred.affine.scale }
     output-offset = if preferred.affine == none or result.affine-kind == "difference" { 0.0 } else { preferred.affine.offset }
@@ -6106,6 +6257,85 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
 /// available to later calls. A simple `v = expression` is calculated and
 /// displayed without storing `v`. Call the runner without an expression inside
 /// a context block to retrieve its dictionary of results.
+// Read a stable builder snapshot inside a context and adapt it to numeric callbacks.
+// Follow definitions as well as direct stored expressions, including compositions.
+let calculus-reference(tokens, scope, seen: ()) = tokens.any(t => {
+  if t in seen { return false }
+  let item = scope.at(t, default: (:))
+  if type(item) != dictionary { return false }
+  (item.at("calculus", default: false) or item.at("operation", default: "") in ("diff", "integrate")
+    or calculus-reference(item.at("body-tokens", default: ()), scope, seen: seen + (t,)))
+})
+let symbolic-trig(a) = {
+  if type(a) != dictionary { return false }
+  if a.at("name", default: "") in trigonometric-functions + inverse-trigonometric-names { return true }
+  a.values().any(v => if type(v) == dictionary { symbolic-trig(v) } else if type(v) == array { v.any(symbolic-trig) } else { false })
+}
+let school-bridge(body, key: "math-once-calculation", angles: none) = context {
+  assert(angles in (none, "radians", "degrees"), message: "school bridge: angles must be radians or degrees")
+  let scope = checkpoint-state(key, initial: (:)).get()
+  let callback(expression, parameters: ("x",)) = {
+    let tokens = tokenize(expression)
+    if tokens.len() > 3 and tokens.first() == "atan2" and tokens.at(1) == "(" and tokens.last() == ")" {
+      assert(angles != none, message: "school bridge: atan2 requires explicit angles")
+      let parts = split-top-level(tokens.slice(2,-1))
+      assert(parts.len() == 2, message: "school bridge: atan2 requires y and x arguments")
+      let y = callback(parts.first().join(" "), parameters: parameters)
+      let x = callback(parts.last().join(" "), parameters: parameters)
+      return (..args) => {
+        let yy = y(..args); let xx = x(..args)
+        assert(xx != 0 or yy != 0, message: "school bridge: atan2 undefined at origin")
+        let value = calc.atan2(xx,yy).rad()
+        if angles == "degrees" { value * 180 / calc.pi } else { value }
+      }
+    }
+    // Compile and capture the current scope once, rather than once per sample.
+    let local = scope
+    for name in parameters { local.remove(name, default: none) }
+    let expression = symbolic-expression(tokenize(expression), local)
+    assert(not is-calculation-failure(expression), message: "school bridge: " + expression.at("error", default: "invalid expression"))
+    let has-trig(a) = {
+      if type(a) != dictionary { return false }
+      if a.at("name", default: "") in trigonometric-functions + inverse-trigonometric-names + ("atan2",) { return true }
+      a.values().any(v => if type(v) == dictionary { has-trig(v) } else if type(v) == array { v.any(has-trig) } else { false })
+    }
+    assert(angles != none or not has-trig(expression), message: "school bridge: trig callbacks require explicit angles: radians or degrees; symbolic calculus assumes radians")
+    let convert(a) = {
+      if type(a) != dictionary { return a }
+      let b = a
+      for (k,v) in a {
+        if type(v) == dictionary { b.insert(k, convert(v)) }
+        if type(v) == array { b.insert(k, v.map(convert)) }
+      }
+      if angles == "degrees" and a.at("type", default: "") == "func" and a.at("name", default: "") in ("sin","cos","tan") {
+        b.insert("arg", sx-mul(b.arg, sx-num(calc.pi / 180)))
+        if "args" in b { b.insert("args", (b.arg,)) }
+      }
+      if angles == "degrees" and a.at("type", default: "") == "func" and a.at("name", default: "") in inverse-trigonometric-names {
+        return sx-mul(b, sx-num(180 / calc.pi))
+      }
+      b
+    }
+    assert(not (angles == "degrees" and calculus-reference(tokens, scope) and symbolic-trig(expression)), message: "CAS trig calculus uses radians; select angles: radians")
+    let compiled = convert(expression)
+    (..args) => {
+      assert(args.pos().len() == parameters.len(), message: "school bridge: wrong callback arity")
+      let bindings = (:)
+      for (name,value) in parameters.zip(args.pos()) {
+        assert(type(value) in (int,float), message: "school bridge: numeric arguments required")
+        bindings.insert(name,value)
+      }
+      let result = cas.eval(compiled, bindings: bindings)
+      assert(cas.ok(result), message: "school bridge: " + if cas.ok(result) { "" } else { cas.error-message(result) })
+      let value = cas.value-of(result)
+      assert(type(value) in (int,float), message: "school bridge: real scalar result required")
+      assert(value == value and calc.abs(value) != calc.inf, message: "school bridge: finite result required")
+      value
+    }
+  }
+  body(callback)
+}
+
 let calculation-builder(
   initial-state: (:),
   key: "math-once-calculation",
@@ -6115,7 +6345,9 @@ let calculation-builder(
   supplement: auto,
   strict: false,
   strict-units: false,
+  angles: "degrees",
 ) = {
+  assert(angles in ("degrees", "radians"), message: "builder angles must be degrees or radians")
   if not valid-auto-digits(auto-digits) {
     panic("math-once calculation-builder: " + auto-digits-message)
   }
@@ -6191,7 +6423,8 @@ let calculation-builder(
       let variables = checkpoint-state(key, initial: initial-state)
       let visible = (:)
       for (name, value) in variables.get() {
-        if (not is-unloaded-marker(value)
+        if (not is-failed-function(value)
+          and not is-unloaded-marker(value)
           and not is-unit-alias(value)
           and not is-initial-state-marker(value)
           and not is-built-in-constant(name)) {
@@ -6216,9 +6449,9 @@ let calculation-builder(
     }
     let source = input-source(source, preserve-text: true)
     let parsed-function = function-definition(source)
-    let stored-assignment = source.match(regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*:=\\s*(.+)$"))
+    let stored-assignment = source.match(regex("^\\s*(?:\"([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*)\"|([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*))\\s*:=\\s*(.+)$"))
     let calculated-assignment = if stored-assignment == none {
-      source.match(regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*=\\s*(.+)$"))
+      source.match(regex("^\\s*(?:\"([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*)\"|([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*))\\s*=\\s*(.+)$"))
     } else {
       none
     }
@@ -6232,9 +6465,9 @@ let calculation-builder(
       assignment.captures.at(1)
     }
     let expression = if assignment == none { source } else { assignment.captures.at(2) }
-    let display-only = assignment == none and "=" in tokenize(source)
+    let display-only = assignment == none and "=" in tokenize(source) and symbolic-call(tokenize(source)) == none
 
-    if hidden and (not stores-result or parsed-function != none) {
+    if hidden and not stores-result and parsed-function == none {
       panic("math-once calculation-builder: hidden requires a stored scalar, vector, or matrix assignment")
     }
     if hidden and (caption != none or label != none) {
@@ -6252,7 +6485,9 @@ let calculation-builder(
       let variables = checkpoint-state(key, initial: initial-state)
       let current = variables.get()
       let aliases = unit-aliases(current)
+      let parsed-function = parsed-function
       if parsed-function != none {
+        checkpoint-update(variables, old => { old.insert(parsed-function.name, (failed-function: true)); old })
         if result-only {
           builder-error("a function definition has no calculated result to show by itself")
           return
@@ -6261,16 +6496,42 @@ let calculation-builder(
           and is-unloaded(current.at(parsed-function.name)))
         let reserved-function-name = (parsed-function.name in aliases
           or (is-built-in-constant(parsed-function.name) and not function-name-is-unloaded)
-          or (resolve-unit(parsed-function.name) != none and not function-name-is-unloaded))
+          )
         if reserved-function-name {
           builder-error("`" + parsed-function.name + "` is a reserved unit or constant name and cannot be used as a function")
           return
+        }
+        if not parsed-function.matrix and not parsed-function.vector and not symbolic-grammar(parsed-function.body-tokens) {
+          builder-error("Invalid function body: check operators and parentheses")
+          return
+        }
+        if symbolic-call(parsed-function.body-tokens) != none {
+          parsed-function.insert("calculus", true)
+          let call = symbolic-call(parsed-function.body-tokens)
+          let compiled = if call.operation == "integrate" and call.arguments.len() == 2 {
+            let checked = symbolic-result(call, current)
+            if is-calculation-failure(checked) { checked } else {
+              sx-primitive(symbolic-expression(call.arguments.first(), current), symbolic-name-argument(call.arguments.last(), "integrate"))
+            }
+          } else { symbolic-expression(parsed-function.body-tokens, current) }
+          if is-calculation-failure(compiled) { builder-error(compiled.error); return }
+          if angles == "degrees" and call.operation in ("diff", "integrate", "limit", "taylor") and symbolic-trig(symbolic-expression(call.arguments.first(), current)) { builder-error("CAS trig calculus uses radians; select angles: radians"); return }
+          let simplified = cas.simplify(compiled)
+          if cas.ok(simplified) { compiled = cas.expr-of(simplified) }
+          parsed-function.insert("expression", compiled)
+          let code = symbolic-code(compiled)
+          if code == "" or not symbolic-grammar(tokenize(code)) { builder-error("Unsupported symbolic function body"); return }
+          parsed-function.insert("body-tokens", tokenize(code))
         }
         checkpoint-update(variables, old => {
           old.insert(parsed-function.name, parsed-function)
           old
         })
+        if hidden { return }
         render-tokens(tokenize(source.replace(":=", "=")), scope: current, aliases: aliases)
+        if parsed-function.at("calculus", default: false) {
+          h(0.25em) + math.eq + h(0.25em) + cas.display(school-display-expression(parsed-function.expression))
+        }
         return
       }
       let unloaded = ()
@@ -6281,7 +6542,7 @@ let calculation-builder(
       let illegal-assignment = (stores-result
         and name != none
         and (resolve-unit(name) != none or name in aliases or is-built-in-constant(name))
-        and not assignment-is-unloaded)
+        and not assignment-is-unloaded and not (assignment != none and assignment.captures.at(0) != none))
       let reserved-name-kind = if name != none and is-built-in-constant(name) {
         "a built-in constant"
       } else {
@@ -6334,6 +6595,10 @@ let calculation-builder(
           return
         }
 
+        if angles == "degrees" and cas-call.operation in ("diff", "integrate", "limit", "taylor") and cas-call.arguments.len() > 0 {
+          let input = symbolic-expression(cas-call.arguments.first(), current)
+          if not is-calculation-failure(input) and symbolic-trig(input) { builder-error("CAS trig calculus uses radians; select angles: radians"); return }
+        }
         let result = symbolic-result(cas-call, current)
         if is-calculation-failure(result) {
           builder-error(result.error)
@@ -6350,15 +6615,16 @@ let calculation-builder(
           written
         }
         if (name == none or not stores-result or show-result) {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-symbolic-result(result)
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-symbolic-result(result, digits: digits)
         }
         if result-only {
-          labelled-body = render-symbolic-result(result)
+          labelled-body = render-symbolic-result(result, digits: digits)
         }
 
         if stores-result {
           result.insert("display", math.equation(labelled-body, block: block))
           result.insert("variable", name)
+          if assignment.captures.at(0) != none { result.insert("quoted-variable",true) }
           checkpoint-update(variables, old => {
             old.insert(name, result)
             old
@@ -6372,6 +6638,11 @@ let calculation-builder(
       let function-expansion = if display-only { (evaluation-tokens, false) } else { expand-function-calls(evaluation-tokens, current) }
       let function-error = if is-calculation-failure(function-expansion) { function-expansion.error } else { none }
       let calculation-tokens = if function-error == none { function-expansion.first() } else { tokens }
+      if angles == "degrees" and calculus-reference(evaluation-tokens, current) and calculation-tokens.any(t => t in trigonometric-functions) {
+        builder-error("CAS trig calculus uses radians; select angles: radians")
+        return
+      }
+
       let missing = if display-only { () } else { missing-variables(tokens, current, unloaded, aliases: aliases) }
       let result = if illegal-assignment or display-only or missing.len() > 0 or function-error != none { none } else {
         calculate-expanded(
@@ -6384,7 +6655,7 @@ let calculation-builder(
           block,
           unloaded,
           aliases,
-          strict-units: strict-units,
+          angles: angles, strict-units: strict-units,
         )
       }
       let calculation-error = if is-calculation-failure(result) { result.error } else { none }
@@ -6428,12 +6699,13 @@ let calculation-builder(
             block,
             update-unloaded,
             update-aliases,
-            strict-units: strict-units,
+            angles: angles, strict-units: strict-units,
           )
           if is-calculation-failure(update-result) {
             return old
           }
           update-result.insert("variable", name)
+          if assignment.captures.at(0) != none { update-result.insert("quoted-variable",true) }
           if name in update-unloaded { update-result.insert("unloaded", true) }
           old.insert(name, update-result)
           old
@@ -6463,10 +6735,10 @@ let calculation-builder(
         let labelled-body = render-tokens((name,), scope: name-scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current, aliases: aliases)
         if show-result {
           let (expanded, has-variables) = expand-variables(tokens, current)
-          if has-variables and show-substitution {
+          if has-variables and show-substitution and not calculus-reference(evaluation-tokens, current) {
             labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
           }
-          let last-visible-tokens = if has-variables and show-substitution { expanded } else { tokens }
+          let last-visible-tokens = if has-variables and show-substitution and not calculus-reference(evaluation-tokens, current) { expanded } else { tokens }
           if ((is-structure-result(result) and not structure-equivalent(last-visible-tokens, result))
             or result.at("alternatives", default: false)
             or (not is-structure-result(result)
@@ -6482,6 +6754,7 @@ let calculation-builder(
         if stores-result {
           result.insert("display", math.equation(visible-body, block: block))
           result.insert("variable", name)
+          if assignment.captures.at(0) != none { result.insert("quoted-variable",true) }
           if assignment-is-unloaded { result.insert("unloaded", true) }
           checkpoint-update(variables, old => {
             old.insert(name, result)
@@ -6498,15 +6771,16 @@ let calculation-builder(
         let labelled-body = render-tokens(tokens, scope: current, aliases: aliases)
         if (show-substitution
           and function-expansion.last()
+          and not calculus-reference(evaluation-tokens, current)
           and vector-components(calculation-tokens) == none
           and matrix-rows(calculation-tokens) == none) {
           labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(calculation-tokens, scope: numeric-scope(current), aliases: aliases)
         }
         let (expanded, has-variables) = expand-variables(tokens, current)
-        if has-variables and show-substitution {
+        if has-variables and show-substitution and not calculus-reference(evaluation-tokens, current) {
           labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
         }
-        let last-visible-tokens = if has-variables and show-substitution { expanded } else { tokens }
+        let last-visible-tokens = if has-variables and show-substitution and not calculus-reference(evaluation-tokens, current) { expanded } else { tokens }
         if ((is-structure-result(result) and not structure-equivalent(last-visible-tokens, result))
           or result.at("alternatives", default: false)
           or (not is-structure-result(result)
@@ -6534,7 +6808,7 @@ let calculation-builder(
 // Normalize a reset or unload argument to a builder state name.
 let state-name(value, action) = {
   let name = input-source(value).trim()
-  if regex("^[A-Za-z]+(?:_[A-Za-z0-9]+)*$") not in name {
+  if regex("^[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*$") not in name {
     panic(
       "math-once " + action
       + ": names must contain letters and optional letter or number subscripts",
@@ -6591,7 +6865,7 @@ let reset-functions(..names, key: "math-once-calculation") = {
       let initial = state-initial-values(old)
       let kept = old
       for (name, value) in old {
-        if is-stored-function(value) and (selected.len() == 0 or name in selected) {
+        if (is-stored-function(value) or is-failed-function(value)) and (selected.len() == 0 or name in selected) {
           let _ = kept.remove(name)
           if name in initial { kept.insert(name, initial.at(name)) }
         }
@@ -6735,6 +7009,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 }
 
 (
+  school-bridge: school-bridge,
   calculate: calculate,
   automatic-precision: automatic-precision,
   calculation-builder: calculation-builder,
@@ -6845,6 +7120,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   supplement: auto,
   strict: false,
   strict-units: false,
+  angles: "degrees",
 ) = (_engine.calculation-builder)(
   initial-state: initial-state,
   key: key,
@@ -6854,6 +7130,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   supplement: supplement,
   strict: strict,
   strict-units: strict-units,
+  angles: angles,
 )
 
 /// Reset all builder state, or explicitly select categories and names.
@@ -7061,3 +7338,6 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   ..names,
   key: key,
 )
+
+/// Supply numeric callback adapters from the current builder snapshot.
+#let school-bridge = _engine.school-bridge

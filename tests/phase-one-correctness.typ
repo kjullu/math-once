@@ -1,6 +1,6 @@
 #import "../math-once.typ": calculation-builder, school as s
 #import "@preview/typcas:0.2.3": cas
-#let eq=calculation-builder(key:"phase-one")
+#let eq=calculation-builder(key:"phase-one",angles:"radians")
 #for (i,source) in (
 ("ka","integrate(1/(2*x+1),x,0,1)"),
 ("kb","integrate(2/(3*x-1),x,1,2)"),
