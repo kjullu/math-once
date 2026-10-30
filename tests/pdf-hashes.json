@@ -30,6 +30,7 @@
     "tests/functions.typ": "ef96dd8a13691b4a25010f4df5e544567940b6463225307d354365a16bb6aa9b",
     "tests/greek-variables.typ": "2992b5fd976d1c2bdc74e2d53048aa76543902f4fca32ea509f5bc56bf12a3f9",
     "tests/labelled-equations.typ": "a982f08fc1b1cb86472a3847e8206596734fc104368a994de5afa091f4422bbc",
+    "tests/negative-structure-display.typ": "8b2969ae727d26a9356c50101ddfaee3b930beec216432d0af5fd30330ea3dd5",
     "tests/opaque-units.typ": "217c1807301f844a1384876d54a6ffc4bf59a6dbecea87a7b89eb827c2a7349d",
     "tests/package-import.typ": "ada945f86890ecf7bff8e4f3e68b836461e101fe94f9dde3bc77b22a0a156cb5",
     "tests/paired-signs.typ": "cfc891c64397e5b47a84e95d1ada4bf42f2a7cdc50fa6dafecbcf39e381a22d3",

@@ -2,6 +2,8 @@
 
 ## Dot and cross product demo (based on 0.45.0)
 
+- Fixed duplicate results when defining vectors or matrices containing negative numbers.
+
 - Added the dot product for vectors with `bullet` (•), for example `arrow(a) bullet arrow(b)`. The result is a scalar with units, and `unit:` and `size:` apply to it. Vectors must have the same number of components.
 - Added the cross product for vectors with three components with `times` (×), for example `arrow(a) times arrow(b)`. `unit:` and `size:` apply to each component. Between numbers, or a number and a vector, `times` is still ordinary multiplication.
 - `times` now renders as × instead of ⋅, so equations show what was written.

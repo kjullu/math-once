@@ -4403,13 +4403,15 @@ let result-tokens(result) = {
   tokens
 }
 
+// Retokenize displayed components so negative values use the same separate
+// minus and number tokens as the written expression.
 let structure-equivalent(tokens, result) = {
   if is-vector-result(result) {
     let components = vector-components(tokens)
     return (components != none
       and components.len() == result.components.len()
       and components.zip(result.components).all(((tokens, component)) =>
-        equivalent-tokens(tokens, result-tokens(component))))
+        equivalent-tokens(tokens, tokenize(result-tokens(component).join(" ")))))
   }
   if is-matrix-result(result) {
     let rows = matrix-rows(tokens)
@@ -4418,7 +4420,7 @@ let structure-equivalent(tokens, result) = {
       and rows.zip(result.rows).all(((tokens-row, result-row)) =>
         tokens-row.len() == result-row.len()
         and tokens-row.zip(result-row).all(((tokens, cell)) =>
-          equivalent-tokens(tokens, result-tokens(cell)))))
+          equivalent-tokens(tokens, tokenize(result-tokens(cell).join(" "))))))
   }
   false
 }
