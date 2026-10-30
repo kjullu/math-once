@@ -4244,6 +4244,32 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
     )
   }
 
+  // Absolute value of a vector is its Euclidean length.
+  if tokens.len() >= 4 and tokens.first() == "abs" and tokens.at(1) == "(" and tokens.last() == ")" {
+    let argument-tokens = unwrap-tokens(tokens.slice(1))
+    if argument-tokens != tokens.slice(1) {
+      let argument = evaluate-structure(calculate-fn, argument-tokens, digits, scope, aliases, unloaded, strict-units: strict-units)
+      if is-calculation-failure(argument) { return argument }
+      if is-matrix-result(argument) {
+        return calculation-failure("abs requires a scalar or vector, not a matrix")
+      }
+      if is-vector-result(argument) {
+        let component-scope = (:)
+        let terms = ()
+        for (index, component) in argument.components.enumerate() {
+          let name = "mathoncenorm" + str(index)
+          component-scope.insert(name, component)
+          terms.push(name + "^2")
+        }
+        return calculate-fn(
+          "sqrt(" + terms.join(" + ") + ")",
+          digits: digits, scope: component-scope, unit: unit, size: size,
+          block: false, aliases: aliases, strict-units: strict-units, soft: true,
+        )
+      }
+    }
+  }
+
   if tokens.len() > 1 and tokens.first() == "-" {
     let inner = evaluate-structure(calculate-fn, tokens.slice(1), digits, scope, aliases, unloaded, strict-units: strict-units)
     if is-calculation-failure(inner) { return inner }

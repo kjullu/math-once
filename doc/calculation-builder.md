@@ -552,6 +552,13 @@ preserving units:
 // length = |-3 cm| = 3 cm
 ```
 
+Vector lengths use `abs` or balanced bars. Both accept vector expressions:
+
+```typ
+#eq($|arrow(a) + arrow(b)|$)
+#eq($abs(arrow(a) times arrow(b))$)
+```
+
 Other uses of `|`, including infix and non-numeric notation, remain
 display-only.
 
