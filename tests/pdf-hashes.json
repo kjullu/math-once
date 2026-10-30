@@ -63,6 +63,7 @@
     "tests/unit-with-size.typ": "c2a2428c051f1e5540402ebcb46bbd1104bb9fdc562c04a6a4d4a04a2d2ffea8",
     "tests/units.typ": "9aa61851974ccd8d6aa7dc884ea0ca06dcba667ac6a75d2091836dc93f59460f",
     "tests/unload.typ": "71f84b4437e5b939482faf9f3bc8e9f5eadd9d4131a239e500d2db6bb9f6826a",
+    "tests/vector-angles.typ": "ccff3fef94b4be2de3b4e3ea7e3917eecd20a525b9248f7b6e5709955d232e78",
     "tests/vector-length.typ": "8dc598b21226a00bab44df065f0b73f944bdf4261d7b2d95c3feba7a239816fe",
     "tests/vector-matrix-errors.typ": "5a85329d8ea71f7409f09b46b3733665cf4522057ec263557c275f58ccaa55ec",
     "tests/vectors-matrices.typ": "83e517858ba03536bd85b2d8a5b03bef2273593d2b0f3777e5432c3381378b37"

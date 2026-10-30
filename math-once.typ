@@ -4244,16 +4244,16 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
     )
   }
 
-  // Absolute value of a vector is its Euclidean length.
-  if tokens.len() >= 4 and tokens.first() == "abs" and tokens.at(1) == "(" and tokens.last() == ")" {
+  // Evaluate vector-derived scalar arguments before applying scalar functions.
+  if tokens.len() >= 4 and tokens.first() in math-functions and tokens.first() not in ("atan2", "root") and tokens.at(1) == "(" and tokens.last() == ")" {
     let argument-tokens = unwrap-tokens(tokens.slice(1))
     if argument-tokens != tokens.slice(1) {
       let argument = evaluate-structure(calculate-fn, argument-tokens, digits, scope, aliases, unloaded, strict-units: strict-units)
       if is-calculation-failure(argument) { return argument }
       if is-matrix-result(argument) {
-        return calculation-failure("abs requires a scalar or vector, not a matrix")
+        return calculation-failure(tokens.first() + " requires a scalar" + if tokens.first() == "abs" { " or vector, not a matrix" } else { ", not a matrix" })
       }
-      if is-vector-result(argument) {
+      if is-vector-result(argument) and tokens.first() == "abs" {
         let component-scope = (:)
         let terms = ()
         for (index, component) in argument.components.enumerate() {
@@ -4264,6 +4264,13 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
         return calculate-fn(
           "sqrt(" + terms.join(" + ") + ")",
           digits: digits, scope: component-scope, unit: unit, size: size,
+          block: false, aliases: aliases, strict-units: strict-units, soft: true,
+        )
+      }
+      if argument != none and not is-structure-result(argument) {
+        return calculate-fn(
+          tokens.first() + "(mathonceargument)",
+          digits: digits, scope: (mathonceargument: argument), unit: unit, size: size,
           block: false, aliases: aliases, strict-units: strict-units, soft: true,
         )
       }

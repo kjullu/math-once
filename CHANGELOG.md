@@ -2,6 +2,8 @@
 
 ## Dot and cross product demo (based on 0.45.0)
 
+- Scalar functions such as `arcsin`, `arccos`, and `sqrt` can now calculate arguments containing vector lengths and dot products.
+
 - Added vector lengths with `abs(vector)` or absolute-value bars, including vector expressions and units.
 
 - Fixed duplicate results when defining vectors or matrices containing negative numbers.

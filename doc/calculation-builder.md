@@ -559,6 +559,17 @@ Vector lengths use `abs` or balanced bars. Both accept vector expressions:
 #eq($abs(arrow(a) times arrow(b))$)
 ```
 
+Scalar functions can use these results directly. To find the angle between two
+nonzero vectors, use the dot product and `arccos`:
+
+```typ
+#eq($arccos((arrow(a) bullet arrow(b)) / (abs(arrow(a)) dot abs(arrow(b))))$)
+```
+
+Using `arcsin` with the cross-product length gives an angle between 0° and 90°,
+so it cannot distinguish an acute angle from its supplementary obtuse angle.
+
+
 Other uses of `|`, including infix and non-numeric notation, remain
 display-only.
 
