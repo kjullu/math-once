@@ -152,3 +152,5 @@ The project started as `typst-math`, which is still the name of my local folder.
 ## License
 
 MIT
+
+School mathematics demo: [numeric helpers](doc/school.md) and [WordMat coverage / remaining gaps](doc/wordmat-coverage.md).

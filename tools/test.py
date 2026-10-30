@@ -132,8 +132,8 @@ def main():
         packages = work / "packages"
         local = packages / "local" / package["name"] / package["version"]
         local.mkdir(parents=True)
-        # The distributed implementation is currently a single source file.
-        for filename in (package["entrypoint"], "typst.toml"):
+        # Stage every implementation module for the local-package import test.
+        for filename in (package["entrypoint"], "school.typ", "typst.toml"):
             shutil.copyfile(root / filename, local / filename)
         for fixture in fixtures:
             relative = fixture.relative_to(root)

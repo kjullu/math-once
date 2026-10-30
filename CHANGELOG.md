@@ -1,5 +1,10 @@
 # Changelog
 
+## School mathematics demo (based on 0.45.0)
+
+- Added the plain-number `school` API for descriptive statistics, four regression models, binomial and normal probabilities, numerical calculus, bracketed roots, scalar RK4 differential equations, vector/triangle geometry, and pivoted linear-system solving and matrix inversion. See `doc/school.md` for conventions and limits.
+- Added a sourced WordMat workflow coverage inventory; coverage remains incomplete pending further implementation and independent review.
+
 ## 0.45.0
 
 - `auto-digits: "significant"` now rounds automatically by itself. Builders and `calculate` without an explicit `digits` use `digits: auto` in significant mode and keep 4 decimal places in decimal mode.

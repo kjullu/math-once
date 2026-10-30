@@ -1,7 +1,8 @@
-// math-once v0.45.0
+// School mathematics demo (0.45.0)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
+#import "school.typ" as school
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
 /// return both the rounded and exact values.
