@@ -9,7 +9,7 @@
     "examples/basic.typ": "19e6da1da4974c23cfd8bf398ab9a852f7fda9cbb352bc0996d7d24b1a87ae30",
     "tests/absolute-value.typ": "fb3846fccc9ab4509da106a4bf066dfe8d0d94ab098cfd77ea925be08a27fe4a",
     "tests/affine-temperatures.typ": "c6d0a7525a41702d5a5b5595bed73942823e0537a95ef38b5f92326fe84082d9",
-    "tests/all-mathematical-symbols.typ": "56a769b1f6b1953f81797c795dea380bf7b0a01cc27050b6fd0d176ab475f15f",
+    "tests/all-mathematical-symbols.typ": "ef9f918c0b0c19ee4c1714c618a0ac0a39b578666d57297612fcfd5b0006e215",
     "tests/ambiguous-units.typ": "2ec65af5b3aa3996239cd272194a594a22cb7b82f37989df6acf87a2b21750d5",
     "tests/auto-digits.typ": "df59b994561ef7c0b455dd8d52ebecb3f803477b165347390f757790ce127145",
     "tests/automatic-block-layout.typ": "b8d2368a318623211c53f68d4f3c3e6ca0f158ee7bb2e8766a0b24dd0ea5ce7f",
@@ -17,13 +17,14 @@
     "tests/builder-options.typ": "d5523e688ce5a8d61f23f825b4c1637244e7f2094f5bf777749a9f9a79477460",
     "tests/calculate.typ": "aa0cece6d220aacd7f2c8ed1955e5bb4c12432122a46c7eca7041f132e38cf3d",
     "tests/content-interpolation.typ": "d471c0cc9e33370223eda45aa6d910efc3af4271e8937bd50c6cecaec11b8b3f",
+    "tests/cross-product.typ": "ea9960a96762214a4ba7c511b702060c1940fb27e7626a60b3bb3e394f02a4c0",
     "tests/custom-output-units.typ": "fd53aafbc19b463cb9f3e660f1533770305b5c5629c776b03b9c514d36c30251",
     "tests/decimal-unit-noise.typ": "3970098a0e3de2d8ba1d43f64310b032781b9c1b7b8aca78205998db28be5995",
     "tests/degree-alias.typ": "fb2e6a8219f6256532b177ed2d2b464e98b5ae59e402cdbd85b8f2cb299f4ac4",
     "tests/degree-rendering.typ": "a3b32ed5867e5f81ea88f5a1926d6c4a123a25f245a061e4501918d2e0b392b6",
     "tests/direct-assignment.typ": "1c12a0f5e5d3fc3f2676979d88a0ccef9df1df649c58cc31e5c5f57b55f9d2ff",
     "tests/docs.typ": "92f0442601684f8d9bcb5cfefcf8af1af1a1f05b617750d03e57c15ae38fa8d2",
-    "tests/dot-product.typ": "8399430c0a77c4e570c5c00665123529e9e27bce24503bd289c3df8cc7b6a19a",
+    "tests/dot-product.typ": "e5f11911c1d22a254b9bc86167d81c83fcb724fd3408108f2db5b52200d95206",
     "tests/focused-reset.typ": "b2716ffa44724cda2df85a589bb494cebc6cbd56bb9107f6a326c110c17c7e05",
     "tests/function-errors.typ": "9a31588a2d3454b52a694fd4770713648f8a6591d961982ec88c4f11dcbf16b9",
     "tests/functions.typ": "ef96dd8a13691b4a25010f4df5e544567940b6463225307d354365a16bb6aa9b",
@@ -61,7 +62,7 @@
     "tests/unit-with-size.typ": "c2a2428c051f1e5540402ebcb46bbd1104bb9fdc562c04a6a4d4a04a2d2ffea8",
     "tests/units.typ": "9aa61851974ccd8d6aa7dc884ea0ca06dcba667ac6a75d2091836dc93f59460f",
     "tests/unload.typ": "71f84b4437e5b939482faf9f3bc8e9f5eadd9d4131a239e500d2db6bb9f6826a",
-    "tests/vector-matrix-errors.typ": "9a90fb5c90c519c358b60dc2bfb7b510c5c9877540f931a13eab74eee469f942",
+    "tests/vector-matrix-errors.typ": "5a85329d8ea71f7409f09b46b3733665cf4522057ec263557c275f58ccaa55ec",
     "tests/vectors-matrices.typ": "83e517858ba03536bd85b2d8a5b03bef2273593d2b0f3777e5432c3381378b37"
   }
 }

@@ -592,7 +592,7 @@ Use Typst's built-in `mat(...)` for matrices:
 
 `arrow(v)` changes how the stored name is drawn; its state key is `arrow_v`. `vec(...)` creates the vector value. Matrix rows are separated by semicolons and cells by commas, matching Typst's native matrix syntax.
 
-The builder supports vector or matrix addition and subtraction with matching shapes, scalar multiplication, division of a vector or matrix by a scalar, matrix multiplication, matrix–vector multiplication, row-vector–matrix multiplication, and dot products. `vector * vector` is rejected because it is ambiguous; write `bullet` (•) for the dot product:
+The builder supports vector or matrix addition and subtraction with matching shapes, scalar multiplication, division of a vector or matrix by a scalar, matrix multiplication, matrix–vector multiplication, row-vector–matrix multiplication, dot products, and cross products. `vector * vector` is rejected because it is ambiguous; write `bullet` (•) for the dot product and `times` (×) for the cross product:
 
 ```typ
 #eq($arrow(a) := vec(1, 2, 3)$)
@@ -607,6 +607,18 @@ The builder supports vector or matrix addition and subtraction with matching sha
 ```
 
 Both vectors must have the same number of components. The dot product is a scalar, so it can be used further in the same expression, and `unit:` or `size:` applies to it.
+
+The cross product needs two vectors with three components and returns a vector. `unit:` and `size:` apply to each of its components. Between a number and a vector, or two numbers, `times` is ordinary multiplication.
+
+```typ
+#eq($arrow(c) := arrow(a) times arrow(b)$)
+// c⃗ = a⃗ × b⃗ = vec(-3, 6, -3)
+
+#eq($arrow(r) := vec(0 "m", 2 "m", 0 "m")$)
+#eq($arrow(F) := vec(3 "N", 0 "N", 0 "N")$)
+#eq($arrow(tau) := arrow(r) times arrow(F)$, unit: "N m")
+// τ⃗ = r⃗ × F⃗ = vec(0 Nm, 0 Nm, -6 Nm)
+```
 
 Unary minus binds before addition and subtraction. You can also combine literals directly:
 
