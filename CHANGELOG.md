@@ -1,5 +1,18 @@
 # Changelog
 
+## Dot and cross product demo (based on 0.45.0)
+
+- Scalar functions such as `arcsin`, `arccos`, and `sqrt` can now calculate arguments containing vector lengths and dot products.
+
+- Added vector lengths with `abs(vector)` or absolute-value bars, including vector expressions and units.
+
+- Fixed duplicate results when defining vectors or matrices containing negative numbers.
+
+- Added the dot product for vectors with `bullet` (•), for example `arrow(a) bullet arrow(b)`. The result is a scalar with units, and `unit:` and `size:` apply to it. Vectors must have the same number of components.
+- Added the cross product for vectors with three components with `times` (×), for example `arrow(a) times arrow(b)`. `unit:` and `size:` apply to each component. Between numbers, or a number and a vector, `times` is still ordinary multiplication.
+- `times` now renders as × instead of ⋅, so equations show what was written.
+- The error for `vector * vector` now points to `bullet` for the dot product and `times` for the cross product.
+
 ## 0.45.0
 
 - `auto-digits: "significant"` now rounds automatically by itself. Builders and `calculate` without an explicit `digits` use `digits: auto` in significant mode and keep 4 decimal places in decimal mode.
