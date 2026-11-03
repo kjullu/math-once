@@ -954,11 +954,24 @@ return values are consumed programmatically.
 
 Full `reset()` calls also start independent compilation checkpoints. Focused resets keep the current checkpoint.
 
-For plots and numerical calculus using these definitions, see the [school bridge](school.md#using-builder-functions-and-results).
+## School operations
+
+Statistics, probability, regression, vector and matrix operations, triangles,
+χ² tests and charts are builder operations too. Numerical roots and integrals
+are also available as `solve(equation, x, a, b)` and `integrate(expression, x, a, b)`:
+
+```typ
+#eq(`data := vec(2, 4, 5, 7, 9)`)
+#eq(`xbar := mean(data)`)
+#eq(`fit := linreg(xv, yv)`)
+#eq(`plot(f(x), x, -2, 2)`)
+```
+
+See [School mathematics](school.md) for every operation and how its results are stored.
 
 ### Angle conventions
 
-`calculation-builder(angles: "degrees")` is the compatibility default. Choose `angles: "radians"` for calculus. Only dimensionless trig arguments use this selection; explicit `°` and `rad` values retain their meaning. Inverse trig returns degree quantities by default and plain radians in radians mode. Symbolic differentiation and integration assume radians. Use a radians builder when evaluating their trig results numerically. Trig callbacks passed through `school-bridge` require explicit `angles: "radians"` or `angles: "degrees"`.
+`calculation-builder(angles: "degrees")` is the compatibility default. Choose `angles: "radians"` for calculus. Only dimensionless trig arguments use this selection; explicit `°` and `rad` values retain their meaning. Inverse trig returns degree quantities by default and plain radians in radians mode. Symbolic differentiation and integration assume radians. Use a radians builder when evaluating their trig results numerically. School operations such as `vecangle` and `triangle` use the same setting. Trig callbacks passed through `school-bridge` require explicit `angles: "radians"` or `angles: "degrees"`.
 
 `F(x) := integrate(x^2,x)` creates a verified antiderivative function with integration constant C = 0. Standalone indefinite integrals still show C. Unsupported primitives remain errors; real-domain restrictions still apply.
 

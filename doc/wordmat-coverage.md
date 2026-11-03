@@ -3,6 +3,12 @@
 Status: **phase one PASS**, independently reviewed by Claude Opus 5.5 on 2026-10-30 after six coverage rounds. Daily-school coverage is sufficient to proceed to the integration hill climb, subject to the explicit limits below.
 Research date: 2026-10-30. Base package: 0.45.0, school mathematics demo.
 
+> **Update 2026-11-03:** the everyday operations are now written inside the
+> calculation builder (`mean(data)`, `linreg(xs, ys)`, `solve(f(x) = 0, x, a, b)`,
+> `plot(f(x), x, a, b)`, …). See [School mathematics](school.md). The
+> `school.*` calls below still work and remain the route for the less common
+> workflows (t-tests, ODEs, slope fields, parametric curves, finance recipes).
+
 ## Sources and method
 
 Primary reference: [EDUAP WordMath manual, 20 May 2026](https://eduap.com/wordmatdoc/en/WordMatManual_english.pdf),

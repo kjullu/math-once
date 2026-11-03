@@ -72,4 +72,4 @@ See [Units and prefixes](units.md) for the supported unit system and see [all Su
 
 Existing documents can also use [`reset-variables`](reset-variables.md), [`reset-functions`](reset-functions.md), [`restore-units`](restore-units.md), and [`reset-unit-aliases`](reset-unit-aliases.md). The `matrix` alias and `number-labelled-equations(captions: ...)` remain supported.
 
-School workflows: [operations, numerical limits and builder bridge](school.md).
+School workflows: [builder operations, numerical limits and the advanced `school` API](school.md).

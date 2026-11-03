@@ -146,10 +146,11 @@ $y(x) = #cas.display(logistic)$
 #assert(range(1,6).map(x=>x*x).sum()==55)
 #assert((1,2,3).map(x=>2*x)==(2,4,6))
 #eq(`interiorbad := integrate(sqrt(x^2-1),x,-2,2)`)
+// No CAS antiderivative: the builder falls back to a numerical integral.
 #eq(`unsupportedarea := integrate(x*e^x,x,0,1)`)
 #context {
  assert("interiorbad" not in eq())
- assert("unsupportedarea" not in eq())
+ assert(calc.abs(eq().unsupportedarea.exact - 1) < 1e-9)
 }
 #eq(`negativepowerzero := solve(x^(-2),0,x)`)
 #eq(`oddnegative := solve(x^(1/3),-2,x)`)

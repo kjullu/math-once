@@ -1,11 +1,115 @@
 # School mathematics (demo)
 
-Import `school` from `math-once.typ`. These are Typst functions operating on plain
-numbers and arrays, separate from the builder expression parser. They do not
-carry physical units or automatically print working. Use `school-bridge` and
-`school.value-source` below to exchange functions and numerical values with the builder.
-Angles returned by geometry functions are **radians as numbers**; multiply by
-`180 / calc.pi` for degrees. Never pass Typst angles to these helpers.
+Everyday school operations are written inside the normal
+[`calculation-builder`](calculation-builder.md), just like `diff` or `solve`.
+They use the same `:=` storage, `digits`, substitution steps and errors as any
+other builder line.
+
+```typ
+#import "math-once.typ": calculation-builder
+#let eq = calculation-builder(digits: 3)
+
+#eq(`data := vec(2, 4, 5, 7, 9)`)
+#eq(`xbar := mean(data)`)          // xbar = mean(data) = 5.4
+#eq(`xbar * 2`)                    // xbar · 2 = 5.4 · 2 = 10.8
+
+#eq(`xv := vec(1, 2, 3, 4)`)
+#eq(`yv := vec(3, 5, 7, 9)`)
+#eq(`fit := linreg(xv, yv)`)       // fit(x) = 2x + 1, with fit_a, fit_b, fit_r2
+#eq(`fit(10)`)                     // fit(10) = fit_a·10 + fit_b = 2·10 + 1 = 21
+
+#eq(`f(x) := x^3 - 3*x`)
+#eq(`solve(f(x) = 1, x, -3, 3)`)   // numerical roots in [-3, 3]
+#eq(`plot(f(x), x, -2.5, 2.5)`)    // draws the graph
+```
+
+Use raw text (backticks) or a string, as with CAS calls. Write multi-letter
+names in plain `$...$` math only when quoted.
+
+## Data, values and results
+
+- **Data** are ordinary builder vectors: `vec(2, 4, 5)`. Tables are matrices:
+  `mat(10, 20; 30, 40)`. Values must be plain numbers without units.
+- **Parameters** are any builder expression: `binompdf(n, 0.5, 3)` uses a stored `n`.
+- **Functions** are builder expressions in a named variable: `plot(f(x), x, 0, 5)`
+  or `plot(x^2 - 1, x, 0, 5)`.
+- **Results**:
+  - Single numbers are stored like any other value and can be reused.
+  - Vectors and matrices are stored as builder vectors and matrices.
+  - Operations with several results (`describe`, `triangle`, `chi2gof`,
+    regressions) store each part as a subscripted name: `stat := describe(data)`
+    stores `stat_mean`, `stat_q1`, …; `fit := linreg(xv, yv)` stores the function
+    `fit(x)` plus `fit_a`, `fit_b` and `fit_r2`.
+- Without `:=`, the result is shown but not stored.
+- Results from numerical methods are shown with `≈`.
+- Charts cannot be stored.
+- Angles follow the builder's `angles:` setting. In degree builders, `vecangle`
+  and `triangle` show `°`, and plain triangle angles are read as degrees.
+  `30°` or `0.5 rad` always keep their unit.
+
+A stored function with the same name as an operation takes precedence, as for CAS calls.
+
+## Operations
+
+| Operation | Result |
+| --- | --- |
+| `mean(data)`, `mean(data, weights)` | Mean, optionally weighted. |
+| `median(data)` | Median. |
+| `variance(data)`, `stdev(data)` | Sample variance / standard deviation (divides by n − 1). |
+| `variancep(data)`, `stdevp(data)` | Population variance / standard deviation (divides by n). |
+| `quantile(data, p)` | Linear-interpolation quantile, 0 ≤ p ≤ 1. |
+| `quartiles(data)` | Vector (Q1, median, Q3), median-of-halves quartiles. |
+| `describe(data)` | `n`, `mean`, `min`, `q1`, `median`, `q3`, `max`, `sp` (population sd) and `s` (sample sd). |
+| `choose(n, k)` | Binomial coefficient. |
+| `binompdf(n, p, k)` | P(X = k). |
+| `binomcdf(n, p, k)`, `binomcdf(n, p, a, b)` | P(X ≤ k), or P(a ≤ X ≤ b). |
+| `normpdf(x)`, `normpdf(x, μ, σ)` | Normal density. |
+| `normcdf(x)`, `normcdf(x, μ, σ)`, `normcdf(a, b, μ, σ)` | P(X ≤ x), or P(a ≤ X ≤ b). Absolute error about 10⁻⁷. |
+| `invnorm(p)`, `invnorm(p, μ, σ)` | x with P(X ≤ x) = p. |
+| `linreg(xs, ys)` | y = a·x + b. |
+| `expreg(xs, ys)` | y = b·aˣ (positive y; least squares on ln y). |
+| `powreg(xs, ys)` | y = b·xᵃ (positive x and y; least squares on ln x, ln y). |
+| `logreg(xs, ys)` | y = a·ln(x) + b (positive x). |
+| `polyreg(xs, ys, degree)` | y = a·xⁿ + b·xⁿ⁻¹ + … |
+| `dotprod(u, v)`, `cross(u, v)`, `norm(u)` | Dot product, 3D cross product, length. |
+| `vecangle(u, v)` | Angle between two non-zero vectors. |
+| `det(M)`, `inv(M)`, `rank(M)` | Determinant, inverse, rank. |
+| `linsolve(M, b)` | Solution of M·x = b as a vector. |
+| `triangle(a = 3, b = 4, C = 90)` | Solves a triangle from three named measurements (sides `a b c`, opposite angles `A B C`). Stores `a b c A B C area`. When two triangles fit (SSA), both are shown and storing is refused. |
+| `chi2gof(observed, expected)` | Goodness-of-fit test: `chi2`, `df`, `p`. Expected may be counts or probabilities summing to 1. |
+| `chi2ind(table)` | Independence test for a matrix of counts: `chi2`, `df`, `p`. |
+| `propci(k, n)`, `propci(k, n, level)` | Confidence interval for a proportion, p̂ ± z·√(p̂(1 − p̂)/n), default 95 %. |
+
+Regression R² (`_r2`) is computed in the original y values. It is omitted when
+all y values are equal.
+
+### Numerical calculus
+
+The CAS operations fall back to numerical methods where they cannot give an exact answer:
+
+| Call | Behaviour |
+| --- | --- |
+| `solve(equation, x, a, b)` | Numerical roots in [a, b]. Also `solve(expression, x, a, b)` and `solve(left, right, x, a, b)`. Shown with `≈`. Sign changes at poles are rejected. Split the interval at known poles. |
+| `integrate(expression, x, a, b)` | Exact when the CAS finds an antiderivative. Otherwise Simpson's rule, shown with `≈`. Refused when the function is undefined in the interval, or when 400 and 800 steps disagree (usually a pole). |
+
+### Charts
+
+| Call | Chart |
+| --- | --- |
+| `plot(f(x), x, a, b)`, `plot(f(x), g(x), …, x, a, b)` | Graphs on [a, b]. Gaps where a function is undefined, and the y-axis ignores extreme values near poles. |
+| `scatter(xs, ys)`, `scatter(xs, ys, fit(x), x)` | Data points, optionally with a model curve. |
+| `histogram(data, edges)` | Counts in the intervals given by an increasing `edges` vector. |
+| `boxplot(data)` | Box plot with median-of-halves quartiles. |
+
+Charts accept the builder's `caption:` option, and `label:` together with a caption.
+
+## Advanced: the plain Typst `school` API
+
+The operations above are built on `school`, a set of Typst functions working
+on plain numbers and arrays. It stays available for code that needs raw values,
+custom callbacks or workflows not covered by the builder (t-tests, ODEs, slope
+fields, parametric curves, complex numbers, finance recipes). These functions
+do not show working. Their angles are **radians as numbers**.
 
 ```typ
 #import "../math-once.typ": school

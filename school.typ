@@ -577,22 +577,24 @@
       yr=(mid - xspan*280/1000,mid+xspan*280/1000)
     }
   }
+  // Typst writes negative numbers with U+2212, which SVG cannot parse.
+  let svg-num(v)=str(v).replace("\u{2212}","-")
   let px(x)=50+500*(x - xr.at(0))/(xr.at(1) - xr.at(0))
   let py(y)=310 - 280*(y - yr.at(0))/(yr.at(1) - yr.at(0))
   let svg="<svg xmlns='http://www.w3.org/2000/svg' width='600' height='360'><defs><clipPath id='plot'><rect x='50' y='30' width='500' height='280'/></clipPath></defs><path d='M50 30V310H550' fill='none' stroke='black'/>"
   for i in range(6) {
     let x=xr.at(0)+(xr.at(1) - xr.at(0))*i/5
     let y=yr.at(0)+(yr.at(1) - yr.at(0))*i/5
-    svg+="<g font-size='12' font-family='sans-serif'><text x='"+str(px(x))+"' y='330' text-anchor='middle'>"+str(calc.round(x,digits:2))+"</text><text x='45' y='"+str(py(y)+4)+"' text-anchor='end'>"+str(calc.round(y,digits:2))+"</text></g>"
+    svg+="<g font-size='12' font-family='sans-serif'><text x='"+svg-num(px(x))+"' y='330' text-anchor='middle'>"+str(calc.round(x,digits:2))+"</text><text x='45' y='"+svg-num(py(y)+4)+"' text-anchor='end'>"+str(calc.round(y,digits:2))+"</text></g>"
   }
   svg+="<g clip-path='url(#plot)'>"
   let colors=("#1664a0","#b13b26","#26733e","#75439a")
   for (i,s) in series.enumerate() {
     let color=colors.at(calc.rem(s.at("color-index",default:i),colors.len()))
     if s.at("scatter",default:false) {
-      for p in s.points { svg+="<circle cx='"+str(px(p.at(0)))+"' cy='"+str(py(p.at(1)))+"' r='3' fill='"+color+"'/>" }
+      for p in s.points { svg+="<circle cx='"+svg-num(px(p.at(0)))+"' cy='"+svg-num(py(p.at(1)))+"' r='3' fill='"+color+"'/>" }
     } else {
-      let coords=s.points.map(p=>str(px(p.at(0)))+","+str(py(p.at(1)))).join(" ")
+      let coords=s.points.map(p=>svg-num(px(p.at(0)))+","+svg-num(py(p.at(1)))).join(" ")
       svg+="<polyline points='"+coords+"' fill='none' stroke='"+color+"' stroke-width='2'/>"
     }
   }

@@ -153,6 +153,6 @@ The project started as `typst-math`, which is still the name of my local folder.
 
 MIT
 
-School mathematics demo: [numeric helpers](doc/school.md) and [WordMat coverage / remaining gaps](doc/wordmat-coverage.md).
+School mathematics demo: [builder operations for statistics, regression, probability, geometry and charts](doc/school.md) and [WordMat coverage / remaining gaps](doc/wordmat-coverage.md).
 
-For a complete model → derivative → tangent → plot → regression workflow, see [the school example](examples/school-workflow.typ). Use `calculation-builder(angles: "radians")` with CAS calculus; select bridge angles explicitly with `school-bridge(..., angles: "radians")` for the same calculus convention.
+For a complete model → derivative → tangent → plot → regression workflow, see [the school example](examples/school-workflow.typ). Use `calculation-builder(angles: "radians")` with CAS calculus.
