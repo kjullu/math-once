@@ -3457,9 +3457,33 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
     render-part(parts.first()) + parts.slice(1).map(part => "_" + render-part(part)).join("")
   } else if token in variable-symbols {
     token
+  } else if token.clusters().len() == 1 {
+    // Single-letter variables are italic, as on paper; longer names stay upright.
+    token
   } else {
     "\"" + token + "\""
   }
+
+  // exp(u) is written e^u on paper.
+  let display-tokens = ()
+  let index = 0
+  while index < tokens.len() {
+    if tokens.at(index) == "exp" and tokens.at(index + 1, default: none) == "(" {
+      let depth = 0
+      let close = none
+      for j in range(index + 1, tokens.len()) {
+        if tokens.at(j) == "(" { depth += 1 } else if tokens.at(j) == ")" { depth -= 1; if depth == 0 { close = j; break } }
+      }
+      if close != none {
+        display-tokens += ("e", "^", "(") + tokens.slice(index + 2, close) + (")",)
+        index = close + 1
+        continue
+      }
+    }
+    display-tokens.push(tokens.at(index))
+    index += 1
+  }
+  tokens = display-tokens
 
   let rendered = tokens.enumerate().map(((index, token)) => {
     if is-math-symbol(token) {
@@ -3532,7 +3556,12 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
     if index > 0 and tokens.at(index - 1) == "^" and is-name(tokens.at(index)) and "_" in tokens.at(index) {
       item = "(" + item + ")"
     }
+    // f(x), not f (x).
+    let previous-item = if index > 0 { rendered.at(index - 1) } else { "" }
+    let tight-call = (index > 0 and tokens.at(index) == "(" and is-name(tokens.at(index - 1))
+      and type(previous-item) == str and (previous-item.starts-with("\"") or previous-item.clusters().len() == 1))
     if (index > 0
+      and not tight-call
       and not (tokens.at(index - 1) in source-functions and tokens.at(index) == "(")) {
       source += " "
     }
@@ -4424,6 +4453,31 @@ let render-result(result, aliases: (:), show-unit: true) = {
     }
     body
   }
+}
+
+// Drop brackets a person would not write after substituting into a function:
+// (fit_a · (10) + fit_b) becomes fit_a · 10 + fit_b. Negative values, calls and
+// implicit products keep their brackets.
+let tidy-parens(tokens) = {
+  tokens = unwrap-tokens(tokens)
+  let out = ()
+  let i = 0
+  while i < tokens.len() {
+    if tokens.at(i) == "(" and i + 2 < tokens.len() and tokens.at(i + 2) == ")" {
+      let atom = tokens.at(i + 1)
+      let previous = if i > 0 { tokens.at(i - 1) } else { none }
+      let next = tokens.at(i + 3, default: none)
+      let atomic = is-name(atom) or (is-number(atom) and not atom.starts-with("-") and not atom.starts-with("\u{2212}"))
+      if atomic and (previous == none or previous in ("+", "-", "*", "/", "^", "(", ",", "=")) and next != "(" and (next == none or not is-number(next)) {
+        out.push(atom)
+        i += 3
+        continue
+      }
+    }
+    out.push(tokens.at(i))
+    i += 1
+  }
+  out
 }
 
 let expand-variables(tokens, scope) = {
@@ -6596,7 +6650,7 @@ let school-operation(call, scope, ctx) = {
     if op in ("variance", "variancep") { return scalar(school.variance(xs, sample: sample)) }
     if op in ("stdev", "stdevp") { return scalar(calc.sqrt(school.variance(xs, sample: sample))) }
     if op == "quartiles" {
-      return (kind: "vector", values: (0.25, 0.5, 0.75).map(p => school.quantile(xs, p, method: "median-halves")))
+      return (kind: "vector", values: (0.25, 0.5, 0.75).map(p => school.quantile(xs, p, method: "median-halves")), quartiles: true)
     }
     let d = school.describe(xs, method: "median-halves")
     let result = (("n", d.count), ("mean", d.mean), ("min", d.min), ("q1", d.q1), ("median", d.median), ("q3", d.q3), ("max", d.max))
@@ -6869,7 +6923,7 @@ let school-operation(call, scope, ctx) = {
     // The normal-approximation interval used in Danish upper-secondary courses.
     let p = k / n
     let margin = school.normal-quantile((1 + confidence) / 2) * calc.sqrt(p * (1 - p) / n)
-    return (kind: "vector", values: (p - margin, p + margin), approximate: true)
+    return (kind: "vector", values: (p - margin, p + margin), approximate: true, interval: confidence, estimate: p)
   }
   calculation-failure("unknown school operation " + op)
 }
@@ -6898,7 +6952,7 @@ let school-numeric-solve(call, scope, ctx) = {
   if is-calculation-failure(b) { return b }
   let roots = school-roots(f, a, b)
   if is-calculation-failure(roots) { return roots }
-  (kind: "roots", values: roots, variable: variable)
+  (kind: "roots", values: roots, variable: variable, bounds: (args.at(3), args.at(4)))
 }
 
 let school-numeric-integral(call, scope, ctx) = {
@@ -7015,28 +7069,143 @@ let school-store-value(result, ctx) = {
   none
 }
 
-let school-field-result(field, ctx) = school-number-result(field.at(1), ctx.digits, degrees: field.len() > 2 and field.at(2) and ctx.angles == "degrees")
+// ---------------------------------------------------------------------------
+// Paper notation. School and CAS calls are written the way they would be on
+// paper, following WordMat where school practice has no fixed notation:
+// ∫_a^b f dx, d/dx f, lim, P(X ≤ k), u⃗ · v⃗, |u⃗|, M⁻¹, x = … ∨ x = ….
+// Only the display changes; the typed call and stored values are unchanged.
+// ---------------------------------------------------------------------------
+let paper-gap = h(0.25em)
+let paper-join(a, relation, b) = a + paper-gap + relation + paper-gap + b
 
-let school-render-fields(fields, prefix, ctx, aliases) = {
-  let rows = fields.map(field => {
-    let label = if prefix == none { field.first() } else { prefix + "_" + field.first() }
-    let scope = (:)
-    scope.insert(label, 0)
-    (render-tokens((label,), scope: scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em)
-      + render-result(school-field-result(field, ctx), aliases: aliases))
-  })
-  math.mat(delim: none, align: left, ..rows.map(r => (r,)))
+// True when a top-level + or − would make a following factor ambiguous.
+let paper-is-sum(tokens) = {
+  let depth = 0
+  for (index, token) in tokens.enumerate() {
+    if token == "(" { depth += 1 } else if token == ")" { depth -= 1 }
+    else if depth == 0 and index > 0 and token in ("+", "-") { return true }
+  }
+  false
+}
+let paper-parens(body) = math.lr([(] + body + [)])
+
+let paper-call-head(call, scope, aliases, name: none) = {
+  let op = call.operation
+  let args = call.arguments
+  let r(tokens) = render-tokens(tokens, scope: scope, aliases: aliases)
+  let grouped(tokens) = if paper-is-sum(tokens) { paper-parens(r(tokens)) } else { r(tokens) }
+  let arrowed(tokens) = {
+    let item = if tokens.len() == 1 { scope.at(tokens.first(), default: none) } else { none }
+    if item != none and is-vector-result(item) and not tokens.first().starts-with("arrow_") { math.arrow(r(tokens)) } else { r(tokens) }
+  }
+  let list(..parts) = parts.pos().join(math.comma + h(0.2em))
+  let d = math.upright("d")
+  let P(body) = math.upright("P") + paper-parens(body)
+  let X = math.italic("X")
+  let named(body) = if name == none { body } else { paper-join(render-tokens((name,), scope: ((name): 0), aliases: aliases), math.eq, body) }
+  let le = sym.lt.eq
+  let n = args.len()
+  if op == "integrate" and n in (2, 4) {
+    let sign = if n == 4 { math.attach([#sym.integral], b: r(args.at(2)), t: r(args.at(3))) } else { [#sym.integral] }
+    return sign + h(0.1em) + grouped(args.first()) + h(0.2em) + d + r(args.at(1))
+  }
+  if op == "diff" and n == 2 { return math.frac(d, d + r(args.at(1))) + grouped(args.first()) }
+  if op == "limit" and n == 3 {
+    return math.attach(math.op("lim", limits: true), b: r(args.at(1)) + sym.arrow.r + r(args.at(2))) + h(0.15em) + grouped(args.first())
+  }
+  if op == "choose" and n == 2 { return math.binom(r(args.first()), r(args.at(1))) }
+  if op in ("binompdf", "binomcdf") and n >= 3 {
+    let law = X + h(0.2em) + sym.tilde.op + h(0.2em) + math.upright("b") + paper-parens(list(r(args.first()), r(args.at(1))))
+    let event = if op == "binompdf" { X + paper-gap + math.eq + paper-gap + r(args.at(2)) }
+      else if n == 3 { X + paper-gap + le + paper-gap + r(args.at(2)) }
+      else { r(args.at(2)) + paper-gap + le + paper-gap + X + paper-gap + le + paper-gap + r(args.at(3)) }
+    return law + math.colon + h(0.6em) + named(P(event))
+  }
+  if op in ("normpdf", "normcdf", "invnorm") and n >= 1 {
+    let params = if n >= 3 { (r(args.at(-2)), r(args.at(-1))) } else { ([0], [1]) }
+    let law = X + h(0.2em) + sym.tilde.op + h(0.2em) + math.upright("N") + paper-parens(list(..params))
+    let body = if op == "normpdf" { math.attach(math.italic("f"), br: X) + paper-parens(r(args.first())) }
+      else if op == "invnorm" {
+        let variable = if name == none { math.italic("x") } else { render-tokens((name,), scope: (name: 0), aliases: aliases) }
+        paper-join(P(X + paper-gap + le + paper-gap + variable), math.eq, r(args.first()))
+      }
+      else if n == 4 { P(r(args.first()) + paper-gap + le + paper-gap + X + paper-gap + le + paper-gap + r(args.at(1))) }
+      else { P(X + paper-gap + le + paper-gap + r(args.first())) }
+    return law + math.colon + h(0.6em) + if op == "invnorm" { body } else { named(body) }
+  }
+  if op == "dotprod" and n == 2 { return arrowed(args.first()) + paper-gap + sym.dot.op + paper-gap + arrowed(args.at(1)) }
+  if op == "cross" and n == 2 { return arrowed(args.first()) + paper-gap + sym.times + paper-gap + arrowed(args.at(1)) }
+  if op == "norm" and n == 1 { return math.abs(arrowed(args.first())) }
+  if op == "vecangle" and n == 2 { return sym.angle + paper-parens(list(arrowed(args.first()), arrowed(args.at(1)))) }
+  if op == "inv" and n == 1 { return math.attach(grouped(args.first()), t: [−1]) }
+  none
 }
 
-// Render a school operation result in builder style and store it when the
+// A solution set written as x = a ∨ x = b, with ≈ for decimal approximations.
+let paper-roots(variable, roots, digits, approximate: false) = {
+  let x = render-tokens((variable,), scope: ((variable): 0))
+  if roots == "all" { return x + paper-gap + sym.in + paper-gap + math.RR }
+  if roots.len() == 0 { return x + paper-gap + sym.in + paper-gap + math.emptyset }
+  let precision = if type(digits) == int { digits } else { 4 }
+  roots.map(root => {
+    if type(root) in (int, float) {
+      let shown = school-number-result(root, digits)
+      paper-join(x, if approximate or shown.value != root { math.approx } else { math.eq }, render-result(shown))
+    } else if root.at("type", default: "") == "num" and type(root.val) == float and root.val != calc.round(root.val) {
+      paper-join(x, math.approx, cas.display(sx-num(calc.round(root.val, digits: precision))))
+    } else {
+      paper-join(x, math.eq, cas.display(school-display-expression(root)))
+    }
+  }).join(h(0.6em) + sym.or + h(0.6em))
+}
+
+// The equation part of solve(...): f(x) = 1, or f(x) = 0 for an expression.
+let paper-solve-equation(arguments, scope, aliases, bounds: none, variable: none) = {
+  let r(tokens) = render-tokens(tokens, scope: scope, aliases: aliases)
+  let equation = if "=" in arguments.first() { r(arguments.first()) }
+    else if arguments.len() >= 3 and bounds == none or arguments.len() == 5 { paper-join(r(arguments.first()), math.eq, r(arguments.at(1))) }
+    else { paper-join(r(arguments.first()), math.eq, [0]) }
+  if bounds == none { return equation }
+  let le = sym.lt.eq
+  equation + math.comma + h(0.8em) + r(bounds.first()) + paper-gap + le + paper-gap + render-tokens((variable,), scope: ((variable): 0)) + paper-gap + le + paper-gap + r(bounds.last())
+}
+
+let school-field-result(field, ctx) = school-number-result(field.at(1), ctx.digits, degrees: field.len() > 2 and field.at(2) and ctx.angles == "degrees")
+
+let paper-field-labels = (
+  n: $n$, mean: $mu$, sp: $sigma$, s: $s$, min: $"min"$, q1: $Q_1$, median: $"median"$, q3: $Q_3$, max: $"max"$,
+  r2: $R^2$, chi2: $chi^2$, df: $"df"$, p: $p$, area: $"area"$,
+  a: $a$, b: $b$, c: $c$, A: $A$, B: $B$, C: $C$,
+)
+let paper-field(field, ctx, aliases) = paper-join(paper-field-labels.at(field.first(), default: field.first()), math.eq, render-result(school-field-result(field, ctx), aliases: aliases))
+let paper-table(columns) = math.mat(delim: none, align: left, column-gap: 2em,
+  ..range(calc.max(..columns.map(c => c.len()))).map(i => columns.map(c => c.at(i, default: []))))
+
+// Multi-part results laid out like WordMat: a statistics table, a triangle's
+// angles beside its sides, and test statistics on one line.
+let school-render-fields(fields, op, ctx, aliases) = {
+  let by-key = (:)
+  for field in fields { by-key.insert(field.first(), field) }
+  let cell(key) = if key in by-key { paper-field(by-key.at(key), ctx, aliases) } else { [] }
+  if op == "describe" {
+    return paper-table((("n", "mean", "sp", "s").filter(k => k in by-key).map(cell), ("min", "q1", "median", "q3", "max").map(cell)))
+  }
+  if op == "triangle" {
+    return paper-table((("A", "B", "C").map(cell), ("a", "b", "c").map(cell))) + h(2em) + cell("area")
+  }
+  fields.map(field => paper-field(field, ctx, aliases)).join(math.comma + h(1em))
+}
+
+// Render a school operation result in paper notation and store it when the
 // line uses `:=`. Returns content, or a failure for the builder to report.
-let school-builder-output(result, name: none, store: false, quoted: false, tokens: (), scope: (:), aliases: (:), ctx: (:), show-result: true, result-only: false, block: true, variables: none) = {
-  let join(a, relation, b) = a + h(0.25em) + relation + h(0.25em) + b
-  let written = render-tokens(tokens, scope: scope, aliases: aliases)
+let school-builder-output(result, call: none, name: none, store: false, quoted: false, tokens: (), scope: (:), aliases: (:), ctx: (:), show-result: true, result-only: false, block: true, variables: none) = {
   let name-scope = scope
   if name != none { name-scope.insert(name, 0) }
   let render-name(n) = render-tokens((n,), scope: name-scope, aliases: aliases)
-  let head = if name != none { join(render-name(name), math.eq, written) } else { written }
+  let paper = if call == none { none } else { paper-call-head(call, scope, aliases, name: if store { name } else { none }) }
+  let written = if paper != none { paper } else { render-tokens(tokens, scope: scope, aliases: aliases) }
+  let names-itself = call != none and call.operation in ("binompdf", "binomcdf", "normpdf", "normcdf", "invnorm")
+  let head = if name != none and not names-itself { paper-join(render-name(name), math.eq, written) } else { written }
   let relation = if result.at("approximate", default: false) { math.approx } else { math.eq }
   let save(key, value) = {
     value.insert("display", math.equation(render-name(key), block: block))
@@ -7044,22 +7213,45 @@ let school-builder-output(result, name: none, store: false, quoted: false, token
     if quoted and key == name { value.insert("quoted-variable", true) }
     checkpoint-update(variables, old => { old.insert(key, value); old })
   }
-  let prefix = if store { name } else { none }
-  let field-scope = name-scope
-  for (index, field) in result.at("fields", default: ()).enumerate() {
-    if prefix != none { field-scope.insert(prefix + "_" + field.first(), 0) }
+  let op = if call == none { none } else { call.operation }
+
+  if result.kind == "roots" {
+    let value = school-store-value(result, ctx)
+    let updates = if store { save(name, value) } else { [] }
+    let shown = paper-roots(result.variable, result.values, ctx.digits, approximate: true)
+    let equation = paper-solve-equation(call.arguments, scope, aliases, bounds: result.bounds, variable: result.variable)
+    return updates + if result-only { shown } else { paper-join(equation, sym.arrow.l.r.double.long, shown) }
   }
 
-  if result.kind in ("scalar", "vector", "matrix", "roots") {
+  if result.kind in ("scalar", "vector", "matrix") {
     let value = school-store-value(result, ctx)
-    let shown = if result.kind == "roots" {
-      if result.values.len() == 0 { math.emptyset } else {
-        result.values.map(x => render-result(school-number-result(x, ctx.digits), aliases: aliases)).join(math.comma + h(0.25em))
-      }
-    } else { render-result(value, aliases: aliases) }
-    if result.kind == "roots" { relation = math.approx }
     let updates = if store { save(name, value) } else { [] }
-    return updates + if result-only { shown } else if name == none or not store or show-result { join(head, relation, shown) } else { head }
+    let shown = render-result(value, aliases: aliases)
+    if result-only { return updates + shown }
+    // invnorm and linsolve read as an equation solved for the unknown.
+    if op == "invnorm" {
+      let unknown = if store { render-name(name) } else { math.italic("x") }
+      return updates + paper-join(written, sym.arrow.l.r.double.long, paper-join(unknown, relation, shown))
+    }
+    if op == "linsolve" {
+      let r(t) = render-tokens(t, scope: scope, aliases: aliases)
+      let unknown = if store { render-name(name) } else { math.arrow(math.italic("x")) }
+      let system = paper-join(r(call.arguments.first()) + paper-gap + sym.dot.op + paper-gap + unknown, math.eq, r(call.arguments.at(1)))
+      return updates + paper-join(system, sym.arrow.l.r.double.long, paper-join(unknown, math.eq, shown))
+    }
+    if result.at("interval", default: none) != none {
+      let (low, high) = value.components.map(c => render-result(c, aliases: aliases))
+      let level = result.interval
+      let label = if store { render-name(name) } else { math.upright(str(calc.round(level * 100, digits: 2)) + " % CI") }
+      let estimate = paper-join(math.accent(math.italic("p"), math.hat), math.eq, render-result(school-number-result(result.estimate, ctx.digits)))
+      let interval = paper-join(label, math.eq, math.lr([\[] + low + math.comma + h(0.2em) + high + [\]]))
+      return updates + estimate + math.comma + h(1em) + interval
+    }
+    if result.at("quartiles", default: false) {
+      let (q1, m, q3) = value.components.map(c => render-result(c, aliases: aliases))
+      return updates + (paper-join($Q_1$, math.eq, q1), paper-join($"median"$, math.eq, m), paper-join($Q_3$, math.eq, q3)).join(math.comma + h(1em))
+    }
+    return updates + if name == none or not store or show-result or names-itself { paper-join(head, relation, shown) } else { head }
   }
 
   if result.kind == "fields" {
@@ -7071,20 +7263,16 @@ let school-builder-output(result, name: none, store: false, quoted: false, token
     if store {
       for field in solutions.first() { updates += save(name + "_" + field.first(), school-field-result(field, ctx)) }
     }
-    let tables = solutions.map(fields => school-render-fields(fields, prefix, ctx, aliases))
-    let shown = tables.join(h(1em) + render-tokens((math-symbol-token("or"),)) + h(1em))
-    return updates + if result-only { shown } else { head + h(1.5em) + shown }
+    let shown = solutions.map(fields => school-render-fields(fields, op, ctx, aliases)).join(h(1.2em) + sym.or + h(1.2em))
+    return updates + shown
   }
 
-  // Regression: a stored function plus its parameters.
-  let function-name = if store { name } else { "y" }
-  let function-display = if function-name == "y" {
-    render-tokens(("y",), aliases: aliases)
-  } else {
-    render-tokens(tokenize(function-name + "(x)"), scope: (x: 0), aliases: aliases)
-  }
+  // Regression: WordMat style, the fitted function and R².
+  let function-display = if store {
+    render-tokens(tokenize(name + "(x)"), scope: (x: 0), aliases: aliases)
+  } else { math.italic("y") }
   let display-body = if type(result.display-body) == str { result.display-body } else { school-polynomial-source(result.display-body, ctx.digits, display: true) }
-  let model = join(function-display, math.eq, render-tokens(tokenize(display-body), scope: (x: 0), aliases: aliases))
+  let model = paper-join(function-display, math.eq, render-tokens(tokenize(display-body), scope: (x: 0), aliases: aliases))
   let updates = []
   if store {
     let body = result.template
@@ -7094,8 +7282,8 @@ let school-builder-output(result, name: none, store: false, quoted: false, token
     updates += checkpoint-update(variables, old => { old.insert(name, definition); old })
     for field in result.fields { updates += save(name + "_" + field.first(), school-field-result(field, ctx)) }
   }
-  let shown = model + h(1.5em) + school-render-fields(result.fields, prefix, ctx, aliases)
-  updates + if result-only { shown } else { head + h(1.5em) + shown }
+  let r2 = result.fields.filter(f => f.first() == "r2")
+  updates + model + if r2.len() > 0 { math.comma + h(1em) + paper-field(r2.first(), ctx, aliases) } else { [] }
 }
 
 let calculation-builder(
@@ -7312,7 +7500,18 @@ let calculation-builder(
           old
         })
         if hidden { return }
-        render-tokens(tokenize(source.replace(":=", "=")), scope: current, aliases: aliases)
+        // Render the new name as a function, even when it is also a unit (g, dg).
+        let definition-scope = current
+        definition-scope.insert(parsed-function.name, parsed-function)
+        for parameter in parsed-function.parameters { definition-scope.insert(parameter, 0) }
+        let call = symbolic-call(tokenize(source.split(":=").slice(1).join(":=")))
+        let paper = if call == none { none } else { paper-call-head(call, current, aliases) }
+        if paper == none {
+          render-tokens(tokenize(source.replace(":=", "=")), scope: definition-scope, aliases: aliases)
+        } else {
+          let left = tokenize(source.split(":=").first())
+          paper-join(render-tokens(left, scope: definition-scope, aliases: aliases), math.eq, paper)
+        }
         if parsed-function.at("calculus", default: false) {
           h(0.25em) + math.eq + h(0.25em) + cas.display(school-display-expression(parsed-function.expression))
         }
@@ -7361,9 +7560,9 @@ let calculation-builder(
         return
       }
       let school-ctx = (digits: automatic-precision(digits, auto-digits), aliases: aliases, unloaded: unloaded, angles: angles, strict-units: strict-units)
-      let school-line(result) = {
+      let school-line(result, call) = {
         if is-calculation-failure(result) { return builder-error(result.error) }
-        let output = school-builder-output(result, name: name, store: stores-result, quoted: assignment != none and assignment.captures.at(0) != none,
+        let output = school-builder-output(result, call: call, name: name, store: stores-result, quoted: assignment != none and assignment.captures.at(0) != none,
           tokens: evaluation-tokens, scope: current, aliases: aliases, ctx: school-ctx, show-result: show-result,
           result-only: result-only, block: block, variables: variables)
         if is-calculation-failure(output) { builder-error(output.error) } else if not hidden { output }
@@ -7382,7 +7581,7 @@ let calculation-builder(
           builder-error("school operations do not accept unit or size")
           return
         }
-        school-line(school-operation(school-op, current, school-ctx))
+        school-line(school-operation(school-op, current, school-ctx), school-op)
         return
       }
       let cas-call = if display-only { none } else { symbolic-call(evaluation-tokens) }
@@ -7410,13 +7609,13 @@ let calculation-builder(
         }
         let solve-arguments = cas-call.arguments.len() + if cas-call.arguments.len() > 0 and "=" in cas-call.arguments.first() { 1 } else { 0 }
         if cas-call.operation == "solve" and solve-arguments in (4, 5) and cas-call.arguments.len() >= 4 {
-          school-line(school-numeric-solve(cas-call, current, school-ctx))
+          school-line(school-numeric-solve(cas-call, current, school-ctx), cas-call)
           return
         }
         let result = symbolic-result(cas-call, current)
         if (is-calculation-failure(result) and cas-call.operation == "integrate" and cas-call.arguments.len() == 4
           and result.error.starts-with("Unsupported symbolic integral")) {
-          school-line(school-numeric-integral(cas-call, current, school-ctx))
+          school-line(school-numeric-integral(cas-call, current, school-ctx), cas-call)
           return
         }
         if is-calculation-failure(result) {
@@ -7424,7 +7623,8 @@ let calculation-builder(
           return
         }
 
-        let written = render-tokens(evaluation-tokens, scope: current, aliases: aliases)
+        let paper = paper-call-head(cas-call, current, aliases)
+        let written = if paper != none { paper } else { render-tokens(evaluation-tokens, scope: current, aliases: aliases) }
         let labelled-body = if name != none {
           let name-scope = current
           name-scope.insert(name, 0)
@@ -7438,6 +7638,15 @@ let calculation-builder(
         }
         if result-only {
           labelled-body = render-symbolic-result(result, digits: digits)
+        }
+        // On paper a solved equation reads f(x) = 0 ⇔ x = a ∨ x = b.
+        if cas-call.operation == "solve" and result.symbolic-kind == "roots" {
+          let variable = symbolic-token-name(cas-call.arguments.last().first())
+          let roots = if result.at("solution-status", default: none) == "all" { "all" } else { result.roots }
+          let shown = paper-roots(variable, roots, digits)
+          labelled-body = if result-only { shown } else {
+            paper-join(paper-solve-equation(cas-call.arguments, current, aliases), sym.arrow.l.r.double.long, shown)
+          }
         }
 
         if stores-result {
@@ -7593,14 +7802,14 @@ let calculation-builder(
           and not calculus-reference(evaluation-tokens, current)
           and vector-components(calculation-tokens) == none
           and matrix-rows(calculation-tokens) == none) {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(calculation-tokens, scope: numeric-scope(current), aliases: aliases)
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(tidy-parens(calculation-tokens), scope: numeric-scope(current), aliases: aliases)
         }
         // After a function call is expanded, substitute stored values used inside
         // its body too, e.g. fit(10) = fit_a·10 + fit_b = 1.94·10 + 1.15.
         let function-expanded = function-expansion.last() and vector-components(calculation-tokens) == none and matrix-rows(calculation-tokens) == none
         let (expanded, has-variables) = expand-variables(if function-expanded { calculation-tokens } else { tokens }, current)
         if has-variables and show-substitution and not calculus-reference(evaluation-tokens, current) {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(if function-expanded { tidy-parens(expanded) } else { expanded }, aliases: aliases)
         }
         let last-visible-tokens = if has-variables and show-substitution and not calculus-reference(evaluation-tokens, current) { expanded } else { tokens }
         if ((is-structure-result(result) and not structure-equivalent(last-visible-tokens, result))

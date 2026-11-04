@@ -130,7 +130,7 @@ Most operations return one expression and can feed another operation:
 
 ```typ
 #eq(`roots := solve(x^2 - 4, x)`)
-// roots = solve(x² - 4, x) = 2, -2
+// x² - 4 = 0 ⇔ x = 2 ∨ x = -2
 ```
 
 A root set cannot be treated as one expression. For example,

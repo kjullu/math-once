@@ -15,16 +15,49 @@ other builder line.
 
 #eq(`xv := vec(1, 2, 3, 4)`)
 #eq(`yv := vec(3, 5, 7, 9)`)
-#eq(`fit := linreg(xv, yv)`)       // fit(x) = 2x + 1, with fit_a, fit_b, fit_r2
+#eq(`fit := linreg(xv, yv)`)       // fit(x) = 2x + 1,  R² = 1  (stores fit_a, fit_b, fit_r2)
 #eq(`fit(10)`)                     // fit(10) = fit_a·10 + fit_b = 2·10 + 1 = 21
 
 #eq(`f(x) := x^3 - 3*x`)
-#eq(`solve(f(x) = 1, x, -3, 3)`)   // numerical roots in [-3, 3]
+#eq(`solve(f(x) = 1, x, -3, 3)`)   // f(x) = 1, −3 ≤ x ≤ 3 ⇔ x ≈ −1.532 ∨ x ≈ −0.347 ∨ x ≈ 1.879
 #eq(`plot(f(x), x, -2.5, 2.5)`)    // draws the graph
 ```
 
 Use raw text (backticks) or a string, as with CAS calls. Write multi-letter
 names in plain `$...$` math only when quoted.
+
+## Paper notation
+
+Results are written the way you would write them on paper. WordMat's notation
+is used where school practice has no fixed convention. You type the command;
+the line shows the mathematics:
+
+| You type | Shown as |
+| --- | --- |
+| `integrate(x^2, x, 0, 3)` | ∫₀³ x² dx = 9 |
+| `diff(f(x), x)` | d/dx f(x) = … |
+| `limit((x^2-1)/(x-1), x, 1)` | lim_{x→1} (x² − 1)/(x − 1) = 2 |
+| `solve(x^2 - 4, x)` | x² − 4 = 0 ⇔ x = 2 ∨ x = −2 |
+| `choose(10, 3)` | (10 over 3) = 120 |
+| `binompdf(10, 0.5, 3)` | X ∼ b(10, 0.5): P(X = 3) = 0.117 |
+| `normcdf(90, 110, 100, 15)` | X ∼ N(100, 15): P(90 ≤ X ≤ 110) ≈ 0.495 |
+| `invnorm(0.975)` | X ∼ N(0, 1): P(X ≤ x) = 0.975 ⇔ x ≈ 1.960 |
+| `dotprod(u, v)`, `cross(u, v)` | u⃗ · v⃗, u⃗ × v⃗ |
+| `norm(u)`, `vecangle(u, v)` | \|u⃗\|, ∠(u⃗, v⃗) |
+| `inv(M)`, `linsolve(M, b)` | M⁻¹, M · x⃗ = b ⇔ x⃗ = … |
+| `fit := linreg(xs, ys)` | fit(x) = 1.94x + 1.15,  R² = 0.996 |
+| `describe(data)` | table of n, μ, σ, s, min, Q₁, median, Q₃, max |
+| `triangle(a = 3, b = 4, c = 5)` | angles A, B, C beside sides a, b, c, and the area |
+| `chi2gof(...)`, `chi2ind(...)` | χ² = 0.4,  df = 2,  p = 0.819 |
+| `propci(45, 100)` | p̂ = 0.45,  95 % CI = [0.352, 0.548] |
+| `exp(x)` | eˣ |
+
+Single-letter variables are italic and units upright, so `5 m` (metres) and `5m`
+(five times a variable m) look different. Vector arrows are added to stored
+vector names in vector operations. The stored names do not change:
+`stat := describe(data)` still stores `stat_mean`, `stat_q1`, …, and a stored
+probability shows its name inside the line: `X ∼ b(10, 0.5): prob = P(X = 3)`.
+A stored solve shows only the solved equation; the name still holds the roots.
 
 ## Data, values and results
 

@@ -52,7 +52,7 @@ It takes #eq($1.394 s$, result-only: true, show-unit: false) seconds.
 // multi-letter names are quoted.
 #eq(` f := simplify(x^2 + 2*x + 1) `)
 #eq(` df := diff(f, x) `)
-// df = diff(f, x) = 2x + 2
+// df = d/dx f = 2x + 2
 
 // Raw input has no $...$ layout metadata. Override its centered default when
 // a normal CAS result should appear inline:

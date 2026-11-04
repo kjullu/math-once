@@ -112,10 +112,10 @@ passed to a later operation:
 // f = simplify(x² + 2x + 1) = x² + 2x + 1
 
 #eq(`df := diff(f, x)`)
-// df = diff(f, x) = 2x + 2
+// df = d/dx f = 2x + 2
 
 #eq(`roots := solve(x^2 - 4, x)`)
-// roots = solve(x² - 4, x) = 2, -2
+// x² - 4 = 0 ⇔ x = 2 ∨ x = -2
 ```
 
 Unknown names such as `x` stay symbolic. Existing stored, dimensionless
@@ -968,6 +968,8 @@ are also available as `solve(equation, x, a, b)` and `integrate(expression, x, a
 ```
 
 See [School mathematics](school.md) for every operation and how its results are stored.
+
+Calculus and school calls are shown in paper notation: `integrate(x^2, x, 0, 3)` as ∫₀³ x² dx, `diff(f(x), x)` as d/dx f(x), and `solve(x^2 - 4, x)` as x² − 4 = 0 ⇔ x = 2 ∨ x = −2. Single-letter variables are italic and units upright. See [paper notation](school.md#paper-notation).
 
 ### Angle conventions
 
