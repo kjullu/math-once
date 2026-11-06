@@ -1,7 +1,8 @@
-// math-once v0.45.0
+// Integrated school workflows (0.45.0)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
+#import "school.typ" as school
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
 /// return both the rounded and exact values.
@@ -3133,15 +3134,26 @@ let variable-symbol-name(symbol) = {
   none
 }
 
-let cas-functions = ("simplify", "diff", "integrate", "solve", "factor", "limit", "taylor")
+let cas-functions = ("simplify", "expand", "diff", "integrate", "solve", "factor", "limit", "taylor")
 let rounding-functions = ("floor", "ceil", "round")
 let trigonometric-functions = ("sin", "cos", "tan")
 let inverse-trigonometric-functions = ("asin", "acos", "atan")
 let inverse-trigonometric-aliases = ("arcsin", "arccos", "arctan")
 let inverse-trigonometric-names = inverse-trigonometric-functions + inverse-trigonometric-aliases
-let math-functions = trigonometric-functions + inverse-trigonometric-names + ("atan2", "sqrt", "root", "abs") + rounding-functions
+let math-functions = trigonometric-functions + inverse-trigonometric-names + ("atan2", "sqrt", "root", "abs", "ln", "log", "exp") + rounding-functions
 let structure-functions = ("vec", "matrix", "mat")
-let source-functions = math-functions + cas-functions + structure-functions
+// Everyday school operations evaluated numerically by the builder. They share
+// the CAS call syntax, storage rules and rendering, but run on school.typ.
+let school-calculation-functions = (
+  "mean", "median", "variance", "variancep", "stdev", "stdevp", "quantile", "quartiles", "describe",
+  "choose", "binompdf", "binomcdf", "normpdf", "normcdf", "invnorm",
+  "linreg", "expreg", "powreg", "logreg", "polyreg",
+  "dotprod", "cross", "norm", "vecangle", "det", "inv", "rank", "linsolve",
+  "triangle", "chi2gof", "chi2ind", "propci",
+)
+let school-chart-functions = ("plot", "scatter", "histogram", "boxplot")
+let school-functions = school-calculation-functions + school-chart-functions
+let source-functions = math-functions + cas-functions + structure-functions + school-functions
 let text-unit-prefix = "⟦"
 let text-unit-suffix = "⟧"
 
@@ -3445,9 +3457,36 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
     render-part(parts.first()) + parts.slice(1).map(part => "_" + render-part(part)).join("")
   } else if token in variable-symbols {
     token
+  } else if token.clusters().len() == 1 {
+    // Single-letter variables are italic, as on paper; longer names stay upright.
+    token
   } else {
     "\"" + token + "\""
   }
+
+  // exp(u) is written e^u on paper.
+  let display-tokens = ()
+  let index = 0
+  while index < tokens.len() {
+    if tokens.at(index) == "exp" and tokens.at(index + 1, default: none) == "(" {
+      let depth = 0
+      let close = none
+      for j in range(index + 1, tokens.len()) {
+        if tokens.at(j) == "(" { depth += 1 } else if tokens.at(j) == ")" { depth -= 1; if depth == 0 { close = j; break } }
+      }
+      if close != none {
+        let power = ("e", "^", "(") + tokens.slice(index + 2, close) + (")",)
+        // (e^3)^2 keeps its brackets; e^(3)^2 would mean e^9.
+        let raised = tokens.at(close + 1, default: none) == "^"
+        display-tokens += if raised { ("(",) + power + (")",) } else { power }
+        index = close + 1
+        continue
+      }
+    }
+    display-tokens.push(tokens.at(index))
+    index += 1
+  }
+  tokens = display-tokens
 
   let rendered = tokens.enumerate().map(((index, token)) => {
     if is-math-symbol(token) {
@@ -3472,7 +3511,7 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
         "upright(\"" + name + "\")"
       }
     } else if is-name(token) {
-      if (token in cas-functions + inverse-trigonometric-names + ("atan2",)
+      if (token in cas-functions + school-functions + inverse-trigonometric-names + ("atan2",)
         and index + 1 < tokens.len()
         and tokens.at(index + 1) == "(") {
         "op(\"" + token + "\")"
@@ -3516,7 +3555,16 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
   })
   let source = ""
   for (index, item) in rendered.enumerate() {
+    // Keep a subscripted exponent together: x^(k_a), not x^k with _a.
+    if index > 0 and tokens.at(index - 1) == "^" and is-name(tokens.at(index)) and "_" in tokens.at(index) {
+      item = "(" + item + ")"
+    }
+    // f(x), not f (x).
+    let previous-item = if index > 0 { rendered.at(index - 1) } else { "" }
+    let tight-call = (index > 0 and tokens.at(index) == "(" and is-name(tokens.at(index - 1))
+      and type(previous-item) == str and (previous-item.starts-with("\"") or previous-item.clusters().len() == 1))
     if (index > 0
+      and not tight-call
       and not (tokens.at(index - 1) in source-functions and tokens.at(index) == "(")) {
       source += " "
     }
@@ -3654,7 +3702,7 @@ let split-top-level(tokens, separator: ",") = {
 }
 
 let function-definition(source) = {
-  let matched = source.match(regex("^\\s*([A-Za-z]+(?:_[A-Za-z0-9]+)*)\\s*\\(([^()]*)\\)\\s*:=\\s*(.+)$"))
+  let matched = source.match(regex("^\\s*([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*)\\s*\\(([^()]*)\\)\\s*:=\\s*(.+)$"))
   if matched == none { return none }
   let parameters = matched.captures.at(1).split(",").map(item => item.trim())
   if parameters.len() == 0 or parameters.any(item => not is-name(item)) {
@@ -3699,6 +3747,29 @@ let substitute-function(definition, arguments) = {
   result
 }
 
+let symbolic-free-variables(a) = {
+  if type(a) != dictionary { return () }
+  if a.at("type", default: "") == "var" { return (a.name,) }
+  let names = ()
+  for value in a.values() {
+    if type(value) == dictionary { names += symbolic-free-variables(value) }
+    if type(value) == array { for child in value { names += symbolic-free-variables(child) } }
+  }
+  names.dedup()
+}
+
+let symbolic-code(a) = {
+  if a.type == "num" { return str(a.val) }
+  if a.type in ("var","const") { return a.name }
+  if a.type == "log" { return "(ln(" + symbolic-code(a.arg) + ")/ln(" + symbolic-code(a.base) + "))" }
+  if a.type == "neg" { return "(-(" + symbolic-code(a.arg) + "))" }
+  if a.type in ("add","mul") { return "(" + a.args.map(symbolic-code).join(if a.type == "add" { "+" } else { "*" }) + ")" }
+  if a.type == "div" { return "(" + symbolic-code(a.num) + ")/(" + symbolic-code(a.den) + ")" }
+  if a.type == "pow" { return "(" + symbolic-code(a.base) + ")^(" + symbolic-code(a.exp) + ")" }
+  if a.type == "func" { return a.name + "(" + symbolic-code(a.arg) + ")" }
+  ""
+}
+
 let expand-function-calls(tokens, scope, stack: (), depth: 0) = {
   if depth > 64 {
     return calculation-failure("stored function expansion exceeded 64 nested calls")
@@ -3709,6 +3780,10 @@ let expand-function-calls(tokens, scope, stack: (), depth: 0) = {
   while index < tokens.len() {
     let token = tokens.at(index)
     let definition = scope.at(token, default: none)
+    if type(definition) == dictionary and definition.at("failed-function", default: false) { return calculation-failure("function `" + token + "` has a rejected definition; redefine it before use") }
+    if type(definition) == dictionary and definition.at("symbolic-kind", default:"") == "expression" and index + 1 < tokens.len() and tokens.at(index+1) == "(" {
+      definition = (function:true, name:token, parameters:definition.at("parameters", default: symbolic-free-variables(definition.expression)), body-tokens:tokenize(symbolic-code(definition.expression)))
+    }
     if (type(definition) == dictionary
       and definition.at("function", default: false)
       and index + 1 < tokens.len()
@@ -3777,6 +3852,8 @@ let is-vector-result(result) = type(result) == dictionary and result.at("vector"
 let is-matrix-result(result) = type(result) == dictionary and result.at("matrix", default: false)
 let is-structure-result(result) = is-vector-result(result) or is-matrix-result(result)
 
+let is-failed-function(item) = type(item) == dictionary and item.at("failed-function", default: false)
+
 let numeric-scope(scope) = {
   let result = (:)
   for (name, value) in scope {
@@ -3786,11 +3863,12 @@ let numeric-scope(scope) = {
     let stored-function = type(value) == dictionary and value.at("function", default: false)
     let symbolic-result = type(value) == dictionary and value.at("symbolic", default: false)
     let structure-result = is-structure-result(value)
-    if (not unloaded-marker
+    if (not is-failed-function(value)
+      and not unloaded-marker
       and not unit-alias
       and not initial-state-marker
       and not stored-function
-      and not symbolic-result
+      and (not symbolic-result or (value.at("symbolic-kind", default: "") == "expression" and symbolic-free-variables(value.expression).len() == 0))
       and not structure-result) {
       result.insert(name, value)
     }
@@ -4070,7 +4148,7 @@ let top-level-structure-operator(tokens) = {
   best-index
 }
 
-let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, strict-units: false) = {
+let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, angles: "degrees", strict-units: false) = {
   tokens = unwrap-tokens(tokens)
   let scalar-scope = numeric-scope(scope)
   let components = vector-components(tokens)
@@ -4087,7 +4165,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
         block: false,
         unloaded: unloaded,
         aliases: aliases,
-        strict-units: strict-units,
+        angles: angles, strict-units: strict-units,
         soft: true,
       )
       if is-calculation-failure(result) { return result }
@@ -4122,7 +4200,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
           block: false,
           unloaded: unloaded,
           aliases: aliases,
-          strict-units: strict-units,
+          angles: angles, strict-units: strict-units,
           soft: true,
         )
         if is-calculation-failure(result) { return result }
@@ -4145,22 +4223,22 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
   if operator-index != none {
     let left-tokens = tokens.slice(0, operator-index)
     let right-tokens = tokens.slice(operator-index + 1)
-    let left = evaluate-structure(calculate-fn, left-tokens, digits, scope, aliases, unloaded, strict-units: strict-units)
+    let left = evaluate-structure(calculate-fn, left-tokens, digits, scope, aliases, unloaded, angles: angles, strict-units: strict-units)
     if is-calculation-failure(left) { return left }
-    let right = evaluate-structure(calculate-fn, right-tokens, digits, scope, aliases, unloaded, strict-units: strict-units)
+    let right = evaluate-structure(calculate-fn, right-tokens, digits, scope, aliases, unloaded, angles: angles, strict-units: strict-units)
     if is-calculation-failure(right) { return right }
     if left == none and right == none { return none }
     if left == none {
       left = calculate-fn(
         left-tokens.join(" "), digits: digits, scope: scalar-scope, block: false,
-        unloaded: unloaded, aliases: aliases, strict-units: strict-units, soft: true,
+        unloaded: unloaded, aliases: aliases, angles: angles, strict-units: strict-units, soft: true,
       )
       if is-calculation-failure(left) { return left }
     }
     if right == none {
       right = calculate-fn(
         right-tokens.join(" "), digits: digits, scope: scalar-scope, block: false,
-        unloaded: unloaded, aliases: aliases, strict-units: strict-units, soft: true,
+        unloaded: unloaded, aliases: aliases, angles: angles, strict-units: strict-units, soft: true,
       )
       if is-calculation-failure(right) { return right }
     }
@@ -4170,7 +4248,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
   }
 
   if tokens.len() > 1 and tokens.first() == "-" {
-    let inner = evaluate-structure(calculate-fn, tokens.slice(1), digits, scope, aliases, unloaded, strict-units: strict-units)
+    let inner = evaluate-structure(calculate-fn, tokens.slice(1), digits, scope, aliases, unloaded, angles: angles, strict-units: strict-units)
     if is-calculation-failure(inner) { return inner }
     if inner != none {
       let minus-one = calculate-fn("-1", digits: digits, block: false, soft: true)
@@ -4189,7 +4267,7 @@ let paired-sign-branches(tokens) = (
   tokens.map(token => if token == "±" { "-" } else if token == "∓" { "+" } else { token }),
 )
 
-let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, unloaded, aliases, strict-units: false) = {
+let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, unloaded, aliases, angles: "degrees", strict-units: false) = {
   let result = evaluate-structure(
     calculate-fn,
     add-implicit-multiplication(tokens),
@@ -4197,7 +4275,7 @@ let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, u
     scope,
     aliases,
     unloaded,
-    strict-units: strict-units,
+    angles: angles, strict-units: strict-units,
   )
   if result == none {
     return calculate-fn(
@@ -4209,7 +4287,7 @@ let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, u
       block: block,
       unloaded: unloaded,
       aliases: aliases,
-      strict-units: strict-units,
+      angles: angles, strict-units: strict-units,
       soft: true,
     )
   }
@@ -4380,6 +4458,31 @@ let render-result(result, aliases: (:), show-unit: true) = {
   }
 }
 
+// Drop brackets a person would not write after substituting into a function:
+// (fit_a · (10) + fit_b) becomes fit_a · 10 + fit_b. Negative values, calls and
+// implicit products keep their brackets.
+let tidy-parens(tokens) = {
+  tokens = unwrap-tokens(tokens)
+  let out = ()
+  let i = 0
+  while i < tokens.len() {
+    if tokens.at(i) == "(" and i + 2 < tokens.len() and tokens.at(i + 2) == ")" {
+      let atom = tokens.at(i + 1)
+      let previous = if i > 0 { tokens.at(i - 1) } else { none }
+      let next = tokens.at(i + 3, default: none)
+      let atomic = is-name(atom) or (is-number(atom) and not atom.starts-with("-") and not atom.starts-with("\u{2212}"))
+      if atomic and (previous == none or previous in ("+", "-", "*", "/", "^", "(", ",", "=")) and next != "(" and (next == none or not is-number(next)) {
+        out.push(atom)
+        i += 3
+        continue
+      }
+    }
+    out.push(tokens.at(i))
+    i += 1
+  }
+  out
+}
+
 let expand-variables(tokens, scope) = {
   let expanded = ()
   let changed = false
@@ -4401,14 +4504,19 @@ let expand-variables(tokens, scope) = {
       }
       let item = scope.at(token)
       if type(item) == dictionary and "value" in item {
-        expanded += display-number-tokens(
+        let number = display-number-tokens(
           item.value,
           exact: item.at("exact", default: item.value),
           digits: item.at("digits", default: none),
           significant-digits: item.at("significant-digits", default: none),
         )
         let item-unit = result-unit-source(item)
-        if item-unit != none { expanded += tokenize(item-unit) }
+        if item-unit != none { number += tokenize(item-unit) }
+        // Group negative or multi-token values after an operator: 2·(−3), 5^(−1.4).
+        let previous = if index > 0 { tokens.at(index - 1) } else { none }
+        let grouped = (previous in ("^", "*", "/", "+", "-")
+          and (item.value < 0 or (previous == "^" and number.len() > 1)))
+        expanded += if grouped { ("(",) + number + (")",) } else { number }
       } else {
         expanded.push(str(item))
       }
@@ -4495,15 +4603,71 @@ let symbolic-name-argument(tokens, operation) = {
   symbolic-token-name(tokens.first())
 }
 
+let symbolic-grammar(tokens) = {
+  let depth = 0
+  let operand = true
+  for token in tokens {
+    if token == "(" { depth += 1; operand = true }
+    else if token == ")" {
+      if operand or depth <= 0 { return false }
+      depth -= 1
+    } else if token in ("*", "/", "^", ",") {
+      if operand { return false }
+      operand = true
+    } else if token in ("+", "-") { operand = true }
+    else if token in ("=", ":=", ";") { return false }
+    else { operand = false }
+  }
+  depth == 0 and not operand
+}
+
 let symbolic-expression(tokens, scope) = {
+  let expanded = expand-function-calls(tokens, scope)
+  if is-calculation-failure(expanded) { return expanded }
+  tokens = expanded.first()
+  while tokens.len() > 2 and tokens.first() == "(" and tokens.last() == ")" {
+    let depth = 0
+    let wraps = true
+    for t in tokens.slice(0,-1) {
+      if t == "(" { depth += 1 }
+      if t == ")" { depth -= 1 }
+      if depth == 0 { wraps = false }
+    }
+    if not wraps { break }
+    tokens = tokens.slice(1,-1)
+  }
+  for token in tokens {
+    if is-stored-function(scope.at(token, default: none)) {
+      return calculation-failure("Function `" + token + "` requires arguments; use " + token + "(x)")
+    }
+  }
   if tokens.len() == 0 {
     return calculation-failure("CAS arguments must not be empty")
   }
 
+  let nested = symbolic-call(tokens)
+  if nested != none {
+    let input = symbolic-expression(nested.arguments.first(), scope)
+    if is-calculation-failure(input) { return input }
+    let result = if nested.operation == "diff" and nested.arguments.len()==2 {
+      cas.diff(input, symbolic-name-argument(nested.arguments.at(1), "diff"))
+    } else if nested.operation in ("simplify", "expand") {
+      cas.simplify(input, expand: nested.operation=="expand")
+    } else { return calculation-failure("Nested call supports diff, simplify and expand; store other calls first") }
+    if not cas.ok(result) { return calculation-failure(cas.error-message(result)) }
+    return cas.expr-of(result)
+  }
+  if not symbolic-grammar(tokens) { return calculation-failure("Invalid symbolic expression: check operators and parentheses") }
+  for (i,t) in tokens.enumerate() {
+    if i + 1 < tokens.len() and tokens.at(i+1) == "(" and is-name(t) and t not in source-functions + ("cot","sec","csc") {
+      return calculation-failure("Unknown or rejected function: " + t)
+    }
+  }
   let names = tokens.map(symbolic-token-name)
   let expression = cas.parse(symbolic-source(tokens))
   for (name, item) in scope {
     if name not in names { continue }
+    if name in built-in-constants and item == built-in-constants.at(name) { continue }
 
     let replacement = none
     if is-symbolic-expression(item) {
@@ -4538,10 +4702,434 @@ let symbolic-expression(tokens, scope) = {
   expression
 }
 
+// Small expression constructors keep the adapter independent of typCAS internals.
+let sx-num(v) = (type: "num", val: v)
+let sx-add(a,b) = (type: "add", args: (a,b))
+let sx-neg(a) = (type: "neg", arg: a)
+let sx-sub(a,b) = sx-add(a,sx-neg(b))
+let sx-mul(a,b) = (type: "mul", args: (a,b))
+let sx-div(a,b) = (type: "div", num:a, den:b)
+let sx-pow(a,b) = (type:"pow", base:a, exp:b)
+let sx-simple(a) = {
+  let result=cas.simplify(a,expand:true)
+  if cas.ok(result) {cas.expr-of(result)} else {a}
+}
+let sx-zero(a) = sx-simple(a) == sx-num(0)
+let sx-has(a,v) = {
+  if type(a) != dictionary { return false }
+  if a.at("type",default:none) == "var" { return a.name == v }
+  a.values().any(x => if type(x)==array { x.any(y=>sx-has(y,v)) } else { sx-has(x,v) })
+}
+// Clear rational denominators, retaining original expressions for validation.
+let sx-fraction(a) = {
+  if a.type == "div" {
+    let n=sx-fraction(a.num); let d=sx-fraction(a.den)
+    return (sx-mul(n.at(0),d.at(1)),sx-mul(n.at(1),d.at(0)))
+  }
+  if a.type == "neg" { let p=sx-fraction(a.arg); return (sx-neg(p.at(0)),p.at(1)) }
+  if a.type in ("add","mul") {
+    let p=(if a.type=="add" { sx-num(0) } else { sx-num(1) },sx-num(1))
+    for term in a.args {
+      let q=sx-fraction(term)
+      p=if a.type=="add" { (sx-add(sx-mul(p.at(0),q.at(1)),sx-mul(q.at(0),p.at(1))),sx-mul(p.at(1),q.at(1))) }
+        else { (sx-mul(p.at(0),q.at(0)),sx-mul(p.at(1),q.at(1))) }
+    }
+    return p
+  }
+  (a,sx-num(1))
+}
+let sx-any-variable(a) = {
+  if type(a)!=dictionary { return false }
+  if a.at("type",default:none)=="var" { return true }
+  a.values().any(x=>if type(x)==array {x.any(sx-any-variable)} else {sx-any-variable(x)})
+}
+let sx-exp-factors(a,v) = {
+  if a.type=="pow" and a.base==cas.parse("e") {return (a,)}
+  if a.type=="neg" {return sx-exp-factors(a.arg,v)}
+  if a.type=="mul" {return a.args.fold((),(out,t)=>out+sx-exp-factors(t,v))}
+  ()
+}
+let sx-remove-factor(a,f) = {
+  if a==f {return sx-num(1)}
+  if a.type=="neg" {let p=sx-remove-factor(a.arg,f); return if p==none {none} else {sx-neg(p)}}
+  if a.type=="mul" {
+    let parts=a.args
+    for (i,t) in parts.enumerate() {
+      let p=sx-remove-factor(t,f)
+      if p!=none {parts.at(i)=p; return (type:"mul",args:parts)}
+    }
+  }
+  none
+}
+let sx-candidates(lhs,rhs,v,depth:0) = {
+  if depth > 12 { return none }
+  let l=sx-simple(lhs); let r=sx-simple(rhs)
+  let recur(a,b)=sx-candidates(a,b,v,depth:depth+1)
+  if not sx-has(l,v) and sx-has(r,v) { return recur(r,l) }
+  if l.type=="func" and l.name=="abs" {
+    let a=recur(l.arg,r); let b=recur(l.arg,sx-neg(r))
+    if a!=none and b!=none { return a+b }
+  }
+  if sx-zero(r) and l.type=="add" {
+    for factor in sx-exp-factors(l.args.first(),v) {
+      let parts=l.args.map(t=>sx-remove-factor(t,factor))
+      if parts.all(p=>p!=none) {return recur((type:"add",args:parts),r)}
+    }
+  }
+  if sx-zero(r) and l.type=="mul" {
+    let roots=()
+    for a in l.args {
+      if not sx-has(a,v) {
+        let value=cas.eval(a)
+        if cas.ok(value) and type(cas.value-of(value)) in (int,float) and cas.value-of(value)!=0 {continue}
+      }
+      if a.type=="pow" and not sx-has(a.base,v) {
+        let value=cas.eval(a.base)
+        if cas.ok(value) and type(cas.value-of(value)) in (int,float) and cas.value-of(value) > 0 {continue}
+      }
+      let part=recur(a,sx-num(0))
+      if part==none { return none }
+      roots+=part
+    }
+    return roots
+  }
+  if l.type=="div" and not sx-has(l.num,v) and not sx-zero(r) {
+    return recur(l.den,sx-div(l.num,r))
+  }
+  if l.type=="pow" {
+    let exponent=cas.eval(l.exp)
+    if cas.ok(exponent) and cas.value-of(exponent)==0.5 { return recur(l.base,sx-pow(r,sx-num(2))) }
+  }
+  if not sx-has(r,v) {
+    if l.type=="log" { return recur(l.arg,sx-pow(l.base,r)) }
+    if l.type=="add" and l.args.all(a=>a.type=="log") and l.args.all(a=>a.base==l.args.first().base) {
+      return recur(l.args.fold(sx-num(1),(p,a)=>sx-mul(p,a.arg)),sx-pow(l.args.first().base,r))
+    }
+    if l.type=="neg" { return recur(l.arg,sx-neg(r)) }
+    if l.type in ("add","mul") {
+      let dependent=l.args.filter(a=>sx-has(a,v))
+      let constant=l.args.filter(a=>not sx-has(a,v))
+      if dependent.len()==1 and constant.len() > 0 {
+        let c=constant.fold(sx-num(if l.type=="add" {0} else {1}), (a,b)=>if l.type=="add" {sx-add(a,b)} else {sx-mul(a,b)})
+        return recur(dependent.first(),if l.type=="add" {sx-sub(r,c)} else {sx-div(r,c)})
+      }
+    }
+    if l.type=="pow" {
+      if not sx-has(l.base,v) and sx-has(l.exp,v) {
+        let ln(a)=(type:"func",name:"ln",args:(a,),arg:a)
+        let base-value=cas.eval(l.base)
+        if not cas.ok(base-value) or type(cas.value-of(base-value)) not in (int,float) or cas.value-of(base-value) <= 0 or cas.value-of(base-value)==1 {return none}
+        let value=cas.eval(r)
+        if not cas.ok(value) or type(cas.value-of(value)) not in (int,float) {return none}
+        if cas.value-of(value) <= 0 { return () }
+        return recur(l.exp,sx-div(ln(r),ln(l.base)))
+      }
+      let exponent=cas.eval(l.exp)
+      if cas.ok(exponent) and type(cas.value-of(exponent)) in (int,float) and cas.value-of(exponent)!=0 {
+        let p=cas.value-of(exponent)
+        let value=cas.eval(r)
+        if cas.ok(value) and type(cas.value-of(value)) in (int,float) {
+          let c=cas.value-of(value)
+          if c==0 and p < 0 {return ()}
+          if c < 0 and p!=calc.floor(p) {return none}
+          if c < 0 and calc.rem(int(p),2)==0 { return () }
+          let root=if c < 0 {sx-neg(sx-pow(sx-neg(r),sx-div(sx-num(1),l.exp)))} else {sx-pow(r,sx-div(sx-num(1),l.exp))}
+          let a=recur(l.base,root)
+          if p==calc.floor(p) and calc.rem(int(p),2)==0 and c > 0 {
+            let b=recur(l.base,sx-neg(root))
+            if a!=none and b!=none {return a+b}
+          }
+          return a
+        }
+      }
+    }
+    if l.type=="func" and l.name=="abs" {
+      let a=recur(l.arg,r); let b=recur(l.arg,sx-neg(r))
+      if a!=none and b!=none { return a+b }
+    }
+  }
+  let exp-log(a) = {
+    if a.type=="pow" and not sx-has(a.base,v) {
+      let value=cas.eval(a.base)
+      if cas.ok(value) and type(cas.value-of(value)) in (int,float) and cas.value-of(value) > 0 {return sx-mul(a.exp,(type:"func",name:"ln",args:(a.base,),arg:a.base))}
+    }
+    if a.type=="mul" {
+      let parts=a.args.map(exp-log)
+      if parts.all(p=>p!=none) {return parts.fold(sx-num(0),sx-add)}
+    }
+    if not sx-has(a,v) {
+      let value=cas.eval(a)
+      if cas.ok(value) and type(cas.value-of(value)) in (int,float) and cas.value-of(value) > 0 {return (type:"func",name:"ln",args:(a,),arg:a)}
+    }
+    none
+  }
+  if sx-has(l,v) and sx-has(r,v) {
+    let a=exp-log(l); let b=exp-log(r)
+    if a!=none and b!=none {return recur(a,b)}
+  }
+  let f=sx-simple(sx-fraction(sx-sub(l,r)).first())
+  let dr=cas.diff(f,v)
+  if not cas.ok(dr) {return none}
+  let d=cas.expr-of(dr); let ddr=cas.diff(d,v)
+  if not cas.ok(ddr) {return none}
+  let dd=cas.expr-of(ddr); let dddr=cas.diff(dd,v)
+  if not cas.ok(dddr) {return none}
+  let ddd=cas.expr-of(dddr)
+  if sx-zero(ddd) {
+    let values=(f,d,dd).map(a=>cas.substitute(a,v,0))
+    if values.any(r=>not cas.ok(r)) {return none}
+    let c=sx-simple(cas.expr-of(values.at(0))); let b=sx-simple(cas.expr-of(values.at(1))); let a=sx-simple(sx-div(cas.expr-of(values.at(2)),sx-num(2)))
+    if not sx-zero(a) {
+      let disc=sx-sub(sx-pow(b,sx-num(2)),sx-mul(sx-num(4),sx-mul(a,c)))
+      let root=sx-pow(disc,sx-div(sx-num(1),sx-num(2)))
+      return (sx-simple(sx-div(sx-add(sx-neg(b),root),sx-mul(sx-num(2),a))),sx-simple(sx-div(sx-sub(sx-neg(b),root),sx-mul(sx-num(2),a))))
+    }
+    if not sx-zero(b) { return (sx-simple(sx-div(sx-neg(c),b)),) }
+  }
+  let result=cas.solve(l,rhs:r,var:v)
+  if not cas.ok(result) {return none}
+  let roots=cas.roots-of(result)
+  if roots.len() > 0 { return roots }
+  none
+}
+let sx-periodic(a,v) = {
+  if type(a)!=dictionary { return false }
+  if a.at("type",default:none)=="func" and a.at("name",default:"") in ("sin","cos","tan","cot","sec","csc") and sx-has(a,v) { return true }
+  a.values().any(x=>if type(x)==array {x.any(y=>sx-periodic(y,v))} else {sx-periodic(x,v)})
+}
+let sx-denominators(a) = {
+  if type(a)!=dictionary {return ()}
+  let found=if a.at("type",default:"")=="div" {(a.den,)} else {()}
+  if a.at("type",default:"")=="pow" {
+    let e=cas.eval(a.exp)
+    if cas.ok(e) and type(cas.value-of(e)) in (int,float) and cas.value-of(e) < 0 {found.push(a.base)}
+  }
+  for value in a.values() {
+    if type(value)==array {for child in value {found+=sx-denominators(child)}} else {found+=sx-denominators(value)}
+  }
+  found
+}
+let sx-domain-restricted(a,v) = {
+  if type(a)!=dictionary {return false}
+  if a.at("type",default:"")=="pow" and sx-has(a.base,v) {
+    let exponent=cas.eval(a.exp)
+    if not cas.ok(exponent) or type(cas.value-of(exponent)) not in (int,float) {return true}
+    let p=cas.value-of(exponent)
+    if p < 0 or p!=calc.floor(p) {return true}
+  }
+  if a.at("type",default:"")=="func" and a.at("name",default:"") in ("ln","log","sqrt","tan") and sx-has(a,v) {return true}
+  a.values().any(x=>if type(x)==array {x.any(t=>sx-domain-restricted(t,v))} else {sx-domain-restricted(x,v)})
+}
+let school-symbolic-solve(lhs,rhs,v,source) = {
+  if sx-periodic(lhs,v) or sx-periodic(rhs,v) {
+    return calculation-failure("Periodic solve has infinitely many solutions; give bounds: solve(equation, x, a, b)")
+  }
+  let difference=sx-simple(sx-sub(lhs,rhs))
+  let status=if sx-zero(difference) { "all" } else if not sx-has(difference,v) { "none" } else { "finite" }
+  if status=="all" and ((sx-denominators(lhs)+sx-denominators(rhs)).any(d=>sx-has(d,v)) or sx-domain-restricted(lhs,v) or sx-domain-restricted(rhs,v)) {
+    return calculation-failure("Identity has domain exclusions; solve on an explicit domain")
+  }
+  if status=="none" and sx-any-variable(difference) {
+    return calculation-failure("Parameter-dependent identity requires conditions; substitute parameter values first")
+  }
+  let candidates=if status=="finite" { sx-candidates(lhs,rhs,v) } else { () }
+  if candidates==none { return calculation-failure("Symbolic solve could not determine solutions; give bounds for a numerical search: solve(equation, x, a, b)") }
+  let roots=()
+  for root in candidates {
+    if root==none { continue }
+    let value=cas.eval(root)
+    // Numeric candidates must satisfy the original equation in its real domain.
+    if cas.ok(value) and not sx-any-variable(root) {
+      let x=cas.value-of(value)
+      if type(x) not in (int,float) { continue }
+      let le=cas.eval(lhs,bindings: ((v):x)); let re=cas.eval(rhs,bindings:((v):x))
+      if not cas.ok(le) or not cas.ok(re) { continue }
+      let a=cas.value-of(le); let b=cas.value-of(re)
+      if type(a) not in (int,float) or type(b) not in (int,float) { continue }
+      if calc.abs(a - b) > 1e-7*calc.max(1,calc.abs(a),calc.abs(b)) { continue }
+    }
+    if root not in roots { roots.push(root) }
+  }
+  (symbolic:true,symbolic-kind:"roots",expression:none,roots:roots,operation:"solve",source:source,
+    solution-status:if status=="finite" and roots.len()==0 { "none" } else { status },restrictions:(),warnings:())
+}
+
+let sx-unevaluated(a) = {
+  if type(a)!=dictionary {return false}
+  if a.at("type",default:"") in ("integral","def-integral","limit") {return true}
+  a.values().any(x=>if type(x)==array {x.any(sx-unevaluated)} else {sx-unevaluated(x)})
+}
+// Period-aware poles for affine trig arguments. Uncertified nonlinear arguments fail closed.
+let sx-trig-domain(a,v,lo,hi,denominator:false) = {
+  if type(a)!=dictionary {return true}
+  let kind=a.at("type",default:"")
+  if kind=="func" {
+    let name=a.name
+    if name in ("tan","sec","cot","csc") or (denominator and name in ("sin","cos")) {
+      let dr=cas.diff(a.arg,v)
+      if not cas.ok(dr) {return false}
+      let slope=cas.expr-of(dr)
+      if sx-has(slope,v) {return false}
+      let ends=(lo,hi).map(x=>cas.eval(a.arg,bindings:((v):x)))
+      if ends.any(r=>not cas.ok(r) or type(cas.value-of(r)) not in (int,float)) {return false}
+      let phases=ends.map(cas.value-of)
+      let offset=if name in ("tan","sec","cos") {calc.pi/2} else {0}
+      let l=(calc.min(..phases)-offset)/calc.pi
+      let h=(calc.max(..phases)-offset)/calc.pi
+      let slack=1e-14*calc.max(1,calc.abs(l),calc.abs(h))
+      if calc.ceil(l - slack) <= calc.floor(h+slack) {return false}
+    }
+  }
+  if kind=="div" {
+    return sx-trig-domain(a.num,v,lo,hi) and sx-trig-domain(a.den,v,lo,hi,denominator:true)
+  }
+  if kind=="pow" {
+    let e=cas.eval(a.exp)
+    if cas.ok(e) and type(cas.value-of(e)) in (int,float) and cas.value-of(e) < 0 {
+      return sx-trig-domain(a.base,v,lo,hi,denominator:true)
+    }
+  }
+  a.values().all(x=>if type(x)==array {x.all(t=>sx-trig-domain(t,v,lo,hi,denominator:denominator))} else {sx-trig-domain(x,v,lo,hi,denominator:denominator)})
+}
+// Certify fractional-power and logarithm domains across the interval, including extrema.
+let sx-interval-domain(a,v,lo,hi) = {
+  if type(a)!=dictionary {return true}
+  let base=none; let strict=false
+  if a.at("type",default:"")=="pow" {
+    let p=cas.eval(a.exp)
+    if cas.ok(p) and type(cas.value-of(p)) in (int,float) and cas.value-of(p)!=calc.floor(cas.value-of(p)) {base=a.base}
+  }
+  if a.at("type",default:"")=="func" and a.at("name",default:"") in ("ln","log","sqrt") {
+    base=a.arg; strict=a.name!="sqrt"
+  }
+  if base!=none {
+    let points=(lo,hi)
+    let derivative=cas.diff(base,v)
+    if not cas.ok(derivative) {return false}
+    let d=cas.expr-of(derivative)
+    if sx-has(d,v) {
+      let extrema=sx-candidates(d,sx-num(0),v)
+      if extrema==none {return false}
+      for root in extrema {
+        let result=cas.eval(root)
+        if not cas.ok(result) or type(cas.value-of(result)) not in (int,float) {return false}
+        let x=cas.value-of(result)
+        if calc.min(lo,hi) < x and x < calc.max(lo,hi) {points.push(x)}
+      }
+    }
+    for x in points {
+      let result=cas.eval(base,bindings:((v):x))
+      if not cas.ok(result) or type(cas.value-of(result)) not in (int,float) {return false}
+      let y=cas.value-of(result)
+      if y < 0 or (strict and y==0) {return false}
+    }
+  }
+  a.values().all(x=>if type(x)==array {x.all(t=>sx-interval-domain(t,v,lo,hi))} else {sx-interval-domain(x,v,lo,hi)})
+}
+// Validate engine primitives at independent real-domain samples before use.
+let sx-verified-primitive(a,p,v) = {
+  let d=cas.diff(p,v)
+  if not cas.ok(d) {return false}
+  let checked=0
+  for x in (-3.7,-1.3,0.23,0.71,1.37,2.61,5.19) {
+    let expected=cas.eval(a,bindings:((v):x))
+    let actual=cas.eval(cas.expr-of(d),bindings:((v):x))
+    if cas.ok(expected) and cas.ok(actual) {
+      let y=cas.value-of(expected); let z=cas.value-of(actual)
+      if type(y) in (int,float) and type(z) in (int,float) {
+        if y!=y or z!=z or calc.abs(y)==calc.inf or calc.abs(z)==calc.inf {continue}
+        if calc.abs(y - z) > 1e-7*calc.max(calc.abs(y),calc.abs(z),1e-100) {return false}
+        checked+=1
+      }
+    }
+  }
+  checked >= 3
+}
+let sx-primitive(a,v) = {
+  if a.type=="div" and not sx-has(a.num,v) {
+    if a.den.type=="pow" and not sx-has(a.den.exp,v) {
+      return sx-primitive(sx-mul(a.num,sx-pow(a.den.base,sx-neg(a.den.exp))),v)
+    }
+    let first=cas.diff(a.den,v)
+    if not cas.ok(first) {return none}
+    let second-result=cas.diff(cas.expr-of(first),v)
+    if not cas.ok(second-result) {return none}
+    let second=cas.expr-of(second-result)
+    if not sx-has(second,v) and not sx-zero(sx-simple(second)) {
+      let roots=sx-candidates(a.den,sx-num(0),v)
+      if roots!=none and roots.len()==2 {
+        let r=roots.first(); let t=roots.last()
+        let logpart(z)=(type:"func",name:"ln",arg:(type:"func",name:"abs",arg:sx-sub(cas.parse(v),z)))
+        let p=sx-div(sx-mul(sx-num(2),sx-mul(a.num,sx-sub(logpart(r),logpart(t)))),sx-mul(second,sx-sub(r,t)))
+        if sx-verified-primitive(a,p,v) {return p}
+      }
+    }
+    return sx-primitive(sx-mul(a.num,sx-pow(a.den,sx-num(-1))),v)
+  }
+
+  if a.type=="add" {
+    let parts=a.args.map(t=>sx-primitive(t,v))
+    if parts.any(p=>p==none) {return none}
+    return parts.fold(sx-num(0),sx-add)
+  }
+  if a.type=="neg" {let p=sx-primitive(a.arg,v); return if p==none {none} else {sx-neg(p)}}
+  if a.type=="mul" {
+    let exponent(t)={
+      if t==cas.parse(v) {return sx-num(1)}
+      if t.type=="pow" and t.base==cas.parse(v) and not sx-has(t.exp,v) {return t.exp}
+      if t.type=="func" and t.name=="sqrt" and t.arg==cas.parse(v) {return sx-div(sx-num(1),sx-num(2))}
+      none
+    }
+    if a.args.all(t=>exponent(t)!=none) {
+      return sx-primitive(sx-pow(cas.parse(v),a.args.map(exponent).fold(sx-num(0),sx-add)),v)
+    }
+    let dependent=a.args.filter(t=>sx-has(t,v))
+    let constants=a.args.filter(t=>not sx-has(t,v))
+    if dependent.len()==1 and constants.len() > 0 {
+      let p=sx-primitive(dependent.first(),v)
+      return if p==none {none} else {sx-mul(constants.fold(sx-num(1),sx-mul),p)}
+    }
+  }
+  if a.type=="func" and a.name=="sqrt" {return sx-primitive(sx-pow(a.arg,sx-div(sx-num(1),sx-num(2))),v)}
+  if a.type=="pow" and not sx-has(a.exp,v) and sx-has(a.base,v) {
+    let derivative=cas.diff(a.base,v)
+    if not cas.ok(derivative) {return none}
+    let slope=sx-simple(cas.expr-of(derivative))
+    let power=cas.eval(a.exp)
+    if cas.ok(power) and type(cas.value-of(power)) in (int,float) and not sx-has(slope,v) and not sx-zero(slope) {
+      if cas.value-of(power)==-1 {
+        return sx-div((type:"func",name:"ln",arg:(type:"func",name:"abs",arg:a.base)),slope)
+      }
+      let next=sx-add(a.exp,sx-num(1))
+      if cas.value-of(power) < -1 {return sx-div(sx-num(1),sx-mul(sx-mul(slope,next),sx-pow(a.base,sx-neg(next))))}
+      return sx-div(sx-pow(a.base,next),sx-mul(slope,next))
+    }
+  }
+  if a.type=="pow" and not sx-has(a.base,v) {
+    let base=cas.eval(a.base)
+    if not cas.ok(base) or type(cas.value-of(base)) not in (int,float) or cas.value-of(base) <= 0 or cas.value-of(base)==1 {return none}
+    let derivative=cas.diff(a.exp,v)
+    if not cas.ok(derivative) {return none}
+    let slope=sx-simple(cas.expr-of(derivative))
+    if not sx-has(slope,v) and not sx-zero(slope) {return sx-div(a,sx-mul(slope,(type:"func",name:"ln",arg:a.base)))}
+  }
+  let result=cas.integrate(a,v)
+  if not cas.ok(result) {return none}
+  let substituted=cas.substitute(cas.expr-of(result),"C",0)
+  if not cas.ok(substituted) {return none}
+  let p=cas.expr-of(substituted)
+  if p==none or sx-unevaluated(p) or not sx-verified-primitive(a,p,v) {none} else {p}
+}
+
 let symbolic-result(call, scope) = {
   let operation = call.operation
   let arguments = call.arguments
-  let expected = if operation in ("simplify",) {
+  if call.operation == "solve" and arguments.len() == 2 and "=" in arguments.first() {
+    let equation = arguments.first()
+    let index = equation.position(t => t == "=")
+    arguments = (equation.slice(0,index), equation.slice(index+1), arguments.last())
+  }
+  let expected = if operation in ("simplify", "expand") {
     "one expression"
   } else if operation in ("diff", "integrate") {
     "an expression and a variable"
@@ -4554,8 +5142,9 @@ let symbolic-result(call, scope) = {
   } else {
     "an expression, a variable, a center, and a non-negative integer order"
   }
-  let valid-arity = if operation == "simplify" { arguments.len() == 1 }
-    else if operation in ("diff", "integrate") { arguments.len() == 2 }
+  let valid-arity = if operation in ("simplify", "expand") { arguments.len() == 1 }
+    else if operation == "diff" { arguments.len() == 2 }
+    else if operation == "integrate" { arguments.len() in (2, 4) }
     else if operation == "solve" { arguments.len() in (2, 3) }
     else if operation == "factor" { arguments.len() in (1, 2) }
     else if operation == "limit" { arguments.len() == 3 }
@@ -4569,10 +5158,48 @@ let symbolic-result(call, scope) = {
 
   let result = if operation == "simplify" {
     cas.simplify(input)
+  } else if operation == "expand" {
+    cas.simplify(input, expand: true)
   } else if operation in ("diff", "integrate") {
     let variable = symbolic-name-argument(arguments.at(1), operation)
     if is-calculation-failure(variable) { return variable }
-    if operation == "diff" { cas.diff(input, variable) } else { cas.integrate(input, variable) }
+    if operation == "diff" { cas.diff(input, variable) } else {
+      let bounds = if arguments.len() == 4 { arguments.slice(2).map(a => symbolic-expression(a, scope)) } else { none }
+      if bounds != none and bounds.any(is-calculation-failure) { return bounds.find(is-calculation-failure) }
+      let primitive=sx-primitive(input,variable)
+      if primitive==none {return calculation-failure("Unsupported symbolic integral; add bounds for a numerical value: integrate(expression, x, a, b)")}
+      if bounds==none {cas.simplify(sx-add(primitive,(type:"const",name:"C")))} else {
+        let values=bounds.map(b=>cas.eval(b))
+        if values.any(b=>not cas.ok(b)) {return calculation-failure("Integration bounds must be finite real numbers")}
+        let lo=cas.value-of(values.first()); let hi=cas.value-of(values.last())
+        if type(lo) not in (int,float) or type(hi) not in (int,float) {return calculation-failure("Integration bounds must be finite real numbers")}
+        if not sx-trig-domain(input,variable,lo,hi) {return calculation-failure("Integral interval contains a trig pole or uncertified trig domain")}
+        if not sx-interval-domain(input,variable,lo,hi) {return calculation-failure("Cannot certify real integral domain on the full interval")}
+        for den in sx-denominators(input) {
+          if not sx-has(den,variable) {
+            let value=cas.eval(den)
+            if cas.ok(value) and type(cas.value-of(value)) in (int,float) and cas.value-of(value)!=0 {continue}
+            return calculation-failure("Cannot certify integral denominator")
+          }
+          let zeros=sx-candidates(den,sx-num(0),variable)
+          if zeros==none {return calculation-failure("Cannot certify integral domain on this interval")}
+          for z in zeros {
+            let value=cas.eval(z)
+            if not cas.ok(value) {return calculation-failure("Cannot certify integral domain")}
+            let x=cas.value-of(value)
+            if type(x) in (int,float) and calc.min(lo,hi) <= x and x <= calc.max(lo,hi) {return calculation-failure("Integral interval contains a pole")}
+          }
+        }
+        let upper=cas.substitute(primitive,variable,bounds.last())
+        let lower=cas.substitute(primitive,variable,bounds.first())
+        if not cas.ok(upper) or not cas.ok(lower) {return calculation-failure("Unsupported integral endpoint")}
+        let answer=cas.simplify(sx-sub(cas.expr-of(upper),cas.expr-of(lower)))
+        if not cas.ok(answer) {return calculation-failure("Unsupported integral endpoint")}
+        let value=cas.eval(cas.expr-of(answer))
+        if not cas.ok(value) or type(cas.value-of(value)) not in (int,float) {return calculation-failure("Integral is not real on the supplied interval")}
+        answer
+      }
+    }
   } else if operation == "solve" {
     let variable-tokens = arguments.last()
     let variable = symbolic-name-argument(variable-tokens, operation)
@@ -4583,7 +5210,7 @@ let symbolic-result(call, scope) = {
       0
     }
     if is-calculation-failure(right) { return right }
-    cas.solve(input, rhs: right, var: variable)
+    return school-symbolic-solve(input, right, variable, symbolic-source(call.tokens))
   } else if operation == "factor" {
     let variable = if arguments.len() == 2 {
       symbolic-name-argument(arguments.at(1), operation)
@@ -4597,7 +5224,68 @@ let symbolic-result(call, scope) = {
     if is-calculation-failure(variable) { return variable }
     let target = symbolic-expression(arguments.at(2), scope)
     if is-calculation-failure(target) { return target }
-    cas.limit(input, variable, target)
+    let target-source=symbolic-source(arguments.at(2)).replace(" ","")
+    if target-source in ("-oo","-infinity","-inf","-∞","-∞", "−oo", "−infinity") or (target.at("type",default:"")=="neg" and target.arg.at("name",default:"") in ("oo","infinity","inf","∞")) {
+      if input.type=="pow" and input.base==cas.parse("e") and input.exp==cas.parse(variable) {return (symbolic:true,symbolic-kind:"expression",expression:sx-num(0),roots:(),operation:operation,source:symbolic-source(call.tokens),restrictions:(),warnings:())}
+      return calculation-failure("Unsupported negative-infinity limit")
+    }
+    // Infinity is handled structurally; typCAS numerical sampling is not proof.
+    if target.at("name",default:"") in ("oo","infinity","inf","∞") {
+      let decay(a) = {
+        if a.type=="div" and not sx-has(a.num,variable) and a.den==cas.parse(variable) {return true}
+        if a.type=="pow" and a.base==cas.parse(variable) {
+          let e=cas.eval(a.exp)
+          return cas.ok(e) and type(cas.value-of(e)) in (int,float) and cas.value-of(e) < 0
+        }
+        false
+      }
+      if decay(input) {cas.simplify(sx-num(0))} else {return calculation-failure("Unsupported positive-infinity limit; growth requires structural analysis")}
+    } else {
+      let at=cas.eval(target)
+      if not cas.ok(at) or type(cas.value-of(at)) not in (int,float) {return calculation-failure("Limit target must be real")}
+      if not sx-trig-domain(input,variable,cas.value-of(at),cas.value-of(at)) {return calculation-failure("Limit target is a trig pole or uncertified trig domain")}
+      // A removable quotient with a simple denominator zero has a derivative ratio.
+      if input.type=="div" {
+        let n=cas.eval(input.num,bindings:((variable):cas.value-of(at)))
+        let d=cas.eval(input.den,bindings:((variable):cas.value-of(at)))
+        if cas.ok(n) and cas.ok(d) and cas.value-of(n)==0 and cas.value-of(d)==0 {
+          let nr=cas.diff(input.num,variable); let dr=cas.diff(input.den,variable)
+          if not cas.ok(nr) or not cas.ok(dr) {return calculation-failure("Unsupported removable limit")}
+          let nd=cas.expr-of(nr)
+          let dd=cas.expr-of(dr)
+          // Check the numerator derivative before symbolic substitution can
+          // simplify a singular rational expression and panic inside typCAS.
+          let nv=cas.eval(nd,bindings:((variable):cas.value-of(at)))
+          if not cas.ok(nv) {return calculation-failure("Unsupported removable limit")}
+          let numerator-value=cas.value-of(nv)
+          if type(numerator-value) not in (int,float) {return calculation-failure("Unsupported removable limit")}
+          if numerator-value != numerator-value or calc.abs(numerator-value)==calc.inf {return calculation-failure("Unsupported removable limit")}
+          let dv=cas.eval(dd,bindings:((variable):cas.value-of(at)))
+          if cas.ok(dv) and type(cas.value-of(dv)) in (int,float) and cas.value-of(dv)!=0 and sx-interval-domain(nd,variable,cas.value-of(at),cas.value-of(at)) {
+            let substituted=cas.substitute(sx-div(nd,dd),variable,target)
+            if not cas.ok(substituted) {return calculation-failure("Unsupported removable limit")}
+            let answer=cas.simplify(cas.expr-of(substituted))
+            if not cas.ok(answer) {return calculation-failure("Unsupported removable limit")}
+            let checked=cas.eval(cas.expr-of(answer))
+            if cas.ok(checked) and type(cas.value-of(checked)) in (int,float) {
+              return (symbolic:true,symbolic-kind:"expression",expression:cas.expr-of(answer),roots:(),operation:operation,source:symbolic-source(call.tokens),restrictions:(),warnings:())
+            }
+          }
+        }
+      }
+      for den in sx-denominators(input) {
+        let value=cas.eval(den,bindings:((variable):cas.value-of(at)))
+        if not cas.ok(value) or cas.value-of(value)==0 {return calculation-failure("Two-sided limit at a singularity requires one-sided analysis")}
+      }
+      if not sx-interval-domain(input,variable,cas.value-of(at),cas.value-of(at)) {return calculation-failure("Limit at a domain boundary requires one-sided analysis")}
+      let value=cas.eval(input,bindings:((variable):cas.value-of(at)))
+      if not cas.ok(value) or type(cas.value-of(value)) not in (int,float) {return calculation-failure("Cannot certify finite real limit")}
+      let y=cas.value-of(value)
+      if y!=y or calc.abs(y)==calc.inf {return calculation-failure("Cannot certify finite real limit")}
+      let substituted=cas.substitute(input,variable,target)
+      if not cas.ok(substituted) {return calculation-failure("Unsupported finite limit substitution")}
+      cas.simplify(cas.expr-of(substituted))
+    }
   } else {
     let variable = symbolic-name-argument(arguments.at(1), operation)
     if is-calculation-failure(variable) { return variable }
@@ -4624,21 +5312,77 @@ let symbolic-result(call, scope) = {
     expression: expression,
     roots: roots,
     operation: operation,
+    parameters: if operation in ("diff", "integrate") { (symbolic-name-argument(arguments.at(1), operation),) + symbolic-free-variables(expression).filter(v => v != symbolic-name-argument(arguments.at(1), operation)) } else { symbolic-free-variables(expression) },
     source: symbolic-source(call.tokens),
     restrictions: result.at("restrictions", default: ()),
     warnings: result.at("warnings", default: ()),
   )
 }
 
-let render-symbolic-result(result) = {
-  if result.symbolic-kind == "expression" {
-    return cas.display(result.expression)
+// Presentation-only normalization. Stored exact expressions are unchanged.
+let school-display-expression(a) = {
+  if type(a) != dictionary { return a }
+  let b = a
+  for (k,v) in a {
+    if type(v) == dictionary { b.insert(k,school-display-expression(v)) }
+    if type(v) == array { b.insert(k,v.map(school-display-expression)) }
   }
+  if b.type == "neg" and b.arg.type == "neg" { return b.arg.arg }
+  if b.type == "neg" and b.arg.type == "num" { return sx-num(-b.arg.val) }
+  if b.type == "neg" and b.arg.type == "mul" {
+    return school-display-expression(sx-mul(sx-num(-1),b.arg))
+  }
+  if b.type == "mul" {
+    let factors = ()
+    for f in b.args { factors += if f.type == "mul" { f.args } else { (f,) } }
+    let coefficient = 1
+    let rest = ()
+    for f in factors {
+      if f.type == "num" { coefficient *= f.val }
+      else if f.type == "neg" { coefficient *= -1; rest.push(f.arg) }
+      else { rest.push(f) }
+    }
+    let grouped = ()
+    while rest.len() > 0 {
+      let f = rest.first()
+      let count = rest.filter(v=>v==f).len()
+      rest = rest.filter(v=>v!=f)
+      grouped.push(if count == 1 { f } else { sx-pow(f,sx-num(count)) })
+    }
+    if coefficient == 0 { return sx-num(0) }
+    if coefficient < 0 {
+      let positive = (sx-num(-coefficient),) + grouped
+      return (type: "neg", arg: positive.slice(1).fold(positive.first(),sx-mul))
+    }
+    if coefficient != 1 or grouped.len() == 0 { grouped.insert(0,sx-num(coefficient)) }
+    return grouped.slice(1).fold(grouped.first(),sx-mul)
+  }
+  if b.type == "div" and b.num.type == "neg" {
+    return (type: "neg", arg: sx-div(b.num.arg,b.den))
+  }
+  if b.type == "func" and b.name == "abs" and b.arg.at("name",default:"") == "e" { return b.arg }
+  if b.type == "add" and b.args.all(v=>v.type == "num" and type(v.val) == int) {
+    return sx-num(b.args.map(v=>v.val).sum())
+  }
+  if b.type == "func" and b.name == "cos" and b.arg.at("name",default:"") == "pi" { return sx-num(-1) }
+  if b.type == "log" and b.arg == b.base { return sx-num(1) }
+  b
+}
+
+let render-symbolic-result(result, digits: 4) = {
+  if result.symbolic-kind == "expression" {
+    return cas.display(school-display-expression(result.expression))
+  }
+  if result.at("solution-status", default: none) == "all" { return math.RR }
   if result.roots.len() == 0 { return math.emptyset }
   let body = []
   for (index, root) in result.roots.enumerate() {
     if index > 0 { body += math.comma + h(0.25em) }
-    body += cas.display(root)
+    if root.at("type",default:"") == "num" and type(root.val) == float and root.val != calc.round(root.val) {
+      body += math.approx + cas.display(sx-num(calc.round(root.val,digits:if type(digits)==int {digits} else {4})))
+    } else {
+      body += cas.display(school-display-expression(root))
+    }
   }
   body
 }
@@ -4705,19 +5449,28 @@ let missing-variables(tokens, scope, unloaded, aliases: (:)) = {
 let normalize-scope(scope) = {
   let normalized = (:)
   for (name, item) in scope {
-    if (is-unloaded-marker(item)
+    if is-symbolic-expression(item) and symbolic-free-variables(item.expression).len() == 0 {
+      let evaluated = cas.eval(item.expression)
+      if cas.ok(evaluated) {
+        let value = cas.value-of(evaluated)
+        if type(value) in (int,float) and value == value and calc.abs(value) != calc.inf { normalized.insert(name, quantity(value)) }
+      }
+      continue
+    }
+    if (is-failed-function(item)
+      or is-unloaded-marker(item)
       or is-unit-alias(item)
       or is-initial-state-marker(item)
       or is-stored-function(item)
       or is-symbolic-result(item)) { continue }
-    if resolve-unit(name) != none and not is-unloaded(item) {
+    if resolve-unit(name) != none and not is-unloaded(item) and not (type(item) == dictionary and item.at("quoted-variable", default:false)) {
       panic(
         "math-once calculate: `" + name
         + "` is a unit name and cannot be used as a variable",
       )
     }
     if type(item) == dictionary and "si-value" in item and "dimensions" in item {
-      normalized.insert(name, quantity(
+      normalized.insert(if item.at("quoted-variable",default:false) { "\"" + name + "\"" } else { name }, quantity(
         item.si-value,
         dims: item.dimensions,
         preferred: item.at("unit-source", default: item.unit),
@@ -4944,7 +5697,7 @@ let special-angle-value(name, angle, soft: false) = {
   }
 }
 
-let apply-function(name, argument, soft: false) = {
+let apply-function(name, argument, angles: "degrees", soft: false) = {
   let canonical-name = if name == "arcsin" { "asin" }
     else if name == "arccos" { "acos" }
     else if name == "arctan" { "atan" }
@@ -4957,6 +5710,15 @@ let apply-function(name, argument, soft: false) = {
     }
     return calculation-fail("`" + name + "` requires " + requirement, soft: soft)
   }
+  if name in ("ln", "log", "exp") {
+    if name != "exp" and argument.si-value <= 0 {
+      return calculation-fail("logarithms require a positive argument", soft: soft)
+    }
+    let value = if name == "exp" { calc.exp(argument.si-value) }
+      else { calc.log(argument.si-value, base: if name == "ln" { calc.e } else { 10 }) }
+    if calc.abs(value) == calc.inf { return calculation-fail("nonfinite function result", soft: soft) }
+    return quantity(value)
+  }
   if canonical-name in ("asin", "acos") and calc.abs(argument.si-value) > 1 {
     return calculation-fail("`" + name + "` requires a value from -1 to 1", soft: soft)
   }
@@ -4964,9 +5726,9 @@ let apply-function(name, argument, soft: false) = {
     let angle = if canonical-name == "asin" { calc.asin(argument.si-value) }
       else if canonical-name == "acos" { calc.acos(argument.si-value) }
       else { calc.atan(argument.si-value) }
-    return quantity(angle.rad(), preferred: "degree")
+    return quantity(angle.rad(), preferred: if angles == "degrees" { "degree" } else { none })
   }
-  let angle = if argument.preferred == none {
+  let angle = if argument.preferred == none and angles == "degrees" {
     argument.si-value * calc.pi / 180
   } else {
     argument.si-value
@@ -4984,14 +5746,14 @@ let apply-function(name, argument, soft: false) = {
   )
 }
 
-let apply-atan2(y, x, soft: false) = {
+let apply-atan2(y, x, angles: "degrees", soft: false) = {
   if y.dims != x.dims or y.opaque != x.opaque {
     return calculation-fail("`atan2` requires compatible y and x values", soft: soft)
   }
   if y.si-value == 0 and x.si-value == 0 {
     return calculation-fail("`atan2` is undefined when y and x are both zero", soft: soft)
   }
-  quantity(calc.atan2(x.si-value, y.si-value).rad(), preferred: "degree")
+  quantity(calc.atan2(x.si-value, y.si-value).rad(), preferred: if angles == "degrees" { "degree" } else { none })
 }
 
 let apply-rounding(name, argument, preferred-unit: none, soft: false) = {
@@ -5058,7 +5820,7 @@ let apply-root(index, radicand, soft: false) = {
   )
 }
 
-let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, override-opaque: false, strict-units: false, soft: false) = {
+let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, override-opaque: false, angles: "degrees", strict-units: false, soft: false) = {
   let scope = normalize-scope(scope)
   if override-opaque {
     for (name, item) in scope {
@@ -5095,13 +5857,13 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
         left = if token == "root" {
           apply-root(first, second, soft: soft)
         } else {
-          apply-atan2(first, second, soft: soft)
+          apply-atan2(first, second, angles: angles, soft: soft)
         }
         if is-calculation-failure(left) { return (left, closing + 1) }
         position = closing + 1
       } else {
         if next >= tokens.len() or tokens.at(next) != ")" {
-          return (calculation-fail("missing closing parenthesis after `" + token + "`", soft: soft), next)
+          return (calculation-fail(if token == "log" and next < tokens.len() and tokens.at(next) == "," { "log accepts one argument (base 10); use ln(x)/ln(base) for another base" } else { "missing closing parenthesis after `" + token + "`" }, soft: soft), next)
         }
         left = if token == "sqrt" {
           apply-root(quantity(2.0), first, soft: soft)
@@ -5112,13 +5874,13 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
           if first.preferred != none and first.opaque.len() == 0 {
             preferred-unit = parse(
               add-implicit-multiplication(tokenize(first.preferred)),
-              aliases: aliases, custom-units: true, strict-units: strict-units, soft: soft,
+              aliases: aliases, custom-units: true, angles: angles, strict-units: strict-units, soft: soft,
             )
             if is-calculation-failure(preferred-unit) { return (preferred-unit, next + 1) }
           }
           apply-rounding(token, first, preferred-unit: preferred-unit, soft: soft)
         } else {
-          apply-function(token, first, soft: soft)
+          apply-function(token, first, angles: angles, soft: soft)
         }
         if is-calculation-failure(left) { return (left, next + 1) }
         position = next + 1
@@ -5307,7 +6069,7 @@ let normalize-math-unit-tokens(tokens) = {
 /// and the operators `+`, `-`, `*`, `/`, `^`, `±`, and `∓`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
-let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), aliases: (:), strict-units: false, soft: false) = {
+let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), aliases: (:), angles: "degrees", strict-units: false, soft: false) = {
   if type(strict-units) != bool {
     return calculation-fail("strict-units must be a boolean", soft: soft)
   }
@@ -5375,7 +6137,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
         block: false,
         unloaded: unloaded,
         aliases: aliases,
-        strict-units: strict-units,
+        angles: angles, strict-units: strict-units,
         soft: true,
       )
       if is-calculation-failure(branch) {
@@ -5404,7 +6166,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     unloaded: unloaded,
     aliases: aliases,
     override-opaque: unit != none,
-    strict-units: strict-units,
+    angles: angles, strict-units: strict-units,
     soft: soft,
   )
   if is-calculation-failure(result) { return result }
@@ -5416,7 +6178,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
       add-implicit-multiplication(target-tokens),
       aliases: aliases,
       custom-units: true,
-      strict-units: strict-units,
+      angles: angles, strict-units: strict-units,
       soft: soft,
     )
     if is-calculation-failure(target) { return target }
@@ -5467,7 +6229,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
       add-implicit-multiplication(tokenize(output-unit)),
       aliases: aliases,
       custom-units: true,
-      strict-units: strict-units,
+      angles: angles, strict-units: strict-units,
     )
     output-scale = if preferred.affine == none { preferred.si-value } else { preferred.affine.scale }
     output-offset = if preferred.affine == none or result.affine-kind == "difference" { 0.0 } else { preferred.affine.offset }
@@ -5572,6 +6334,1064 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
 /// available to later calls. A simple `v = expression` is calculated and
 /// displayed without storing `v`. Call the runner without an expression inside
 /// a context block to retrieve its dictionary of results.
+// Read a stable builder snapshot inside a context and adapt it to numeric callbacks.
+// Follow definitions as well as direct stored expressions, including compositions.
+let calculus-reference(tokens, scope, seen: ()) = tokens.any(t => {
+  if t in seen { return false }
+  let item = scope.at(t, default: (:))
+  if type(item) != dictionary { return false }
+  (item.at("calculus", default: false) or item.at("operation", default: "") in ("diff", "integrate")
+    or calculus-reference(item.at("body-tokens", default: ()), scope, seen: seen + (t,)))
+})
+let symbolic-trig(a) = {
+  if type(a) != dictionary { return false }
+  if a.at("name", default: "") in trigonometric-functions + inverse-trigonometric-names { return true }
+  a.values().any(v => if type(v) == dictionary { symbolic-trig(v) } else if type(v) == array { v.any(symbolic-trig) } else { false })
+}
+// Compile a builder expression into a numeric Typst callback. Strict mode is
+// used by school-bridge and stops compilation on invalid input or samples.
+// Builder operations use soft mode: compile errors become failures and
+// undefined samples return none so numerical scans can skip them.
+let compile-callback(tokens, scope, parameters: ("x",), angles: none, strict: true) = {
+  let fail(message) = if strict { assert(false, message: "school bridge: " + message) } else { calculation-failure(message) }
+  if tokens.len() > 3 and tokens.first() == "atan2" and tokens.at(1) == "(" and tokens.last() == ")" {
+    if angles == none { return fail("atan2 requires explicit angles") }
+    let parts = split-top-level(tokens.slice(2,-1))
+    if parts.len() != 2 { return fail("atan2 requires y and x arguments") }
+    let y = compile-callback(parts.first(), scope, parameters: parameters, angles: angles, strict: strict)
+    if is-calculation-failure(y) { return y }
+    let x = compile-callback(parts.last(), scope, parameters: parameters, angles: angles, strict: strict)
+    if is-calculation-failure(x) { return x }
+    return (..args) => {
+      let yy = y(..args); let xx = x(..args)
+      if yy == none or xx == none { return none }
+      if xx == 0 and yy == 0 {
+        if strict { assert(false, message: "school bridge: atan2 undefined at origin") }
+        return none
+      }
+      let value = calc.atan2(xx,yy).rad()
+      if angles == "degrees" { value * 180 / calc.pi } else { value }
+    }
+  }
+  // Compile and capture the current scope once, rather than once per sample.
+  let local = scope
+  for name in parameters { local.remove(name, default: none) }
+  let expression = symbolic-expression(tokens, local)
+  if is-calculation-failure(expression) { return fail(expression.at("error", default: "invalid expression")) }
+  let has-trig(a) = {
+    if type(a) != dictionary { return false }
+    if a.at("name", default: "") in trigonometric-functions + inverse-trigonometric-names + ("atan2",) { return true }
+    a.values().any(v => if type(v) == dictionary { has-trig(v) } else if type(v) == array { v.any(has-trig) } else { false })
+  }
+  if angles == none and has-trig(expression) { return fail("trig callbacks require explicit angles: radians or degrees; symbolic calculus assumes radians") }
+  let convert(a) = {
+    if type(a) != dictionary { return a }
+    let b = a
+    for (k,v) in a {
+      if type(v) == dictionary { b.insert(k, convert(v)) }
+      if type(v) == array { b.insert(k, v.map(convert)) }
+    }
+    if angles == "degrees" and a.at("type", default: "") == "func" and a.at("name", default: "") in ("sin","cos","tan") {
+      b.insert("arg", sx-mul(b.arg, sx-num(calc.pi / 180)))
+      if "args" in b { b.insert("args", (b.arg,)) }
+    }
+    if angles == "degrees" and a.at("type", default: "") == "func" and a.at("name", default: "") in inverse-trigonometric-names {
+      return sx-mul(b, sx-num(180 / calc.pi))
+    }
+    b
+  }
+  if angles == "degrees" and calculus-reference(tokens, scope) and symbolic-trig(expression) {
+    if strict { assert(false, message: "CAS trig calculus uses radians; select angles: radians") }
+    return calculation-failure("CAS trig calculus uses radians; select angles: radians")
+  }
+  let compiled = convert(expression)
+  (..args) => {
+    assert(args.pos().len() == parameters.len(), message: "school bridge: wrong callback arity")
+    let bindings = (:)
+    for (name,value) in parameters.zip(args.pos()) {
+      assert(type(value) in (int,float), message: "school bridge: numeric arguments required")
+      bindings.insert(name,value)
+    }
+    let result = cas.eval(compiled, bindings: bindings)
+    if not cas.ok(result) {
+      if strict { assert(false, message: "school bridge: " + cas.error-message(result)) }
+      return none
+    }
+    let value = cas.value-of(result)
+    if type(value) not in (int,float) {
+      if strict { assert(false, message: "school bridge: real scalar result required") }
+      return none
+    }
+    if value != value or calc.abs(value) == calc.inf {
+      if strict { assert(false, message: "school bridge: finite result required") }
+      return none
+    }
+    value
+  }
+}
+
+let school-bridge(body, key: "math-once-calculation", angles: none) = context {
+  assert(angles in (none, "radians", "degrees"), message: "school bridge: angles must be radians or degrees")
+  let scope = checkpoint-state(key, initial: (:)).get()
+  body((expression, parameters: ("x",)) => compile-callback(tokenize(expression), scope, parameters: parameters, angles: angles))
+}
+
+// ---------------------------------------------------------------------------
+// School operations inside calculation-builder.
+//
+// `#eq(`m := mean(data)`)` uses the same storage, digits and rendering as any
+// other builder line. Arguments are ordinary builder expressions: stored
+// vectors and matrices are data, stored functions are callbacks, and plain
+// numbers are parameters. The numerical work is delegated to school.typ after
+// validating inputs, because school.typ asserts cannot be caught.
+// ---------------------------------------------------------------------------
+for name in school-functions {
+  assert(resolve-unit(name) == none and symbol-by-name(name) == none, message: "math-once: school operation `" + name + "` collides with a unit or symbol")
+}
+
+let school-call(tokens) = {
+  if (tokens.len() < 3 or tokens.first() not in school-functions
+    or tokens.at(1) != "(" or tokens.last() != ")") { return none }
+  let depth = 0
+  for (index, token) in tokens.slice(1).enumerate() {
+    if token == "(" { depth += 1 }
+    if token == ")" { depth -= 1 }
+    if depth < 0 or (depth == 0 and index < tokens.len() - 2) { return none }
+  }
+  if depth != 0 { return none }
+  (operation: tokens.first(), arguments: split-top-level(tokens.slice(2, tokens.len() - 1)), tokens: tokens)
+}
+
+let school-finite(x) = type(x) in (int, float) and x == x and calc.abs(x) != calc.inf
+
+// Wrap a plain number in an ordinary builder result so it rounds, renders,
+// stores and substitutes exactly like a calculated value.
+let school-number-result(x, digits, degrees: false) = {
+  let seed = calculate("0", digits: digits, soft: true)
+  seed.insert("value", x)
+  seed.insert("exact", x)
+  seed.insert("si-value", x)
+  calculate(if degrees { "mathoncex °" } else { "mathoncex" }, digits: digits, scope: (mathoncex: seed), block: false, soft: true)
+}
+
+let school-evaluate(tokens, scope, ctx) = {
+  if tokens.len() == 0 { return calculation-failure("missing argument") }
+  let missing = missing-variables(tokens, scope, ctx.unloaded, aliases: ctx.aliases)
+  if missing.len() > 0 { return calculation-failure("`" + missing.first() + "` is not set") }
+  let expanded = expand-function-calls(tokens, scope)
+  if is-calculation-failure(expanded) { return expanded }
+  calculate-expanded(calculate, expanded.first(), ctx.digits, scope, none, none, false, ctx.unloaded, ctx.aliases, angles: ctx.angles, strict-units: ctx.strict-units)
+}
+
+let school-plain-value(result, what) = {
+  if is-calculation-failure(result) { return result }
+  if is-structure-result(result) or result.at("alternatives", default: false) {
+    return calculation-failure(what + " must be one number")
+  }
+  if result.dimensions.values().any(v => v != 0) or result.at("custom-units", default: (:)).len() > 0 {
+    return calculation-failure(what + " must be a plain number without units")
+  }
+  result.si-value
+}
+
+let school-number(tokens, scope, ctx, what) = school-plain-value(school-evaluate(tokens, scope, ctx), what)
+
+let school-integer(tokens, scope, ctx, what) = {
+  let x = school-number(tokens, scope, ctx, what)
+  if is-calculation-failure(x) { return x }
+  if x != calc.round(x) { return calculation-failure(what + " must be a whole number") }
+  int(calc.round(x))
+}
+
+let school-probability(tokens, scope, ctx, what, open: false) = {
+  let p = school-number(tokens, scope, ctx, what)
+  if is-calculation-failure(p) { return p }
+  if (open and (p <= 0 or p >= 1)) or p < 0 or p > 1 {
+    return calculation-failure(what + " must be between 0 and 1" + if open { " (exclusive)" } else { "" })
+  }
+  p
+}
+
+// Angles typed with a unit (30°, 0.5 rad) are converted; plain numbers follow
+// the builder's angle setting.
+let school-angle(tokens, scope, ctx, what) = {
+  let result = school-evaluate(tokens, scope, ctx)
+  if is-calculation-failure(result) { return result }
+  let x = school-plain-value(result, what)
+  if is-calculation-failure(x) { return x }
+  if result.at("unit", default: none) != none { x } else if ctx.angles == "degrees" { x * calc.pi / 180 } else { x }
+}
+
+// A bare unit name such as `ys` (yoctosecond) or `g` (gram) is a common
+// accidental data name; say so instead of reporting a non-vector.
+let school-unit-name-failure(tokens, scope, what) = {
+  if tokens.len() == 1 and tokens.first() not in scope and resolve-unit(tokens.first()) != none {
+    return calculation-failure(what + ": `" + tokens.first() + "` is a unit name, not stored data; store the vector under another name")
+  }
+  none
+}
+
+let school-data(tokens, scope, ctx, what, minimum: 1) = {
+  let unit-name = school-unit-name-failure(tokens, scope, what)
+  if unit-name != none { return unit-name }
+  let result = school-evaluate(tokens, scope, ctx)
+  if is-calculation-failure(result) { return result }
+  if not is-vector-result(result) {
+    return calculation-failure(what + " must be a vector of numbers, for example vec(2, 4, 5)")
+  }
+  let values = ()
+  for component in result.components {
+    let x = school-plain-value(component, what + " values")
+    if is-calculation-failure(x) { return x }
+    values.push(x)
+  }
+  if values.len() < minimum {
+    return calculation-failure(what + " needs at least " + str(minimum) + " value" + if minimum == 1 { "" } else { "s" })
+  }
+  values
+}
+
+let school-matrix(tokens, scope, ctx, what) = {
+  let unit-name = school-unit-name-failure(tokens, scope, what)
+  if unit-name != none { return unit-name }
+  let result = school-evaluate(tokens, scope, ctx)
+  if is-calculation-failure(result) { return result }
+  if not is-matrix-result(result) {
+    return calculation-failure(what + " must be a matrix, for example mat(1, 2; 3, 4)")
+  }
+  let rows = ()
+  for row in result.rows {
+    let values = ()
+    for cell in row {
+      let x = school-plain-value(cell, what + " entries")
+      if is-calculation-failure(x) { return x }
+      values.push(x)
+    }
+    rows.push(values)
+  }
+  rows
+}
+
+let school-variable(tokens, operation) = symbolic-name-argument(tokens, operation)
+
+let school-callback(tokens, variable, scope, ctx) = compile-callback(tokens, scope, parameters: (variable,), angles: ctx.angles, strict: false)
+
+// Composite Simpson rule that refuses intervals where the function is
+// undefined instead of silently integrating across a gap. Returns the
+// integral of f and of |f|, which sets the scale of the convergence check.
+let school-simpson(f, a, b, steps: 400) = {
+  let h = (b - a) / steps
+  let total = 0.0
+  let size = 0.0
+  for i in range(steps + 1) {
+    let y = f(a + i * h)
+    if y == none { return calculation-failure("the function is undefined somewhere between the bounds") }
+    let w = if i == 0 or i == steps { 1 } else if calc.rem(i, 2) == 1 { 4 } else { 2 }
+    total += y * w
+    size += calc.abs(y) * w
+  }
+  (value: total * h / 3, size: calc.abs(size * h / 3))
+}
+
+// Numerical roots on [a, b]. Undefined samples (none) are skipped, never
+// compared. Every tolerance is relative to the size of f on the interval, so
+// multiplying the equation by a constant does not change the roots.
+let school-roots(f, a, b, steps: 400) = {
+  if not (a < b) { return calculation-failure("the search interval must have a < b") }
+  let width = b - a
+  let xs = range(steps + 1).map(i => if i == steps { b } else { a + width * i / steps })
+  let ys = xs.map(f)
+  let defined = ys.filter(y => y != none).map(calc.abs)
+  if defined.len() == 0 { return calculation-failure("the function is undefined on the whole search interval") }
+  // The median size ignores huge samples next to poles.
+  let sorted = defined.sorted()
+  let scale = sorted.at(calc.quo(sorted.len(), 2))
+  if scale == 0 { scale = sorted.last() }
+  if scale == 0 { return calculation-failure("every number in the interval solves the equation") }
+  let roots = ()
+  let add(roots, x) = if roots.any(r => calc.abs(r - x) <= 1e-7 * width) { roots } else { roots + (x,) }
+  // Bisection on a sign change; returns none when f is undefined inside.
+  let bisect(l, fl, r) = {
+    for _ in range(80) {
+      let m = (l + r) / 2
+      if m <= l or m >= r { break }
+      let fm = f(m)
+      if fm == none { return none }
+      if fm == 0 { return m }
+      if (fm < 0) == (fl < 0) { l = m; fl = fm } else { r = m }
+    }
+    (l + r) / 2
+  }
+  // Golden-section minimum of |f| for roots that touch the axis.
+  let touch(l, r) = {
+    let g = (calc.sqrt(5) - 1) / 2
+    for _ in range(90) {
+      let c = r - g * (r - l)
+      let d = l + g * (r - l)
+      let fc = f(c)
+      let fd = f(d)
+      if fc == none or fd == none { return none }
+      if calc.abs(fc) < calc.abs(fd) { r = d } else { l = c }
+    }
+    (l + r) / 2
+  }
+  // Boundary of the domain between a defined and an undefined sample.
+  let edge(inside, outside) = {
+    for _ in range(80) {
+      let m = (inside + outside) / 2
+      if f(m) == none { outside = m } else { inside = m }
+    }
+    inside
+  }
+  for i in range(steps + 1) {
+    let y = ys.at(i)
+    if y == none { continue }
+    if calc.abs(y) <= 1e-12 * scale { roots = add(roots, xs.at(i)); continue }
+    // Sign change: a root, unless |f| grows towards the crossing (a pole).
+    if i < steps and ys.at(i + 1) != none and ys.at(i + 1) != 0 and (y < 0) != (ys.at(i + 1) < 0) {
+      let x = bisect(xs.at(i), y, xs.at(i + 1))
+      if x != none {
+        let fx = f(x)
+        if fx != none and calc.abs(fx) <= 1e-6 * calc.min(calc.abs(y), calc.abs(ys.at(i + 1))) + 1e-12 * scale {
+          roots = add(roots, x)
+        }
+      }
+    }
+    // Local minimum of |f| without a sign change: a possible double root.
+    if i > 0 and i < steps {
+      let (yl, yr) = (ys.at(i - 1), ys.at(i + 1))
+      if yl != none and yr != none and yl != 0 and yr != 0 and (yl < 0) == (y < 0) and (yr < 0) == (y < 0) and calc.abs(y) <= calc.abs(yl) and calc.abs(y) <= calc.abs(yr) {
+        let x = touch(xs.at(i - 1), xs.at(i + 1))
+        if x != none {
+          let fx = f(x)
+          if fx != none and calc.abs(fx) <= 1e-10 * scale { roots = add(roots, x) }
+        }
+      }
+    }
+    // Domain edge next to an undefined sample, for example sqrt(x) at 0.
+    for j in (i - 1, i + 1) {
+      if j >= 0 and j <= steps and ys.at(j) == none {
+        let x = edge(xs.at(i), xs.at(j))
+        let fx = f(x)
+        if fx != none and calc.abs(fx) <= 1e-6 * scale { roots = add(roots, x) }
+      }
+    }
+  }
+  roots.sorted().map(x => if calc.abs(x) <= 1e-12 * calc.max(1, width) { 0.0 } else { x })
+}
+
+let school-check-matrix(rows, what, square: false) = {
+  if rows.len() == 0 or rows.first().len() == 0 { return calculation-failure(what + " is empty") }
+  if square and rows.any(r => r.len() != rows.len()) { return calculation-failure(what + " must be square") }
+  none
+}
+
+// Typst writes negative numbers with U+2212; the tokenizer expects ASCII.
+let school-source-number(x) = str(x).replace("\u{2212}", "-")
+
+let school-polynomial-source(terms, digits, display: false) = {
+  // terms: ((coefficient, suffix), ...); suffix "" means a constant.
+  let source = ""
+  for (c, suffix) in terms {
+    let shown = if display { school-number-result(c, digits).value } else { c }
+    // Displayed models omit rounded-away terms and unit coefficients: x^2 + 1.
+    if display and shown == 0 { continue }
+    let magnitude = calc.abs(shown)
+    if source == "" { source += if shown < 0 { "-" } else { "" } } else { source += if shown < 0 { " - " } else { " + " } }
+    source += if display and magnitude == 1 and suffix != "" { suffix } else {
+      school-source-number(magnitude) + if suffix == "" { "" } else if display { " " + suffix } else { " * " + suffix }
+    }
+  }
+  if source == "" { "0" } else { source }
+}
+
+let school-operation(call, scope, ctx) = {
+  let op = call.operation
+  let args = call.arguments
+  let arity(..allowed) = {
+    if args.len() not in allowed.pos() or args.any(a => a.len() == 0) {
+      return calculation-failure(op + " expects " + allowed.named().at("expects"))
+    }
+    none
+  }
+  let scalar(x, approximate: false, degrees: false) = (kind: "scalar", value: x, approximate: approximate, degrees: degrees)
+  let fields(..pairs) = (kind: "fields", fields: pairs.pos())
+  let angle-out(radians) = if ctx.angles == "degrees" { radians * 180 / calc.pi } else { radians }
+
+  if op in ("mean", "median", "variance", "variancep", "stdev", "stdevp", "quartiles", "describe") {
+    let check = if op == "mean" { arity(1, 2, expects: "data, and optionally weights") } else { arity(1, expects: "one data vector") }
+    if check != none { return check }
+    let sample = op in ("variance", "stdev")
+    let xs = school-data(args.first(), scope, ctx, "data", minimum: if sample { 2 } else { 1 })
+    if is-calculation-failure(xs) { return xs }
+    if op == "mean" and args.len() == 2 {
+      let ws = school-data(args.at(1), scope, ctx, "weights")
+      if is-calculation-failure(ws) { return ws }
+      if ws.len() != xs.len() { return calculation-failure("data and weights must have the same length") }
+      if ws.any(w => w < 0) or ws.sum() <= 0 { return calculation-failure("weights must be non-negative with a positive sum") }
+      return scalar(school.weighted-summary(xs, ws).mean)
+    }
+    if op == "mean" { return scalar(school.mean(xs)) }
+    if op == "median" { return scalar(school.quantile(xs, 0.5)) }
+    if op in ("variance", "variancep") { return scalar(school.variance(xs, sample: sample)) }
+    if op in ("stdev", "stdevp") { return scalar(calc.sqrt(school.variance(xs, sample: sample))) }
+    if op == "quartiles" {
+      return (kind: "vector", values: (0.25, 0.5, 0.75).map(p => school.quantile(xs, p, method: "median-halves")), quartiles: true)
+    }
+    let d = school.describe(xs, method: "median-halves")
+    let result = (("n", d.count), ("mean", d.mean), ("min", d.min), ("q1", d.q1), ("median", d.median), ("q3", d.q3), ("max", d.max))
+    result.push(("sp", calc.sqrt(school.variance(xs, sample: false))))
+    if xs.len() > 1 { result.push(("s", calc.sqrt(school.variance(xs)))) }
+    return fields(..result)
+  }
+
+  if op == "quantile" {
+    let check = arity(2, expects: "data and a proportion p")
+    if check != none { return check }
+    let xs = school-data(args.first(), scope, ctx, "data")
+    if is-calculation-failure(xs) { return xs }
+    let p = school-probability(args.at(1), scope, ctx, "p")
+    if is-calculation-failure(p) { return p }
+    return scalar(school.quantile(xs, p))
+  }
+
+  if op == "choose" {
+    let check = arity(2, expects: "n and k")
+    if check != none { return check }
+    let n = school-integer(args.first(), scope, ctx, "n")
+    if is-calculation-failure(n) { return n }
+    let k = school-integer(args.at(1), scope, ctx, "k")
+    if is-calculation-failure(k) { return k }
+    if n < 0 or k < 0 or k > n { return calculation-failure("choose requires 0 ≤ k ≤ n") }
+    return scalar(calc.round(school.choose(n, k)))
+  }
+
+  if op in ("binompdf", "binomcdf") {
+    let check = if op == "binompdf" { arity(3, expects: "n, p and k") } else { arity(3, 4, expects: "n, p and k, or n, p, a and b") }
+    if check != none { return check }
+    let n = school-integer(args.first(), scope, ctx, "n")
+    if is-calculation-failure(n) { return n }
+    if n < 0 { return calculation-failure("n must be non-negative") }
+    let p = school-probability(args.at(1), scope, ctx, "p")
+    if is-calculation-failure(p) { return p }
+    let ks = ()
+    for a in args.slice(2) {
+      let k = school-integer(a, scope, ctx, "k")
+      if is-calculation-failure(k) { return k }
+      ks.push(k)
+    }
+    if op == "binompdf" { return scalar(school.binomial(n, p, ks.first())) }
+    if ks.len() == 1 { return scalar(school.binomial(n, p, ks.first(), cumulative: true)) }
+    let (a, b) = ks
+    if a > b { return calculation-failure("binomcdf bounds need a ≤ b") }
+    return scalar(school.binomial(n, p, b, cumulative: true) - school.binomial(n, p, a - 1, cumulative: true))
+  }
+
+  if op in ("normpdf", "normcdf", "invnorm") {
+    let check = if op == "normcdf" { arity(1, 3, 4, expects: "x; x, μ and σ; or a, b, μ and σ") } else { arity(1, 3, expects: "x, and optionally μ and σ") }
+    if check != none { return check }
+    let params = if args.len() >= 3 { args.slice(-2) } else { () }
+    let mu = 0
+    let sigma = 1
+    if params.len() == 2 {
+      mu = school-number(params.first(), scope, ctx, "μ")
+      if is-calculation-failure(mu) { return mu }
+      sigma = school-number(params.last(), scope, ctx, "σ")
+      if is-calculation-failure(sigma) { return sigma }
+      if sigma <= 0 { return calculation-failure("σ must be positive") }
+    }
+    if op == "invnorm" {
+      let p = school-probability(args.first(), scope, ctx, "p", open: true)
+      if is-calculation-failure(p) { return p }
+      return scalar(school.normal-quantile(p, mean: mu, sd: sigma), approximate: true)
+    }
+    let x = school-number(args.first(), scope, ctx, "x")
+    if is-calculation-failure(x) { return x }
+    if op == "normpdf" { return scalar(school.normal-pdf(x, mean: mu, sd: sigma)) }
+    if args.len() == 4 {
+      let b = school-number(args.at(1), scope, ctx, "b")
+      if is-calculation-failure(b) { return b }
+      if x > b { return calculation-failure("normcdf bounds need a ≤ b") }
+      return scalar(school.normal-cdf(b, mean: mu, sd: sigma) - school.normal-cdf(x, mean: mu, sd: sigma), approximate: true)
+    }
+    return scalar(school.normal-cdf(x, mean: mu, sd: sigma), approximate: true)
+  }
+
+  if op in ("linreg", "expreg", "powreg", "logreg", "polyreg") {
+    let check = if op == "polyreg" { arity(3, expects: "x data, y data and a degree") } else { arity(2, expects: "x data and y data") }
+    if check != none { return check }
+    let xs = school-data(args.first(), scope, ctx, "x data", minimum: 2)
+    if is-calculation-failure(xs) { return xs }
+    let ys = school-data(args.at(1), scope, ctx, "y data", minimum: 2)
+    if is-calculation-failure(ys) { return ys }
+    if xs.len() != ys.len() { return calculation-failure("x data and y data must have the same length") }
+    if xs.dedup().len() < 2 { return calculation-failure("regression needs at least two different x values") }
+    let r2(predict) = {
+      let m = school.mean(ys)
+      let sst = ys.map(y => calc.pow(y - m, 2)).sum()
+      if sst == 0 { none } else { 1 - xs.zip(ys).map(((x, y)) => calc.pow(y - predict(x), 2)).sum() / sst }
+    }
+    // The stored function refers to its stored parameters, e.g. fit_a * x + fit_b,
+    // so later substitutions show the same rounded values as the parameter lines.
+    let finish(template, display-terms, values, predict) = {
+      let r = r2(predict)
+      (kind: "function", parameter: "x", template: template, display-body: display-terms,
+       fields: values + if r == none { () } else { (("r2", r),) })
+    }
+    if op == "polyreg" {
+      let degree = school-integer(args.at(2), scope, ctx, "degree")
+      if is-calculation-failure(degree) { return degree }
+      if degree < 1 or degree >= xs.len() { return calculation-failure("the degree must be at least 1 and below the number of points") }
+      if degree > 10 { return calculation-failure("polyreg supports degrees up to 10") }
+      if xs.dedup().len() <= degree { return calculation-failure("polyreg needs more different x values than the degree") }
+      let fit = school.polynomial-fit(xs, ys, degree: degree)
+      let terms = range(degree, -1, step: -1).map(i => (fit.coefficients.at(i), if i == 0 { "" } else if i == 1 { "x" } else { "x^" + str(i) }))
+      let names = "abcdefghijk".clusters()
+      let template = terms.enumerate().map(((i, t)) => "{" + names.at(i) + "}" + if t.last() == "" { "" } else { " * " + t.last() }).join(" + ")
+      return finish(template, terms, terms.enumerate().map(((i, t)) => (names.at(i), t.first())), fit.predict)
+    }
+    if op in ("expreg", "powreg") and ys.any(y => y <= 0) { return calculation-failure(op + " needs positive y values") }
+    if op in ("powreg", "logreg") and xs.any(x => x <= 0) { return calculation-failure(op + " needs positive x values") }
+    let model = (linreg: "linear", expreg: "exponential", powreg: "power", logreg: "logarithmic").at(op)
+    let fit = school.regression(xs, ys, model: model)
+    if op == "linreg" {
+      let terms = ((fit.slope, "x"), (fit.intercept, ""))
+      return finish("{a} * x + {b}", terms, (("a", fit.slope), ("b", fit.intercept)), fit.predict)
+    }
+    if op == "logreg" {
+      let terms = ((fit.slope, "ln(x)"), (fit.intercept, ""))
+      return finish("{a} * ln(x) + {b}", terms, (("a", fit.slope), ("b", fit.intercept)), fit.predict)
+    }
+    if op == "expreg" {
+      let a = calc.exp(fit.slope)
+      let b = fit.coefficient
+      let r = finish("{b} * {a}^x", none, (("a", a), ("b", b)), fit.predict)
+      r.insert("display-body", school-source-number(school-number-result(b, ctx.digits).value) + " * " + school-source-number(school-number-result(a, ctx.digits).value) + "^x")
+      return r
+    }
+    let a = fit.slope
+    let b = fit.coefficient
+    let r = finish("{b} * x^{a}", none, (("a", a), ("b", b)), fit.predict)
+    r.insert("display-body", school-source-number(school-number-result(b, ctx.digits).value) + " * x^(" + school-source-number(school-number-result(a, ctx.digits).value) + ")")
+    return r
+  }
+
+  if op in ("dotprod", "cross", "vecangle") {
+    let check = arity(2, expects: "two vectors")
+    if check != none { return check }
+    let u = school-data(args.first(), scope, ctx, "the first vector")
+    if is-calculation-failure(u) { return u }
+    let v = school-data(args.at(1), scope, ctx, "the second vector")
+    if is-calculation-failure(v) { return v }
+    if u.len() != v.len() { return calculation-failure("the vectors must have the same length") }
+    if op == "dotprod" { return scalar(school.dot(u, v)) }
+    if op == "cross" {
+      if u.len() != 3 { return calculation-failure("cross needs two 3D vectors") }
+      return (kind: "vector", values: school.cross(u, v))
+    }
+    if school.norm(u) == 0 or school.norm(v) == 0 { return calculation-failure("vecangle is undefined for a zero vector") }
+    return scalar(angle-out(school.vector-angle(u, v)), degrees: ctx.angles == "degrees")
+  }
+
+  if op == "norm" {
+    let check = arity(1, expects: "one vector")
+    if check != none { return check }
+    let u = school-data(args.first(), scope, ctx, "the vector")
+    if is-calculation-failure(u) { return u }
+    return scalar(school.norm(u))
+  }
+
+  if op in ("det", "inv", "rank") {
+    let check = arity(1, expects: "one matrix")
+    if check != none { return check }
+    let a = school-matrix(args.first(), scope, ctx, "the matrix")
+    if is-calculation-failure(a) { return a }
+    let shape = school-check-matrix(a, "the matrix", square: op != "rank")
+    if shape != none { return shape }
+    let info = school.matrix-info(a)
+    if op == "rank" { return scalar(info.rank) }
+    if op == "det" { return scalar(info.determinant) }
+    if info.rank < a.len() { return calculation-failure("the matrix is singular and has no inverse") }
+    return (kind: "matrix", values: school.inverse(a))
+  }
+
+  if op == "linsolve" {
+    let check = arity(2, expects: "a matrix and a right-hand side vector")
+    if check != none { return check }
+    let a = school-matrix(args.first(), scope, ctx, "the matrix")
+    if is-calculation-failure(a) { return a }
+    let shape = school-check-matrix(a, "the matrix", square: true)
+    if shape != none { return shape }
+    let b = school-data(args.at(1), scope, ctx, "the right-hand side")
+    if is-calculation-failure(b) { return b }
+    if b.len() != a.len() { return calculation-failure("the right-hand side must have one value per matrix row") }
+    if school.matrix-info(a).rank < a.len() { return calculation-failure("the system has no unique solution") }
+    return (kind: "vector", values: school.linear-solve(a, b))
+  }
+
+  if op == "triangle" {
+    let known = (:)
+    for argument in args {
+      if argument.len() < 3 or argument.at(1) != "=" or argument.first() not in ("a", "b", "c", "A", "B", "C") {
+        return calculation-failure("triangle arguments are named, for example triangle(a = 3, b = 4, C = 90)")
+      }
+      let key = argument.first()
+      if key in known { return calculation-failure("triangle: `" + key + "` is given twice") }
+      let value = if key in ("A", "B", "C") {
+        school-angle(argument.slice(2), scope, ctx, key)
+      } else {
+        school-number(argument.slice(2), scope, ctx, key)
+      }
+      if is-calculation-failure(value) { return value }
+      if key in ("A", "B", "C") and not (0 < value and value < calc.pi) { return calculation-failure("triangle angles must be between 0 and 180°") }
+      if key in ("a", "b", "c") and value <= 0 { return calculation-failure("triangle sides must be positive") }
+      known.insert(key, value)
+    }
+    if known.len() != 3 { return calculation-failure("triangle needs exactly three measurements") }
+    let angle-keys = ("A", "B", "C").filter(k => k in known)
+    if angle-keys.len() == 3 { return calculation-failure("three angles do not fix the size; give at least one side") }
+    if angle-keys.len() == 2 and known.at(angle-keys.first()) + known.at(angle-keys.last()) >= calc.pi { return calculation-failure("the two angles add up to 180° or more") }
+    if angle-keys.len() == 0 {
+      let (a, b, c) = (known.a, known.b, known.c)
+      if not (a + b > c and a + c > b and b + c > a) { return calculation-failure("these sides do not form a triangle") }
+    }
+    let solutions = school.triangles(a: known.at("a", default: none), b: known.at("b", default: none), c: known.at("c", default: none),
+      alpha: known.at("A", default: none), beta: known.at("B", default: none), gamma: known.at("C", default: none))
+    if solutions.len() == 0 { return calculation-failure("no triangle has these measurements") }
+    return (kind: "fields", solutions: solutions.map(t => (
+      ("a", t.a), ("b", t.b), ("c", t.c),
+      ("A", angle-out(t.alpha), true), ("B", angle-out(t.beta), true), ("C", angle-out(t.gamma), true),
+      ("area", t.area),
+    )))
+  }
+
+  if op == "chi2gof" {
+    let check = arity(2, expects: "observed and expected vectors")
+    if check != none { return check }
+    let observed = school-data(args.first(), scope, ctx, "observed", minimum: 2)
+    if is-calculation-failure(observed) { return observed }
+    let expected = school-data(args.at(1), scope, ctx, "expected", minimum: 2)
+    if is-calculation-failure(expected) { return expected }
+    if observed.len() != expected.len() { return calculation-failure("observed and expected must have the same length") }
+    if observed.any(v => v < 0) or expected.any(v => v <= 0) { return calculation-failure("counts must be non-negative and expected values positive") }
+    if observed.sum() == 0 { return calculation-failure("the observed counts must not all be zero") }
+    // Expected probabilities are scaled to the observed total.
+    if calc.abs(expected.sum() - 1) < 1e-9 { expected = expected.map(p => p * observed.sum()) }
+    if calc.abs(observed.sum() - expected.sum()) > 1e-7 * calc.max(1, observed.sum()) {
+      return calculation-failure("expected must sum to the observed total, or to 1 as probabilities")
+    }
+    let t = school.chi-square-test(observed, expected)
+    return fields(("chi2", t.statistic), ("df", t.df), ("p", t.p-value))
+  }
+
+  if op == "chi2ind" {
+    let check = arity(1, expects: "one matrix of observed counts")
+    if check != none { return check }
+    let rows = school-matrix(args.first(), scope, ctx, "the table")
+    if is-calculation-failure(rows) { return rows }
+    if rows.len() < 2 or rows.first().len() < 2 { return calculation-failure("the table needs at least 2 rows and 2 columns") }
+    if rows.flatten().any(v => v < 0) { return calculation-failure("counts must be non-negative") }
+    if rows.any(r => r.sum() == 0) or range(rows.first().len()).any(j => rows.map(r => r.at(j)).sum() == 0) {
+      return calculation-failure("every row and column needs a positive total")
+    }
+    let t = school.independence-test(rows)
+    return fields(("chi2", t.statistic), ("df", t.df), ("p", t.p-value))
+  }
+
+  if op == "propci" {
+    let check = arity(2, 3, expects: "successes, n and optionally a confidence level")
+    if check != none { return check }
+    let k = school-integer(args.first(), scope, ctx, "successes")
+    if is-calculation-failure(k) { return k }
+    let n = school-integer(args.at(1), scope, ctx, "n")
+    if is-calculation-failure(n) { return n }
+    if n <= 0 or k < 0 or k > n { return calculation-failure("propci needs 0 ≤ successes ≤ n") }
+    let confidence = if args.len() == 3 { school-probability(args.at(2), scope, ctx, "the confidence level", open: true) } else { 0.95 }
+    if is-calculation-failure(confidence) { return confidence }
+    // The normal-approximation interval used in Danish upper-secondary courses.
+    let p = k / n
+    let margin = school.normal-quantile((1 + confidence) / 2) * calc.sqrt(p * (1 - p) / n)
+    return (kind: "vector", values: (p - margin, p + margin), approximate: true, interval: confidence, estimate: p)
+  }
+  calculation-failure("unknown school operation " + op)
+}
+
+// Numerical fallbacks for CAS calls: solve(..., x, a, b) and integrals whose
+// antiderivative is outside the CAS surface.
+let school-numeric-solve(call, scope, ctx) = {
+  let args = call.arguments
+  if args.len() == 4 and "=" in args.first() {
+    let index = args.first().position(t => t == "=")
+    args = (args.first().slice(0, index), args.first().slice(index + 1)) + args.slice(1)
+  }
+  if args.len() == 4 { args = (args.first(), ("0",)) + args.slice(1) }
+  if args.len() != 5 or args.any(a => a.len() == 0) {
+    return calculation-failure("solve with bounds expects an equation, a variable, and the bounds a and b")
+  }
+  let variable = school-variable(args.at(2), "solve")
+  if is-calculation-failure(variable) { return variable }
+  let f = school-callback(("(",) + args.first() + (")", "-", "(") + args.at(1) + (")",), variable, scope, ctx)
+  if is-calculation-failure(f) { return f }
+  let local = scope
+  local.remove(variable, default: none)
+  let a = school-number(args.at(3), local, ctx, "a")
+  if is-calculation-failure(a) { return a }
+  let b = school-number(args.at(4), local, ctx, "b")
+  if is-calculation-failure(b) { return b }
+  let roots = school-roots(f, a, b)
+  if is-calculation-failure(roots) { return roots }
+  (kind: "roots", values: roots, variable: variable, bounds: (args.at(3), args.at(4)))
+}
+
+let school-numeric-integral(call, scope, ctx) = {
+  let args = call.arguments
+  let variable = school-variable(args.at(1), "integrate")
+  if is-calculation-failure(variable) { return variable }
+  let f = school-callback(args.first(), variable, scope, ctx)
+  if is-calculation-failure(f) { return f }
+  let local = scope
+  local.remove(variable, default: none)
+  let a = school-number(args.at(2), local, ctx, "the lower bound")
+  if is-calculation-failure(a) { return a }
+  let b = school-number(args.at(3), local, ctx, "the upper bound")
+  if is-calculation-failure(b) { return b }
+  // Two grids that do not share their inner points: a pole or a fast
+  // oscillation makes them disagree instead of sampling the same values.
+  let coarse = school-simpson(f, a, b, steps: 400)
+  if is-calculation-failure(coarse) { return coarse }
+  let fine = school-simpson(f, a, b, steps: 562)
+  if is-calculation-failure(fine) { return fine }
+  // Relative to the integral of |f|, so scaling f does not hide a pole.
+  if calc.abs(fine.value - coarse.value) > 1e-6 * fine.size {
+    return calculation-failure("the numerical integral does not converge; check for a pole or a fast oscillation between the bounds")
+  }
+  (kind: "scalar", value: fine.value, approximate: true, degrees: false)
+}
+
+// Charts. Undefined samples split curves; extreme outliers near poles do not
+// flatten the rest of the graph.
+let school-chart(call, scope, ctx) = {
+  let op = call.operation
+  let args = call.arguments
+  if args.any(a => a.len() == 0) { return calculation-failure(op + " has an empty argument") }
+  if op == "plot" {
+    if args.len() < 4 { return calculation-failure("plot expects one or more functions, a variable, and bounds a and b") }
+    let variable = school-variable(args.at(-3), "plot")
+    if is-calculation-failure(variable) { return variable }
+    let local = scope
+    local.remove(variable, default: none)
+    let a = school-number(args.at(-2), local, ctx, "a")
+    if is-calculation-failure(a) { return a }
+    let b = school-number(args.at(-1), local, ctx, "b")
+    if is-calculation-failure(b) { return b }
+    if not (a < b) { return calculation-failure("plot needs a < b") }
+    let series = ()
+    let ys = ()
+    for (index, tokens) in args.slice(0, -3).enumerate() {
+      let f = school-callback(tokens, variable, scope, ctx)
+      if is-calculation-failure(f) { return f }
+      let segment = ()
+      for i in range(301) {
+        let x = a + (b - a) * i / 300
+        let y = f(x)
+        if y == none {
+          if segment.len() > 1 { series.push((points: segment, color-index: index)) }
+          segment = ()
+        } else { segment.push((x, y)); ys.push(y) }
+      }
+      if segment.len() > 1 { series.push((points: segment, color-index: index)) }
+    }
+    if series.len() == 0 { return calculation-failure("the function is undefined on the whole interval") }
+    let sorted = ys.sorted()
+    let low = sorted.at(int(0.05 * (sorted.len() - 1)))
+    let high = sorted.at(int(0.95 * (sorted.len() - 1)))
+    let spread = calc.max(high - low, 1e-9)
+    let y-range = if sorted.first() < low - 3 * spread or sorted.last() > high + 3 * spread {
+      (low - spread / 2, high + spread / 2)
+    } else { none }
+    return school.chart(series, x-range: (a, b), y-range: y-range)
+  }
+  if op == "scatter" {
+    if args.len() not in (2, 4) { return calculation-failure("scatter expects x data and y data, optionally followed by a function and its variable") }
+    let xs = school-data(args.first(), scope, ctx, "x data")
+    if is-calculation-failure(xs) { return xs }
+    let ys = school-data(args.at(1), scope, ctx, "y data")
+    if is-calculation-failure(ys) { return ys }
+    if xs.len() != ys.len() { return calculation-failure("x data and y data must have the same length") }
+    let series = ((points: xs.zip(ys), scatter: true),)
+    if args.len() == 4 {
+      let variable = school-variable(args.at(3), "scatter")
+      if is-calculation-failure(variable) { return variable }
+      let f = school-callback(args.at(2), variable, scope, ctx)
+      if is-calculation-failure(f) { return f }
+      let (a, b) = (calc.min(..xs), calc.max(..xs))
+      if a == b { b = a + 1 }
+      let curve = range(201).map(i => a + (b - a) * i / 200).map(x => (x, f(x))).filter(p => p.last() != none)
+      if curve.len() > 1 { series.push((points: curve, color-index: 1)) }
+    }
+    return school.chart(series)
+  }
+  if op == "histogram" {
+    if args.len() != 2 { return calculation-failure("histogram expects data and a vector of interval edges") }
+    let xs = school-data(args.first(), scope, ctx, "data")
+    if is-calculation-failure(xs) { return xs }
+    let edges = school-data(args.at(1), scope, ctx, "edges", minimum: 2)
+    if is-calculation-failure(edges) { return edges }
+    if range(edges.len() - 1).any(i => edges.at(i) >= edges.at(i + 1)) { return calculation-failure("edges must be strictly increasing") }
+    if xs.any(x => x < edges.first() or x > edges.last()) { return calculation-failure("the edges must cover all data") }
+    return school.histogram(xs, edges)
+  }
+  if args.len() != 1 { return calculation-failure("boxplot expects one data vector") }
+  let xs = school-data(args.first(), scope, ctx, "data")
+  if is-calculation-failure(xs) { return xs }
+  school.box-plot(xs, method: "median-halves")
+}
+
+// Turn an operation result into a stored builder value plus its display.
+let school-store-value(result, ctx) = {
+  if result.kind == "scalar" { return school-number-result(result.value, ctx.digits, degrees: result.degrees) }
+  if result.kind == "vector" { return vector-result(result.values.map(x => school-number-result(x, ctx.digits))) }
+  if result.kind == "matrix" { return matrix-result(result.values.map(row => row.map(x => school-number-result(x, ctx.digits)))) }
+  if result.kind == "roots" {
+    return (symbolic: true, symbolic-kind: "roots", expression: none, roots: result.values.map(x => sx-num(x)),
+      operation: "solve", source: "", restrictions: (), warnings: (), parameters: ())
+  }
+  none
+}
+
+// ---------------------------------------------------------------------------
+// Paper notation. School and CAS calls are written the way they would be on
+// paper, following WordMat where school practice has no fixed notation:
+// ∫_a^b f dx, d/dx f, lim, P(X ≤ k), u⃗ · v⃗, |u⃗|, M⁻¹, x = … ∨ x = ….
+// Only the display changes; the typed call and stored values are unchanged.
+// ---------------------------------------------------------------------------
+let paper-gap = h(0.25em)
+let paper-join(a, relation, b) = a + paper-gap + relation + paper-gap + b
+
+// True when a top-level + or − would make a following factor ambiguous.
+let paper-is-sum(tokens) = {
+  let depth = 0
+  for (index, token) in tokens.enumerate() {
+    if token == "(" { depth += 1 } else if token == ")" { depth -= 1 }
+    else if depth == 0 and index > 0 and token in ("+", "-") { return true }
+  }
+  false
+}
+let paper-parens(body) = $lr((#body))$.body
+// One name, number, bracket group or function call: safe to raise or attach to.
+let paper-is-atom(tokens) = {
+  if tokens.len() == 1 { return true }
+  let start = if tokens.first() == "(" { 0 } else if tokens.len() >= 3 and tokens.at(1) == "(" and is-name(tokens.first()) { 1 } else { return false }
+  let depth = 0
+  for index in range(start, tokens.len()) {
+    if tokens.at(index) == "(" { depth += 1 } else if tokens.at(index) == ")" {
+      depth -= 1
+      if depth == 0 { return index == tokens.len() - 1 }
+    }
+  }
+  false
+}
+
+let paper-call-head(call, scope, aliases, name: none) = {
+  let op = call.operation
+  let args = call.arguments
+  let r(tokens) = render-tokens(tokens, scope: scope, aliases: aliases)
+  let grouped(tokens) = if paper-is-sum(tokens) { paper-parens(r(tokens)) } else { r(tokens) }
+  let arrowed(tokens) = {
+    let item = if tokens.len() == 1 { scope.at(tokens.first(), default: none) } else { none }
+    if item != none and is-vector-result(item) and not tokens.first().starts-with("arrow_") { math.arrow(r(tokens)) } else { grouped(tokens) }
+  }
+  let atom(tokens) = if paper-is-atom(tokens) { r(tokens) } else { paper-parens(r(tokens)) }
+  let list(..parts) = parts.pos().join(math.comma + h(0.2em))
+  let d = math.upright("d")
+  let P(body) = math.upright("P") + paper-parens(body)
+  let X = math.italic("X")
+  let named(body) = if name == none { body } else { paper-join(render-tokens((name,), scope: ((name): 0), aliases: aliases), math.eq, body) }
+  let le = sym.lt.eq
+  let n = args.len()
+  if op == "integrate" and n in (2, 4) {
+    let sign = if n == 4 { math.attach([#sym.integral], b: r(args.at(2)), t: r(args.at(3))) } else { [#sym.integral] }
+    return sign + h(0.1em) + grouped(args.first()) + h(0.2em) + d + r(args.at(1))
+  }
+  if op == "diff" and n == 2 { return math.frac(d, d + r(args.at(1))) + grouped(args.first()) }
+  if op == "limit" and n == 3 {
+    return math.attach(math.op("lim", limits: true), b: r(args.at(1)) + sym.arrow.r + r(args.at(2))) + h(0.15em) + grouped(args.first())
+  }
+  if op == "choose" and n == 2 { return math.binom(r(args.first()), r(args.at(1))) }
+  if op in ("binompdf", "binomcdf") and n >= 3 {
+    let law = X + h(0.2em) + sym.tilde.op + h(0.2em) + math.upright("b") + paper-parens(list(r(args.first()), r(args.at(1))))
+    let event = if op == "binompdf" { X + paper-gap + math.eq + paper-gap + r(args.at(2)) }
+      else if n == 3 { X + paper-gap + le + paper-gap + r(args.at(2)) }
+      else { r(args.at(2)) + paper-gap + le + paper-gap + X + paper-gap + le + paper-gap + r(args.at(3)) }
+    return law + math.colon + h(0.6em) + named(P(event))
+  }
+  if op in ("normpdf", "normcdf", "invnorm") and n >= 1 {
+    let params = if n >= 3 { (r(args.at(-2)), r(args.at(-1))) } else { ([0], [1]) }
+    let law = X + h(0.2em) + sym.tilde.op + h(0.2em) + math.upright("N") + paper-parens(list(..params))
+    let body = if op == "normpdf" { math.attach(math.italic("f"), br: X) + paper-parens(r(args.first())) }
+      else if op == "invnorm" {
+        let variable = if name == none { math.italic("x") } else { render-tokens((name,), scope: (name: 0), aliases: aliases) }
+        paper-join(P(X + paper-gap + le + paper-gap + variable), math.eq, r(args.first()))
+      }
+      else if n == 4 { P(r(args.first()) + paper-gap + le + paper-gap + X + paper-gap + le + paper-gap + r(args.at(1))) }
+      else { P(X + paper-gap + le + paper-gap + r(args.first())) }
+    return law + math.colon + h(0.6em) + if op == "invnorm" { body } else { named(body) }
+  }
+  if op == "dotprod" and n == 2 { return arrowed(args.first()) + paper-gap + sym.dot.op + paper-gap + arrowed(args.at(1)) }
+  if op == "cross" and n == 2 { return arrowed(args.first()) + paper-gap + sym.times + paper-gap + arrowed(args.at(1)) }
+  if op == "norm" and n == 1 { return math.abs(if paper-is-sum(args.first()) { r(args.first()) } else { arrowed(args.first()) }) }
+  if op == "vecangle" and n == 2 { return sym.angle + paper-parens(list(arrowed(args.first()), arrowed(args.at(1)))) }
+  if op == "inv" and n == 1 { return math.attach(atom(args.first()), t: [−1]) }
+  none
+}
+
+// A solution set written as x = a ∨ x = b, with ≈ for decimal approximations.
+let paper-roots(variable, roots, digits, approximate: false) = {
+  let x = render-tokens((variable,), scope: ((variable): 0))
+  if roots == "all" { return x + paper-gap + sym.in + paper-gap + math.RR }
+  if roots.len() == 0 { return x + paper-gap + sym.in + paper-gap + math.emptyset }
+  let precision = if type(digits) == int { digits } else { 4 }
+  roots.map(root => {
+    if type(root) in (int, float) {
+      let shown = school-number-result(root, digits)
+      paper-join(x, if approximate or shown.value != root { math.approx } else { math.eq }, render-result(shown))
+    } else if root.at("type", default: "") == "num" and type(root.val) == float and root.val != calc.round(root.val) {
+      paper-join(x, math.approx, cas.display(sx-num(calc.round(root.val, digits: precision))))
+    } else {
+      paper-join(x, math.eq, cas.display(school-display-expression(root)))
+    }
+  }).join(h(0.6em) + sym.or + h(0.6em))
+}
+
+// The equation part of solve(...): f(x) = 1, or f(x) = 0 for an expression.
+let paper-solve-equation(arguments, scope, aliases, bounds: none, variable: none) = {
+  let r(tokens) = render-tokens(tokens, scope: scope, aliases: aliases)
+  let equation = if "=" in arguments.first() { r(arguments.first()) }
+    else if arguments.len() >= 3 and bounds == none or arguments.len() == 5 { paper-join(r(arguments.first()), math.eq, r(arguments.at(1))) }
+    else { paper-join(r(arguments.first()), math.eq, [0]) }
+  if bounds == none { return equation }
+  let le = sym.lt.eq
+  equation + math.comma + h(0.8em) + r(bounds.first()) + paper-gap + le + paper-gap + render-tokens((variable,), scope: ((variable): 0)) + paper-gap + le + paper-gap + r(bounds.last())
+}
+
+let school-field-result(field, ctx) = school-number-result(field.at(1), ctx.digits, degrees: field.len() > 2 and field.at(2) and ctx.angles == "degrees")
+
+let paper-field-labels = (
+  n: $n$, mean: $mu$, sp: $sigma$, s: $s$, min: $"min"$, q1: $Q_1$, median: $"median"$, q3: $Q_3$, max: $"max"$,
+  r2: $R^2$, chi2: $chi^2$, df: $"df"$, p: $p$, area: $"area"$,
+  a: $a$, b: $b$, c: $c$, A: $A$, B: $B$, C: $C$,
+)
+let paper-field(field, ctx, aliases) = paper-join(paper-field-labels.at(field.first(), default: field.first()), math.eq, render-result(school-field-result(field, ctx), aliases: aliases))
+let paper-table(columns) = math.mat(delim: none, align: left, column-gap: 2em,
+  ..range(calc.max(..columns.map(c => c.len()))).map(i => columns.map(c => c.at(i, default: []))))
+
+// Multi-part results laid out like WordMat: a statistics table, a triangle's
+// angles beside its sides, and test statistics on one line.
+let school-render-fields(fields, op, ctx, aliases) = {
+  let by-key = (:)
+  for field in fields { by-key.insert(field.first(), field) }
+  let cell(key) = if key in by-key { paper-field(by-key.at(key), ctx, aliases) } else { [] }
+  if op == "describe" {
+    return paper-table((("n", "mean", "sp", "s").filter(k => k in by-key).map(cell), ("min", "q1", "median", "q3", "max").map(cell)))
+  }
+  if op == "triangle" {
+    return paper-table((("A", "B", "C").map(cell), ("a", "b", "c").map(cell))) + h(2em) + cell("area")
+  }
+  fields.map(field => paper-field(field, ctx, aliases)).join(math.comma + h(1em))
+}
+
+// Render a school operation result in paper notation and store it when the
+// line uses `:=`. Returns content, or a failure for the builder to report.
+let school-builder-output(result, call: none, name: none, store: false, quoted: false, tokens: (), scope: (:), aliases: (:), ctx: (:), show-result: true, result-only: false, block: true, variables: none, hidden: false) = {
+  // Hidden lines still store their results; only the visible part is dropped.
+  let emit(updates, body) = if hidden { updates } else { updates + body }
+  let name-scope = scope
+  if name != none { name-scope.insert(name, 0) }
+  let render-name(n) = render-tokens((n,), scope: name-scope, aliases: aliases)
+  let paper = if call == none { none } else { paper-call-head(call, scope, aliases, name: if store { name } else { none }) }
+  let written = if paper != none { paper } else { render-tokens(tokens, scope: scope, aliases: aliases) }
+  let names-itself = call != none and call.operation in ("binompdf", "binomcdf", "normpdf", "normcdf", "invnorm")
+  let head = if name != none and not names-itself { paper-join(render-name(name), math.eq, written) } else { written }
+  let relation = if result.at("approximate", default: false) { math.approx } else { math.eq }
+  let save(key, value) = {
+    value.insert("display", math.equation(render-name(key), block: block))
+    value.insert("variable", key)
+    if quoted and key == name { value.insert("quoted-variable", true) }
+    checkpoint-update(variables, old => { old.insert(key, value); old })
+  }
+  let op = if call == none { none } else { call.operation }
+
+  if result.kind == "roots" {
+    let value = school-store-value(result, ctx)
+    let updates = if store { save(name, value) } else { [] }
+    let shown = paper-roots(result.variable, result.values, ctx.digits, approximate: true)
+    let equation = paper-solve-equation(call.arguments, scope, aliases, bounds: result.bounds, variable: result.variable)
+    return emit(updates, if result-only { shown } else { paper-join(equation, sym.arrow.l.r.double.long, shown) })
+  }
+
+  if result.kind in ("scalar", "vector", "matrix") {
+    let value = school-store-value(result, ctx)
+    let updates = if store { save(name, value) } else { [] }
+    let shown = render-result(value, aliases: aliases)
+    if result-only { return emit(updates, shown) }
+    // invnorm and linsolve read as an equation solved for the unknown.
+    if op == "invnorm" {
+      let unknown = if store { render-name(name) } else { math.italic("x") }
+      return emit(updates, paper-join(written, sym.arrow.l.r.double.long, paper-join(unknown, relation, shown)))
+    }
+    if op == "linsolve" {
+      let r(t) = render-tokens(t, scope: scope, aliases: aliases)
+      let unknown = if store { render-name(name) } else { math.arrow(math.italic("x")) }
+      let system = paper-join(r(call.arguments.first()) + paper-gap + sym.dot.op + paper-gap + unknown, math.eq, r(call.arguments.at(1)))
+      return emit(updates, paper-join(system, sym.arrow.l.r.double.long, paper-join(unknown, math.eq, shown)))
+    }
+    if result.at("interval", default: none) != none {
+      let (low, high) = value.components.map(c => render-result(c, aliases: aliases))
+      let level = result.interval
+      let label = if store { render-name(name) } else { math.upright(str(calc.round(level * 100, digits: 2)) + " % CI") }
+      let estimate = paper-join(math.accent(math.italic("p"), math.hat), math.eq, render-result(school-number-result(result.estimate, ctx.digits)))
+      let interval = paper-join(label, math.eq, math.lr([\[] + low + math.comma + h(0.2em) + high + [\]]))
+      return emit(updates, estimate + math.comma + h(1em) + interval)
+    }
+    if result.at("quartiles", default: false) {
+      let (q1, m, q3) = value.components.map(c => render-result(c, aliases: aliases))
+      return emit(updates, (paper-join($Q_1$, math.eq, q1), paper-join($"median"$, math.eq, m), paper-join($Q_3$, math.eq, q3)).join(math.comma + h(1em)))
+    }
+    return emit(updates, if name == none or not store or show-result or names-itself { paper-join(head, relation, shown) } else { head })
+  }
+
+  if result.kind == "fields" {
+    let solutions = if "solutions" in result { result.solutions } else { (result.fields,) }
+    if store and solutions.len() > 1 {
+      return calculation-failure("two triangles fit these measurements; remove := to show both")
+    }
+    let updates = []
+    if store {
+      for field in solutions.first() { updates += save(name + "_" + field.first(), school-field-result(field, ctx)) }
+    }
+    let shown = solutions.map(fields => school-render-fields(fields, op, ctx, aliases)).join(h(1.2em) + sym.or + h(1.2em))
+    return emit(updates, shown)
+  }
+
+  // Regression: WordMat style, the fitted function and R².
+  let function-display = if store {
+    render-tokens(tokenize(name + "(x)"), scope: (x: 0), aliases: aliases)
+  } else { math.italic("y") }
+  let display-body = if type(result.display-body) == str { result.display-body } else { school-polynomial-source(result.display-body, ctx.digits, display: true) }
+  let model = paper-join(function-display, math.eq, render-tokens(tokenize(display-body), scope: (x: 0), aliases: aliases))
+  let updates = []
+  if store {
+    let body = result.template
+    for field in result.fields { body = body.replace("{" + field.first() + "}", name + "_" + field.first()) }
+    let definition = function-definition(name + "(x) := " + body)
+    if definition == none { return calculation-failure("could not store the fitted function") }
+    updates += checkpoint-update(variables, old => { old.insert(name, definition); old })
+    for field in result.fields { updates += save(name + "_" + field.first(), school-field-result(field, ctx)) }
+  }
+  let r2 = result.fields.filter(f => f.first() == "r2")
+  emit(updates, model + if r2.len() > 0 { math.comma + h(1em) + paper-field(r2.first(), ctx, aliases) } else { [] })
+}
+
 let calculation-builder(
   initial-state: (:),
   key: "math-once-calculation",
@@ -5581,7 +7401,9 @@ let calculation-builder(
   supplement: auto,
   strict: false,
   strict-units: false,
+  angles: "degrees",
 ) = {
+  assert(angles in ("degrees", "radians"), message: "builder angles must be degrees or radians")
   if not valid-auto-digits(auto-digits) {
     panic("math-once calculation-builder: " + auto-digits-message)
   }
@@ -5657,7 +7479,8 @@ let calculation-builder(
       let variables = checkpoint-state(key, initial: initial-state)
       let visible = (:)
       for (name, value) in variables.get() {
-        if (not is-unloaded-marker(value)
+        if (not is-failed-function(value)
+          and not is-unloaded-marker(value)
           and not is-unit-alias(value)
           and not is-initial-state-marker(value)
           and not is-built-in-constant(name)) {
@@ -5682,9 +7505,9 @@ let calculation-builder(
     }
     let source = input-source(source, preserve-text: true)
     let parsed-function = function-definition(source)
-    let stored-assignment = source.match(regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*:=\\s*(.+)$"))
+    let stored-assignment = source.match(regex("^\\s*(?:\"([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*)\"|([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*))\\s*:=\\s*(.+)$"))
     let calculated-assignment = if stored-assignment == none {
-      source.match(regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*=\\s*(.+)$"))
+      source.match(regex("^\\s*(?:\"([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*)\"|([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*))\\s*=\\s*(.+)$"))
     } else {
       none
     }
@@ -5698,13 +7521,35 @@ let calculation-builder(
       assignment.captures.at(1)
     }
     let expression = if assignment == none { source } else { assignment.captures.at(2) }
-    let display-only = assignment == none and "=" in tokenize(source)
+    let display-only = assignment == none and "=" in tokenize(source) and symbolic-call(tokenize(source)) == none and school-call(tokenize(source)) == none
 
-    if hidden and (not stores-result or parsed-function != none) {
+    if hidden and not stores-result and parsed-function == none {
       panic("math-once calculation-builder: hidden requires a stored scalar, vector, or matrix assignment")
     }
     if hidden and (caption != none or label != none) {
       panic("math-once calculation-builder: hidden cannot be combined with caption or label")
+    }
+
+    let chart-call = school-call(tokenize(expression))
+    if chart-call != none and chart-call.operation in school-chart-functions {
+      if assignment != none {
+        return builder-error(chart-call.operation + " draws a chart and cannot be stored or labelled with =")
+      }
+      return context {
+        let current = checkpoint-state(key, initial: initial-state).get()
+        if chart-call.operation in current and is-stored-function(current.at(chart-call.operation)) {
+          return builder-error("`" + chart-call.operation + "` is a stored function and cannot draw a chart")
+        }
+        let unloaded = ()
+        for (stored-name, item) in current { if is-unloaded(item) { unloaded.push(stored-name) } }
+        let ctx = (digits: automatic-precision(digits, auto-digits), aliases: unit-aliases(current), unloaded: unloaded, angles: angles, strict-units: strict-units)
+        let chart = school-chart(chart-call, current, ctx)
+        if is-calculation-failure(chart) { return builder-error(chart.error) }
+        let body = align(center, chart)
+        if caption != none { body = figure(chart, caption: caption, kind: image) }
+        if hidden { return }
+        if label != none and caption != none { [#body #label] } else { body }
+      }
     }
 
     if caption != none and not block {
@@ -5718,7 +7563,9 @@ let calculation-builder(
       let variables = checkpoint-state(key, initial: initial-state)
       let current = variables.get()
       let aliases = unit-aliases(current)
+      let parsed-function = parsed-function
       if parsed-function != none {
+        checkpoint-update(variables, old => { old.insert(parsed-function.name, (failed-function: true)); old })
         if result-only {
           builder-error("a function definition has no calculated result to show by itself")
           return
@@ -5727,16 +7574,53 @@ let calculation-builder(
           and is-unloaded(current.at(parsed-function.name)))
         let reserved-function-name = (parsed-function.name in aliases
           or (is-built-in-constant(parsed-function.name) and not function-name-is-unloaded)
-          or (resolve-unit(parsed-function.name) != none and not function-name-is-unloaded))
+          )
         if reserved-function-name {
           builder-error("`" + parsed-function.name + "` is a reserved unit or constant name and cannot be used as a function")
           return
+        }
+        if not parsed-function.matrix and not parsed-function.vector and not symbolic-grammar(parsed-function.body-tokens) {
+          builder-error("Invalid function body: check operators and parentheses")
+          return
+        }
+        if symbolic-call(parsed-function.body-tokens) != none {
+          parsed-function.insert("calculus", true)
+          let call = symbolic-call(parsed-function.body-tokens)
+          let compiled = if call.operation == "integrate" and call.arguments.len() == 2 {
+            let checked = symbolic-result(call, current)
+            if is-calculation-failure(checked) { checked } else {
+              sx-primitive(symbolic-expression(call.arguments.first(), current), symbolic-name-argument(call.arguments.last(), "integrate"))
+            }
+          } else { symbolic-expression(parsed-function.body-tokens, current) }
+          if is-calculation-failure(compiled) { builder-error(compiled.error); return }
+          if angles == "degrees" and call.operation in ("diff", "integrate", "limit", "taylor") and symbolic-trig(symbolic-expression(call.arguments.first(), current)) { builder-error("CAS trig calculus uses radians; select angles: radians"); return }
+          let simplified = cas.simplify(compiled)
+          if cas.ok(simplified) { compiled = cas.expr-of(simplified) }
+          parsed-function.insert("expression", compiled)
+          let code = symbolic-code(compiled)
+          if code == "" or not symbolic-grammar(tokenize(code)) { builder-error("Unsupported symbolic function body"); return }
+          parsed-function.insert("body-tokens", tokenize(code))
         }
         checkpoint-update(variables, old => {
           old.insert(parsed-function.name, parsed-function)
           old
         })
-        render-tokens(tokenize(source.replace(":=", "=")), scope: current, aliases: aliases)
+        if hidden { return }
+        // Render the new name as a function, even when it is also a unit (g, dg).
+        let definition-scope = current
+        definition-scope.insert(parsed-function.name, parsed-function)
+        for parameter in parsed-function.parameters { definition-scope.insert(parameter, 0) }
+        let call = symbolic-call(tokenize(source.split(":=").slice(1).join(":=")))
+        let paper = if call == none { none } else { paper-call-head(call, current, aliases) }
+        if paper == none {
+          render-tokens(tokenize(source.replace(":=", "=")), scope: definition-scope, aliases: aliases)
+        } else {
+          let left = tokenize(source.split(":=").first())
+          paper-join(render-tokens(left, scope: definition-scope, aliases: aliases), math.eq, paper)
+        }
+        if parsed-function.at("calculus", default: false) {
+          h(0.25em) + math.eq + h(0.25em) + cas.display(school-display-expression(parsed-function.expression))
+        }
         return
       }
       let unloaded = ()
@@ -5747,7 +7631,7 @@ let calculation-builder(
       let illegal-assignment = (stores-result
         and name != none
         and (resolve-unit(name) != none or name in aliases or is-built-in-constant(name))
-        and not assignment-is-unloaded)
+        and not assignment-is-unloaded and not (assignment != none and assignment.captures.at(0) != none))
       let reserved-name-kind = if name != none and is-built-in-constant(name) {
         "a built-in constant"
       } else {
@@ -5764,7 +7648,7 @@ let calculation-builder(
         return
       }
       let has-display-symbol = evaluation-tokens.any(is-display-only-token)
-      if has-display-symbol {
+      if has-display-symbol and symbolic-call(evaluation-tokens)==none and school-call(evaluation-tokens)==none {
         if illegal-assignment {
           builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
         } else if stores-result {
@@ -5779,6 +7663,31 @@ let calculation-builder(
           }
           render-tokens(visible-tokens, scope: current, aliases: aliases)
         }
+        return
+      }
+      let school-ctx = (digits: automatic-precision(digits, auto-digits), aliases: aliases, unloaded: unloaded, angles: angles, strict-units: strict-units)
+      let school-line(result, call) = {
+        if is-calculation-failure(result) { return builder-error(result.error) }
+        let output = school-builder-output(result, call: call, name: name, store: stores-result, quoted: assignment != none and assignment.captures.at(0) != none,
+          tokens: evaluation-tokens, scope: current, aliases: aliases, ctx: school-ctx, show-result: show-result,
+          result-only: result-only, block: block, variables: variables, hidden: hidden)
+        if is-calculation-failure(output) { builder-error(output.error) } else { output }
+      }
+      let school-op = if display-only { none } else { school-call(evaluation-tokens) }
+      if (school-op != none and school-op.operation in current and is-stored-function(current.at(school-op.operation))) {
+        school-op = none
+      }
+      if school-op != none {
+        // School results are numeric values, so they follow the numeric naming rules.
+        if illegal-assignment {
+          builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
+          return
+        }
+        if unit != none or size != none {
+          builder-error("school operations do not accept unit or size")
+          return
+        }
+        school-line(school-operation(school-op, current, school-ctx), school-op)
         return
       }
       let cas-call = if display-only { none } else { symbolic-call(evaluation-tokens) }
@@ -5800,13 +7709,28 @@ let calculation-builder(
           return
         }
 
+        if angles == "degrees" and cas-call.operation in ("diff", "integrate", "limit", "taylor") and cas-call.arguments.len() > 0 {
+          let input = symbolic-expression(cas-call.arguments.first(), current)
+          if not is-calculation-failure(input) and symbolic-trig(input) { builder-error("CAS trig calculus uses radians; select angles: radians"); return }
+        }
+        let solve-arguments = cas-call.arguments.len() + if cas-call.arguments.len() > 0 and "=" in cas-call.arguments.first() { 1 } else { 0 }
+        if cas-call.operation == "solve" and solve-arguments in (4, 5) and cas-call.arguments.len() >= 4 {
+          school-line(school-numeric-solve(cas-call, current, school-ctx), cas-call)
+          return
+        }
         let result = symbolic-result(cas-call, current)
+        if (is-calculation-failure(result) and cas-call.operation == "integrate" and cas-call.arguments.len() == 4
+          and result.error.starts-with("Unsupported symbolic integral")) {
+          school-line(school-numeric-integral(cas-call, current, school-ctx), cas-call)
+          return
+        }
         if is-calculation-failure(result) {
           builder-error(result.error)
           return
         }
 
-        let written = render-tokens(evaluation-tokens, scope: current, aliases: aliases)
+        let paper = paper-call-head(cas-call, current, aliases)
+        let written = if paper != none { paper } else { render-tokens(evaluation-tokens, scope: current, aliases: aliases) }
         let labelled-body = if name != none {
           let name-scope = current
           name-scope.insert(name, 0)
@@ -5816,15 +7740,25 @@ let calculation-builder(
           written
         }
         if (name == none or not stores-result or show-result) {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-symbolic-result(result)
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-symbolic-result(result, digits: digits)
         }
         if result-only {
-          labelled-body = render-symbolic-result(result)
+          labelled-body = render-symbolic-result(result, digits: digits)
+        }
+        // On paper a solved equation reads f(x) = 0 ⇔ x = a ∨ x = b.
+        if cas-call.operation == "solve" and result.symbolic-kind == "roots" {
+          let variable = symbolic-token-name(cas-call.arguments.last().first())
+          let roots = if result.at("solution-status", default: none) == "all" { "all" } else { result.roots }
+          let shown = paper-roots(variable, roots, digits)
+          labelled-body = if result-only { shown } else {
+            paper-join(paper-solve-equation(cas-call.arguments, current, aliases), sym.arrow.l.r.double.long, shown)
+          }
         }
 
         if stores-result {
           result.insert("display", math.equation(labelled-body, block: block))
           result.insert("variable", name)
+          if assignment.captures.at(0) != none { result.insert("quoted-variable",true) }
           checkpoint-update(variables, old => {
             old.insert(name, result)
             old
@@ -5838,6 +7772,11 @@ let calculation-builder(
       let function-expansion = if display-only { (evaluation-tokens, false) } else { expand-function-calls(evaluation-tokens, current) }
       let function-error = if is-calculation-failure(function-expansion) { function-expansion.error } else { none }
       let calculation-tokens = if function-error == none { function-expansion.first() } else { tokens }
+      if angles == "degrees" and calculus-reference(evaluation-tokens, current) and calculation-tokens.any(t => t in trigonometric-functions) {
+        builder-error("CAS trig calculus uses radians; select angles: radians")
+        return
+      }
+
       let missing = if display-only { () } else { missing-variables(tokens, current, unloaded, aliases: aliases) }
       let result = if illegal-assignment or display-only or missing.len() > 0 or function-error != none { none } else {
         calculate-expanded(
@@ -5850,7 +7789,7 @@ let calculation-builder(
           block,
           unloaded,
           aliases,
-          strict-units: strict-units,
+          angles: angles, strict-units: strict-units,
         )
       }
       let calculation-error = if is-calculation-failure(result) { result.error } else { none }
@@ -5894,12 +7833,13 @@ let calculation-builder(
             block,
             update-unloaded,
             update-aliases,
-            strict-units: strict-units,
+            angles: angles, strict-units: strict-units,
           )
           if is-calculation-failure(update-result) {
             return old
           }
           update-result.insert("variable", name)
+          if assignment.captures.at(0) != none { update-result.insert("quoted-variable",true) }
           if name in update-unloaded { update-result.insert("unloaded", true) }
           old.insert(name, update-result)
           old
@@ -5929,10 +7869,10 @@ let calculation-builder(
         let labelled-body = render-tokens((name,), scope: name-scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current, aliases: aliases)
         if show-result {
           let (expanded, has-variables) = expand-variables(tokens, current)
-          if has-variables and show-substitution {
+          if has-variables and show-substitution and not calculus-reference(evaluation-tokens, current) {
             labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
           }
-          let last-visible-tokens = if has-variables and show-substitution { expanded } else { tokens }
+          let last-visible-tokens = if has-variables and show-substitution and not calculus-reference(evaluation-tokens, current) { expanded } else { tokens }
           if ((is-structure-result(result) and not structure-equivalent(last-visible-tokens, result))
             or result.at("alternatives", default: false)
             or (not is-structure-result(result)
@@ -5948,6 +7888,7 @@ let calculation-builder(
         if stores-result {
           result.insert("display", math.equation(visible-body, block: block))
           result.insert("variable", name)
+          if assignment.captures.at(0) != none { result.insert("quoted-variable",true) }
           if assignment-is-unloaded { result.insert("unloaded", true) }
           checkpoint-update(variables, old => {
             old.insert(name, result)
@@ -5964,15 +7905,19 @@ let calculation-builder(
         let labelled-body = render-tokens(tokens, scope: current, aliases: aliases)
         if (show-substitution
           and function-expansion.last()
+          and not calculus-reference(evaluation-tokens, current)
           and vector-components(calculation-tokens) == none
           and matrix-rows(calculation-tokens) == none) {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(calculation-tokens, scope: numeric-scope(current), aliases: aliases)
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(tidy-parens(calculation-tokens), scope: numeric-scope(current), aliases: aliases)
         }
-        let (expanded, has-variables) = expand-variables(tokens, current)
-        if has-variables and show-substitution {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
+        // After a function call is expanded, substitute stored values used inside
+        // its body too, e.g. fit(10) = fit_a·10 + fit_b = 1.94·10 + 1.15.
+        let function-expanded = function-expansion.last() and vector-components(calculation-tokens) == none and matrix-rows(calculation-tokens) == none
+        let (expanded, has-variables) = expand-variables(if function-expanded { calculation-tokens } else { tokens }, current)
+        if has-variables and show-substitution and not calculus-reference(evaluation-tokens, current) {
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(if function-expanded { tidy-parens(expanded) } else { expanded }, aliases: aliases)
         }
-        let last-visible-tokens = if has-variables and show-substitution { expanded } else { tokens }
+        let last-visible-tokens = if has-variables and show-substitution and not calculus-reference(evaluation-tokens, current) { expanded } else { tokens }
         if ((is-structure-result(result) and not structure-equivalent(last-visible-tokens, result))
           or result.at("alternatives", default: false)
           or (not is-structure-result(result)
@@ -6000,7 +7945,7 @@ let calculation-builder(
 // Normalize a reset or unload argument to a builder state name.
 let state-name(value, action) = {
   let name = input-source(value).trim()
-  if regex("^[A-Za-z]+(?:_[A-Za-z0-9]+)*$") not in name {
+  if regex("^[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*$") not in name {
     panic(
       "math-once " + action
       + ": names must contain letters and optional letter or number subscripts",
@@ -6057,7 +8002,7 @@ let reset-functions(..names, key: "math-once-calculation") = {
       let initial = state-initial-values(old)
       let kept = old
       for (name, value) in old {
-        if is-stored-function(value) and (selected.len() == 0 or name in selected) {
+        if (is-stored-function(value) or is-failed-function(value)) and (selected.len() == 0 or name in selected) {
           let _ = kept.remove(name)
           if name in initial { kept.insert(name, initial.at(name)) }
         }
@@ -6201,6 +8146,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 }
 
 (
+  school-bridge: school-bridge,
   calculate: calculate,
   automatic-precision: automatic-precision,
   calculation-builder: calculation-builder,
@@ -6297,7 +8243,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// displays the result without storing `v`. Other equations that do not have a
 /// simple variable on the left remain display-only. Later expressions show an
 /// extra step with stored variable values substituted. A label can be written after
-/// the call as `#runner(...) <name>` or passed with `label: <name>`. Calling
+/// the call as `#runner(...) < name>` or passed with `label: <name>`. Calling
 /// the runner without an expression returns its result dictionary and must
 /// happen in a `context` block. `caption` adds text below a block equation;
 /// `gap` controls the space above that caption. Assigning to a reserved unit
@@ -6311,6 +8257,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   supplement: auto,
   strict: false,
   strict-units: false,
+  angles: "degrees",
 ) = (_engine.calculation-builder)(
   initial-state: initial-state,
   key: key,
@@ -6320,6 +8267,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   supplement: supplement,
   strict: strict,
   strict-units: strict-units,
+  angles: angles,
 )
 
 /// Reset all builder state, or explicitly select categories and names.
@@ -6397,7 +8345,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// - `supplement`: Optional reference and caption name. Default: `auto`.
 ///
 /// The result remains a real `math.equation`, so a postfix label can be added
-/// as `#equation($ ... $, caption: [...]) <label>` and referenced with `@label`.
+/// as `#equation($ ... $, caption: [...]) < label>` and referenced with `@label`.
 #let equation(body, caption: none, gap: 0.65em, supplement: auto) = {
   if type(body) != content or body.func() != math.equation {
     panic("math-once equation: body must be a Typst math equation")
@@ -6527,3 +8475,6 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   ..names,
   key: key,
 )
+
+/// Supply numeric callback adapters from the current builder snapshot.
+#let school-bridge = _engine.school-bridge

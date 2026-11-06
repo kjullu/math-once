@@ -1,5 +1,51 @@
 # Changelog
 
+## School mathematics demo (based on 0.45.0)
+
+- **Breaking**: Trigonometric CAS calculus now requires an explicitly radians builder. Use `calculation-builder(angles: "radians")`. Degree bridge callbacks reject calculus-derived trigonometry, including compositions.
+
+- **Breaking**: Stored function calls may now use unit names such as `g`, `h`, `l` and `m`; bare names retain unit meaning. Code relying on rejection of those function definitions must rename or remove them.
+
+- **Breaking**: Builder `solve` now filters numeric candidates to real solutions of the original equation. Code needing complex polynomial roots must call typCAS directly with its complex field instead of relying on the builder's former implicit complex output.
+- **Breaking**: Builder periodic solves now report that an interval is required instead of returning incomplete inverse-trigonometric branches. Use `school.roots(callback, lower, upper)` with explicit bounds in radians.
+
+- Show calculations in paper notation, following WordMat where school practice has no fixed form: `∫₀³ x² dx`, `d/dx f(x)`, `lim_{x→1}`, `x² − 4 = 0 ⇔ x = 2 ∨ x = −2`, `X ∼ b(10, 0.5): P(X ≤ 3)`, `(10 over 3)`, `u⃗ · v⃗`, `|u⃗|`, `∠(u⃗, v⃗)`, `M⁻¹`, `M · x⃗ = b ⇔ x⃗ = …`, and `eˣ` for `exp(x)`. Regressions show `fit(x) = 1.94x + 1.15, R² = 0.996`. `describe` shows a μ/σ/s/quartile table, triangles show their angles beside their sides, and χ² tests show one line. Only the display changes; typed commands and stored names stay the same.
+- Render single-letter variables in italic and keep units upright. Function names sit next to their brackets (`f(x)`, not `f (x)`), including names that are also units such as `g`. Function substitution steps drop redundant brackets: `f(2) = 2 + 1 = 3`.
+- Write everyday school mathematics directly in the calculation builder, with the same `:=` storage, digits and substitution steps as other lines. Operations: `mean`, `median`, `variance`, `stdev`, `quantile`, `quartiles`, `describe`, `choose`, `binompdf`, `binomcdf`, `normpdf`, `normcdf`, `invnorm`, `linreg`, `expreg`, `powreg`, `logreg`, `polyreg`, `dotprod`, `cross`, `norm`, `vecangle`, `det`, `inv`, `rank`, `linsolve`, `triangle`, `chi2gof`, `chi2ind` and `propci`. Data are builder vectors and matrices. Results with several parts store subscripted names such as `stat_mean` and `fit_r2`. Regressions store a reusable function: `fit := linreg(xs, ys)` makes `fit(10)` show `fit_a·10 + fit_b = …`.
+- Draw charts from the builder with `plot(f(x), g(x), x, a, b)`, `scatter(xs, ys, fit(x), x)`, `histogram(data, edges)` and `boxplot(data)`. Plots leave gaps where a function is undefined, and the y-axis ignores extreme values near poles.
+- Add numerical fallbacks to builder CAS calls: `solve(equation, x, a, b)` finds roots in an interval, and `integrate(expression, x, a, b)` uses Simpson's rule when the CAS has no antiderivative. Both are shown with `≈`. Integrals are refused when the function is undefined in the interval or the rule does not converge, for example across a pole. Error messages now suggest these calls instead of `school.roots` and `school.integral`.
+- `school-bridge` and the plain `school` API remain available for advanced Typst code. Both now use the same callback compiler as the builder.
+- Substitution steps now also fill in stored values used inside a called function's body. Negative values substituted after an operator are grouped, e.g. `2·(−3)` and `5^(−1.4)`. Subscripted names in exponents render as one exponent.
+- Fix `school.chart` dropping lines with points above the plot area: Typst's minus sign `−` is not valid SVG.
+- Report a clear error when a data argument is a unit name, for example `ys` (yoctosecond), instead of a stored vector.
+- Fix review findings in builder school operations. Numerical `solve(..., x, a, b)` no longer loses roots when the equation is scaled by a constant, finds roots at the edge of the domain such as `sqrt(x) = 0`, and skips undefined samples instead of failing to compile. Numerical integrals compare two grids that share no inner points and measure the difference against the integral of `|f|`, so scaled poles and fast oscillations are refused instead of returning a wrong value. `hidden: true` keeps the stored result of school operations and fitted functions. `polyreg` accepts degrees up to 10 and reports higher ones. `chi2gof` rejects observed counts that are all zero. Paper notation keeps the brackets that change the meaning: `(e³)²`, `(M · Q)⁻¹` and `(u + v) · v`.
+
+- Allow hidden function definitions so long second derivatives remain reusable without printing an overflowing formula. Add a default-step A4 benchmark regression for the hidden second derivative and its numerical evaluation.
+- Simplify compiled calculus functions before storage, show their formulas in definitions, and omit expanded substitution steps for derived calls. Reuse finite constant CAS expressions numerically while retaining their exact symbolic AST. Remove the default plot caption while retaining custom axis captions.
+
+- Respect explicit degree/radian units in radians builders, preserve inverse-trig conventions, retain stored derivative variables, remember rejected function names, and support verified antiderivative function definitions with C = 0. Trig bridge callbacks require explicit angle selection; symbolic calculus assumes radians. Add two-curve legends, a hidden-storage precision recipe, explicit log arity guidance, scalar atan2 callbacks, and a measured composite calculus benchmark.
+
+- Integrate numerical school workflows through `school-bridge`, numeric result storage via `school.value-source`, digit-bearing assignment names, a shared explicit degree/radian helper set, and consistent selectable median-of-halves quartiles. Copy both Typst modules for local installation.
+- Compile school callbacks once with captured symbolic scope and explicit radians/degrees; add reusable symbolic derivative function bodies, logarithm/exponential evaluation, malformed-body guards, natural solve equations, and a pedagogical default-sampling workflow. Builder numerical trig accepts an explicit radians option. Normalize CAS display signs and repeated factors without altering stored exact expressions. Reject nonfinite school value serialization; allow explicitly quoted coefficient variables while preserving bare physical units.
+
+- Repair round-four phase-one blockers: retain exact reciprocal-power endpoint fractions, reject periodic trig poles, guard unsupported removable-limit CAS results, and preserve detected pole cuts in inequality charts. Add callback domain exclusions and document uncaught callback errors and finite-scan limits.
+
+- Check numerator derivatives before removable-limit substitution to diagnose shifted, scaled and quadratic square-root singularities without a typCAS panic.
+
+- Repair the second phase-one review blockers: reject nonpositive exponential targets, evaluate definite integrals through antiderivatives with interval checks, reject unevaluated integrals and poles, scale numerical root residuals, extend real equation isolation, and diagnose excluded or parameter-dependent identities and singular limits. Add executable positive and invalid-domain regressions and document native piecewise, sum and list workflows.
+
+- Fix phase-one correctness blockers: verify CAS antiderivatives against derivatives at multiple real samples; add affine reciprocal logarithms, reciprocal powers, positive-base exponentials, monomial products and real quadratic reciprocal primitives. Guard infinity limits before typCAS and diagnose unsupported growth and singular boundaries. Remove unit-scale root tolerances and use local slope/curvature residuals, including inequality endpoints.
+
+- Extended school workflows with portable function/parametric/data/slope-field charts, t and chi-square inference, polynomial and iterative custom/sinus fitting, weighted/grouped summaries, general triangles with SSA alternatives, complex pairs, line/plane geometry, determinant/rank, coupled RK4, numerical systems and bounded root scans, and reusable financial/physics recipes. Existing APIs remain available. See `doc/school.md` for assumptions and numerical limits.
+
+- Added the plain-number `school` API for descriptive statistics, four regression models, binomial and normal probabilities, numerical calculus, bracketed roots, scalar RK4 differential equations, vector/triangle geometry, and pivoted linear-system solving and matrix inversion. See `doc/school.md` for conventions and limits.
+- Added a sourced WordMat workflow coverage inventory; independent Claude review passed daily-school coverage under the documented limits.
+
+- Repair common exponential, radical, rational, absolute-value, logarithmic and parameter-quadratic equations. Validate numeric candidates in the original real-domain equation, distinguish identities from unsupported solve fallbacks, and evaluate nested derivatives used in extrema calculations.
+- Preserve symbolic Euler's constant; add builder `expand`, four-argument definite integration, linear exponential primitives and positive-infinity limit targets.
+- Add symbolic first-order particular ODE recipes and bounded numerical inequality intervals with explicit endpoint flags. Document real-domain, periodic and unsupported-integral limits. Add result assertions in `tests/symbolic-school.typ`.
+
+
 ## 0.45.0
 
 - `auto-digits: "significant"` now rounds automatically by itself. Builders and `calculate` without an explicit `digits` use `digits: auto` in significant mode and keep 4 decimal places in decimal mode.

@@ -112,10 +112,10 @@ passed to a later operation:
 // f = simplify(x² + 2x + 1) = x² + 2x + 1
 
 #eq(`df := diff(f, x)`)
-// df = diff(f, x) = 2x + 2
+// df = d/dx f = 2x + 2
 
 #eq(`roots := solve(x^2 - 4, x)`)
-// roots = solve(x² - 4, x) = 2, -2
+// x² - 4 = 0 ⇔ x = 2 ∨ x = -2
 ```
 
 Unknown names such as `x` stay symbolic. Existing stored, dimensionless
@@ -473,7 +473,7 @@ It takes #eq($t$, result-only: true, show-unit: false) seconds.
 
 `bool` — optional, named — default: `false`
 
-Set `hidden: true` on a stored value assignment to update builder state without visible output or layout space. It cannot be combined with a caption or label.
+Set `hidden: true` on a stored value assignment or function definition to update builder state without visible output or layout space. It cannot be combined with a caption or label.
 
 ```typ
 #eq(`x := 3 * 2`, hidden: true)
@@ -621,7 +621,7 @@ Stored functions may return either structure:
 ```
 
 Calling a function with the wrong number of arguments produces a red inline error.
-Stored function calls expand until no stored calls remain. Direct and indirect recursive definitions produce a focused cycle error. Unit names, aliases, and the built-in constants `e` and `pi` are reserved as function names under the same rules used for scalar variables; call `unload` first when deliberate reuse is required.
+Stored function calls expand until no stored calls remain. Direct and indirect recursive definitions produce a focused cycle error. Catalog unit names may be used as function names: `g(x) := x^2` defines a callable function while bare `g` retains its unit meaning. Unit aliases and the built-in constants `e` and `pi` remain reserved; call `unload` first when deliberate constant reuse is required. Scalar assignments to unit names still require `unload`.
 
 Built-in square and indexed roots can be calculated and stored in the same
 way. The indexed form follows Typst's `root(index, radicand)` order:
@@ -953,3 +953,36 @@ calls remain strict and panic on invalid input, which is useful when their
 return values are consumed programmatically.
 
 Full `reset()` calls also start independent compilation checkpoints. Focused resets keep the current checkpoint.
+
+## School operations
+
+Statistics, probability, regression, vector and matrix operations, triangles,
+χ² tests and charts are builder operations too. Numerical roots and integrals
+are also available as `solve(equation, x, a, b)` and `integrate(expression, x, a, b)`:
+
+```typ
+#eq(`data := vec(2, 4, 5, 7, 9)`)
+#eq(`xbar := mean(data)`)
+#eq(`fit := linreg(xv, yv)`)
+#eq(`plot(f(x), x, -2, 2)`)
+```
+
+See [School mathematics](school.md) for every operation and how its results are stored.
+
+Calculus and school calls are shown in paper notation: `integrate(x^2, x, 0, 3)` as ∫₀³ x² dx, `diff(f(x), x)` as d/dx f(x), and `solve(x^2 - 4, x)` as x² − 4 = 0 ⇔ x = 2 ∨ x = −2. Single-letter variables are italic and units upright. See [paper notation](school.md#paper-notation).
+
+### Angle conventions
+
+`calculation-builder(angles: "degrees")` is the compatibility default. Choose `angles: "radians"` for calculus. Only dimensionless trig arguments use this selection; explicit `°` and `rad` values retain their meaning. Inverse trig returns degree quantities by default and plain radians in radians mode. Symbolic differentiation and integration assume radians. Use a radians builder when evaluating their trig results numerically. School operations such as `vecangle` and `triangle` use the same setting. Trig callbacks passed through `school-bridge` require explicit `angles: "radians"` or `angles: "degrees"`.
+
+`F(x) := integrate(x^2,x)` creates a verified antiderivative function with integration constant C = 0. Standalone indefinite integrals still show C. Unsupported primitives remain errors; real-domain restrictions still apply.
+
+To reuse a computed float without showing machine digits, store it with `run("value1 := " + school.value-source(value), hidden: true)`, then show `run("value1", result-only: true, digits: 3)`. Storage retains the full finite value; display precision does not round later calculations. This also avoids exposing binary noise such as `1.9600000000000002` in the source equation.
+
+A rejected function definition reserves that name as an error until it is successfully redefined or cleared with `reset-functions` or `reset`. It cannot fall back to a constant or a physical unit when called.
+
+Stored derivatives retain the differentiation variable as their first callback parameter. Additional free variables follow in expression traversal order. For a public multi-parameter API, prefer an explicit signature such as `dq(t,y) := diff(q(t,y),t)`; calls with the wrong number of arguments report an error.
+
+Finite constant CAS expressions can be reused in numeric calculations: after `area := integrate(x^2,x,0,2)`, `area*3` gives 8. The stored symbolic expression retains its exact fraction; numeric evaluation uses the unrounded real value. Trigonometric CAS calculus requires `angles: "radians"`, including when a degree bridge callback refers to a derived formula through another function.
+
+Long calculus formulas can be stored without printing the definition. For example, `run("ddf(x) := diff(df(x),x)", hidden: true)` keeps the function available to `run("ddf(1)")` and `school-bridge`. Use this for second derivatives whose expanded formulas would exceed the page width.

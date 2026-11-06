@@ -52,7 +52,7 @@ It takes #eq($1.394 s$, result-only: true, show-unit: false) seconds.
 // multi-letter names are quoted.
 #eq(` f := simplify(x^2 + 2*x + 1) `)
 #eq(` df := diff(f, x) `)
-// df = diff(f, x) = 2x + 2
+// df = d/dx f = 2x + 2
 
 // Raw input has no $...$ layout metadata. Override its centered default when
 // a normal CAS result should appear inline:
@@ -72,7 +72,7 @@ Inline derivative: #eq(`diff(f, x)`, block: false)
 
 ## Install
 
-Copy [`math-once.typ`](math-once.typ) into your project and import its functions:
+Copy [`math-once.typ`](math-once.typ) and [`school.typ`](school.typ) together into your project and import its functions:
 
 ```typ
 #import "math-once.typ": *
@@ -152,3 +152,7 @@ The project started as `typst-math`, which is still the name of my local folder.
 ## License
 
 MIT
+
+School mathematics demo: [builder operations for statistics, regression, probability, geometry and charts](doc/school.md) and [WordMat coverage / remaining gaps](doc/wordmat-coverage.md).
+
+For a complete model → derivative → tangent → plot → regression workflow, see [the school example](examples/school-workflow.typ). Use `calculation-builder(angles: "radians")` with CAS calculus.
