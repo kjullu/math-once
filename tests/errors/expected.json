@@ -53,7 +53,9 @@
   "builder-degree-nested.typ": "CAS trig calculus uses radians; select angles: radians",
   "builder-school-chart-store.typ": "math-once calculation-builder: plot draws a chart and cannot be stored or labelled with =",
   "builder-school-not-vector.typ": "math-once calculation-builder: data must be a vector of numbers, for example vec(2, 4, 5)",
-  "builder-school-pole.typ": "math-once calculation-builder: the numerical integral does not converge; check for a pole between the bounds",
+  "builder-school-chi2-zero.typ": "math-once calculation-builder: the observed counts must not all be zero",
+  "builder-school-pole.typ": "math-once calculation-builder: the numerical integral does not converge; check for a pole or a fast oscillation between the bounds",
+  "builder-school-scaled-pole.typ": "math-once calculation-builder: the numerical integral does not converge; check for a pole or a fast oscillation between the bounds",
   "builder-school-singular.typ": "math-once calculation-builder: the matrix is singular and has no inverse",
   "builder-school-triangle.typ": "math-once calculation-builder: these sides do not form a triangle",
   "builder-school-units.typ": "math-once calculation-builder: data values must be a plain number without units"

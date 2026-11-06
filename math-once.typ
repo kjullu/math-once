@@ -3475,7 +3475,10 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
         if tokens.at(j) == "(" { depth += 1 } else if tokens.at(j) == ")" { depth -= 1; if depth == 0 { close = j; break } }
       }
       if close != none {
-        display-tokens += ("e", "^", "(") + tokens.slice(index + 2, close) + (")",)
+        let power = ("e", "^", "(") + tokens.slice(index + 2, close) + (")",)
+        // (e^3)^2 keeps its brackets; e^(3)^2 would mean e^9.
+        let raised = tokens.at(close + 1, default: none) == "^"
+        display-tokens += if raised { ("(",) + power + (")",) } else { power }
         index = close + 1
         continue
       }
@@ -6574,24 +6577,107 @@ let school-variable(tokens, operation) = symbolic-name-argument(tokens, operatio
 let school-callback(tokens, variable, scope, ctx) = compile-callback(tokens, scope, parameters: (variable,), angles: ctx.angles, strict: false)
 
 // Composite Simpson rule that refuses intervals where the function is
-// undefined instead of silently integrating across a gap.
+// undefined instead of silently integrating across a gap. Returns the
+// integral of f and of |f|, which sets the scale of the convergence check.
 let school-simpson(f, a, b, steps: 400) = {
   let h = (b - a) / steps
   let total = 0.0
+  let size = 0.0
   for i in range(steps + 1) {
     let y = f(a + i * h)
     if y == none { return calculation-failure("the function is undefined somewhere between the bounds") }
-    total += y * if i == 0 or i == steps { 1 } else if calc.rem(i, 2) == 1 { 4 } else { 2 }
+    let w = if i == 0 or i == steps { 1 } else if calc.rem(i, 2) == 1 { 4 } else { 2 }
+    total += y * w
+    size += calc.abs(y) * w
   }
-  total * h / 3
+  (value: total * h / 3, size: calc.abs(size * h / 3))
 }
 
-// Numerical roots on [a, b]; undefined samples become NaN so sign tests skip them.
-let school-roots(f, a, b) = {
+// Numerical roots on [a, b]. Undefined samples (none) are skipped, never
+// compared. Every tolerance is relative to the size of f on the interval, so
+// multiplying the equation by a constant does not change the roots.
+let school-roots(f, a, b, steps: 400) = {
   if not (a < b) { return calculation-failure("the search interval must have a < b") }
-  let g(x) = { let y = f(x); if y == none { float.nan } else { y } }
-  let scan = school.domain-scan(g, a, b)
-  scan.roots.filter(x => { let y = f(x); y != none and calc.abs(y) < 1e-6 * calc.max(1, calc.abs(x)) })
+  let width = b - a
+  let xs = range(steps + 1).map(i => if i == steps { b } else { a + width * i / steps })
+  let ys = xs.map(f)
+  let defined = ys.filter(y => y != none).map(calc.abs)
+  if defined.len() == 0 { return calculation-failure("the function is undefined on the whole search interval") }
+  // The median size ignores huge samples next to poles.
+  let sorted = defined.sorted()
+  let scale = sorted.at(calc.quo(sorted.len(), 2))
+  if scale == 0 { scale = sorted.last() }
+  if scale == 0 { return calculation-failure("every number in the interval solves the equation") }
+  let roots = ()
+  let add(roots, x) = if roots.any(r => calc.abs(r - x) <= 1e-7 * width) { roots } else { roots + (x,) }
+  // Bisection on a sign change; returns none when f is undefined inside.
+  let bisect(l, fl, r) = {
+    for _ in range(80) {
+      let m = (l + r) / 2
+      if m <= l or m >= r { break }
+      let fm = f(m)
+      if fm == none { return none }
+      if fm == 0 { return m }
+      if (fm < 0) == (fl < 0) { l = m; fl = fm } else { r = m }
+    }
+    (l + r) / 2
+  }
+  // Golden-section minimum of |f| for roots that touch the axis.
+  let touch(l, r) = {
+    let g = (calc.sqrt(5) - 1) / 2
+    for _ in range(90) {
+      let c = r - g * (r - l)
+      let d = l + g * (r - l)
+      let fc = f(c)
+      let fd = f(d)
+      if fc == none or fd == none { return none }
+      if calc.abs(fc) < calc.abs(fd) { r = d } else { l = c }
+    }
+    (l + r) / 2
+  }
+  // Boundary of the domain between a defined and an undefined sample.
+  let edge(inside, outside) = {
+    for _ in range(80) {
+      let m = (inside + outside) / 2
+      if f(m) == none { outside = m } else { inside = m }
+    }
+    inside
+  }
+  for i in range(steps + 1) {
+    let y = ys.at(i)
+    if y == none { continue }
+    if calc.abs(y) <= 1e-12 * scale { roots = add(roots, xs.at(i)); continue }
+    // Sign change: a root, unless |f| grows towards the crossing (a pole).
+    if i < steps and ys.at(i + 1) != none and ys.at(i + 1) != 0 and (y < 0) != (ys.at(i + 1) < 0) {
+      let x = bisect(xs.at(i), y, xs.at(i + 1))
+      if x != none {
+        let fx = f(x)
+        if fx != none and calc.abs(fx) <= 1e-6 * calc.min(calc.abs(y), calc.abs(ys.at(i + 1))) + 1e-12 * scale {
+          roots = add(roots, x)
+        }
+      }
+    }
+    // Local minimum of |f| without a sign change: a possible double root.
+    if i > 0 and i < steps {
+      let (yl, yr) = (ys.at(i - 1), ys.at(i + 1))
+      if yl != none and yr != none and yl != 0 and yr != 0 and (yl < 0) == (y < 0) and (yr < 0) == (y < 0) and calc.abs(y) <= calc.abs(yl) and calc.abs(y) <= calc.abs(yr) {
+        let x = touch(xs.at(i - 1), xs.at(i + 1))
+        if x != none {
+          let fx = f(x)
+          if fx != none and calc.abs(fx) <= 1e-10 * scale { roots = add(roots, x) }
+        }
+      }
+    }
+    // Domain edge next to an undefined sample, for example sqrt(x) at 0.
+    for j in (i - 1, i + 1) {
+      if j >= 0 and j <= steps and ys.at(j) == none {
+        let x = edge(xs.at(i), xs.at(j))
+        let fx = f(x)
+        if fx != none and calc.abs(fx) <= 1e-6 * scale { roots = add(roots, x) }
+      }
+    }
+  }
+  roots.sorted().map(x => if calc.abs(x) <= 1e-12 * calc.max(1, width) { 0.0 } else { x })
 }
 
 let school-check-matrix(rows, what, square: false) = {
@@ -6756,10 +6842,11 @@ let school-operation(call, scope, ctx) = {
       let degree = school-integer(args.at(2), scope, ctx, "degree")
       if is-calculation-failure(degree) { return degree }
       if degree < 1 or degree >= xs.len() { return calculation-failure("the degree must be at least 1 and below the number of points") }
+      if degree > 10 { return calculation-failure("polyreg supports degrees up to 10") }
       if xs.dedup().len() <= degree { return calculation-failure("polyreg needs more different x values than the degree") }
       let fit = school.polynomial-fit(xs, ys, degree: degree)
       let terms = range(degree, -1, step: -1).map(i => (fit.coefficients.at(i), if i == 0 { "" } else if i == 1 { "x" } else { "x^" + str(i) }))
-      let names = "abcdefgh".clusters()
+      let names = "abcdefghijk".clusters()
       let template = terms.enumerate().map(((i, t)) => "{" + names.at(i) + "}" + if t.last() == "" { "" } else { " * " + t.last() }).join(" + ")
       return finish(template, terms, terms.enumerate().map(((i, t)) => (names.at(i), t.first())), fit.predict)
     }
@@ -6887,6 +6974,7 @@ let school-operation(call, scope, ctx) = {
     if is-calculation-failure(expected) { return expected }
     if observed.len() != expected.len() { return calculation-failure("observed and expected must have the same length") }
     if observed.any(v => v < 0) or expected.any(v => v <= 0) { return calculation-failure("counts must be non-negative and expected values positive") }
+    if observed.sum() == 0 { return calculation-failure("the observed counts must not all be zero") }
     // Expected probabilities are scaled to the observed total.
     if calc.abs(expected.sum() - 1) < 1e-9 { expected = expected.map(p => p * observed.sum()) }
     if calc.abs(observed.sum() - expected.sum()) > 1e-7 * calc.max(1, observed.sum()) {
@@ -6967,15 +7055,17 @@ let school-numeric-integral(call, scope, ctx) = {
   if is-calculation-failure(a) { return a }
   let b = school-number(args.at(3), local, ctx, "the upper bound")
   if is-calculation-failure(b) { return b }
+  // Two grids that do not share their inner points: a pole or a fast
+  // oscillation makes them disagree instead of sampling the same values.
   let coarse = school-simpson(f, a, b, steps: 400)
   if is-calculation-failure(coarse) { return coarse }
-  let value = school-simpson(f, a, b, steps: 800)
-  if is-calculation-failure(value) { return value }
-  // A pole between the bounds makes Simpson's rule disagree with itself.
-  if calc.abs(value - coarse) > 1e-6 * calc.max(1, calc.abs(value)) {
-    return calculation-failure("the numerical integral does not converge; check for a pole between the bounds")
+  let fine = school-simpson(f, a, b, steps: 562)
+  if is-calculation-failure(fine) { return fine }
+  // Relative to the integral of |f|, so scaling f does not hide a pole.
+  if calc.abs(fine.value - coarse.value) > 1e-6 * fine.size {
+    return calculation-failure("the numerical integral does not converge; check for a pole or a fast oscillation between the bounds")
   }
-  (kind: "scalar", value: value, approximate: true, degrees: false)
+  (kind: "scalar", value: fine.value, approximate: true, degrees: false)
 }
 
 // Charts. Undefined samples split curves; extreme outliers near poles do not
@@ -7087,7 +7177,20 @@ let paper-is-sum(tokens) = {
   }
   false
 }
-let paper-parens(body) = math.lr([(] + body + [)])
+let paper-parens(body) = $lr((#body))$.body
+// One name, number, bracket group or function call: safe to raise or attach to.
+let paper-is-atom(tokens) = {
+  if tokens.len() == 1 { return true }
+  let start = if tokens.first() == "(" { 0 } else if tokens.len() >= 3 and tokens.at(1) == "(" and is-name(tokens.first()) { 1 } else { return false }
+  let depth = 0
+  for index in range(start, tokens.len()) {
+    if tokens.at(index) == "(" { depth += 1 } else if tokens.at(index) == ")" {
+      depth -= 1
+      if depth == 0 { return index == tokens.len() - 1 }
+    }
+  }
+  false
+}
 
 let paper-call-head(call, scope, aliases, name: none) = {
   let op = call.operation
@@ -7096,8 +7199,9 @@ let paper-call-head(call, scope, aliases, name: none) = {
   let grouped(tokens) = if paper-is-sum(tokens) { paper-parens(r(tokens)) } else { r(tokens) }
   let arrowed(tokens) = {
     let item = if tokens.len() == 1 { scope.at(tokens.first(), default: none) } else { none }
-    if item != none and is-vector-result(item) and not tokens.first().starts-with("arrow_") { math.arrow(r(tokens)) } else { r(tokens) }
+    if item != none and is-vector-result(item) and not tokens.first().starts-with("arrow_") { math.arrow(r(tokens)) } else { grouped(tokens) }
   }
+  let atom(tokens) = if paper-is-atom(tokens) { r(tokens) } else { paper-parens(r(tokens)) }
   let list(..parts) = parts.pos().join(math.comma + h(0.2em))
   let d = math.upright("d")
   let P(body) = math.upright("P") + paper-parens(body)
@@ -7135,9 +7239,9 @@ let paper-call-head(call, scope, aliases, name: none) = {
   }
   if op == "dotprod" and n == 2 { return arrowed(args.first()) + paper-gap + sym.dot.op + paper-gap + arrowed(args.at(1)) }
   if op == "cross" and n == 2 { return arrowed(args.first()) + paper-gap + sym.times + paper-gap + arrowed(args.at(1)) }
-  if op == "norm" and n == 1 { return math.abs(arrowed(args.first())) }
+  if op == "norm" and n == 1 { return math.abs(if paper-is-sum(args.first()) { r(args.first()) } else { arrowed(args.first()) }) }
   if op == "vecangle" and n == 2 { return sym.angle + paper-parens(list(arrowed(args.first()), arrowed(args.at(1)))) }
-  if op == "inv" and n == 1 { return math.attach(grouped(args.first()), t: [−1]) }
+  if op == "inv" and n == 1 { return math.attach(atom(args.first()), t: [−1]) }
   none
 }
 
@@ -7198,7 +7302,9 @@ let school-render-fields(fields, op, ctx, aliases) = {
 
 // Render a school operation result in paper notation and store it when the
 // line uses `:=`. Returns content, or a failure for the builder to report.
-let school-builder-output(result, call: none, name: none, store: false, quoted: false, tokens: (), scope: (:), aliases: (:), ctx: (:), show-result: true, result-only: false, block: true, variables: none) = {
+let school-builder-output(result, call: none, name: none, store: false, quoted: false, tokens: (), scope: (:), aliases: (:), ctx: (:), show-result: true, result-only: false, block: true, variables: none, hidden: false) = {
+  // Hidden lines still store their results; only the visible part is dropped.
+  let emit(updates, body) = if hidden { updates } else { updates + body }
   let name-scope = scope
   if name != none { name-scope.insert(name, 0) }
   let render-name(n) = render-tokens((n,), scope: name-scope, aliases: aliases)
@@ -7220,24 +7326,24 @@ let school-builder-output(result, call: none, name: none, store: false, quoted: 
     let updates = if store { save(name, value) } else { [] }
     let shown = paper-roots(result.variable, result.values, ctx.digits, approximate: true)
     let equation = paper-solve-equation(call.arguments, scope, aliases, bounds: result.bounds, variable: result.variable)
-    return updates + if result-only { shown } else { paper-join(equation, sym.arrow.l.r.double.long, shown) }
+    return emit(updates, if result-only { shown } else { paper-join(equation, sym.arrow.l.r.double.long, shown) })
   }
 
   if result.kind in ("scalar", "vector", "matrix") {
     let value = school-store-value(result, ctx)
     let updates = if store { save(name, value) } else { [] }
     let shown = render-result(value, aliases: aliases)
-    if result-only { return updates + shown }
+    if result-only { return emit(updates, shown) }
     // invnorm and linsolve read as an equation solved for the unknown.
     if op == "invnorm" {
       let unknown = if store { render-name(name) } else { math.italic("x") }
-      return updates + paper-join(written, sym.arrow.l.r.double.long, paper-join(unknown, relation, shown))
+      return emit(updates, paper-join(written, sym.arrow.l.r.double.long, paper-join(unknown, relation, shown)))
     }
     if op == "linsolve" {
       let r(t) = render-tokens(t, scope: scope, aliases: aliases)
       let unknown = if store { render-name(name) } else { math.arrow(math.italic("x")) }
       let system = paper-join(r(call.arguments.first()) + paper-gap + sym.dot.op + paper-gap + unknown, math.eq, r(call.arguments.at(1)))
-      return updates + paper-join(system, sym.arrow.l.r.double.long, paper-join(unknown, math.eq, shown))
+      return emit(updates, paper-join(system, sym.arrow.l.r.double.long, paper-join(unknown, math.eq, shown)))
     }
     if result.at("interval", default: none) != none {
       let (low, high) = value.components.map(c => render-result(c, aliases: aliases))
@@ -7245,13 +7351,13 @@ let school-builder-output(result, call: none, name: none, store: false, quoted: 
       let label = if store { render-name(name) } else { math.upright(str(calc.round(level * 100, digits: 2)) + " % CI") }
       let estimate = paper-join(math.accent(math.italic("p"), math.hat), math.eq, render-result(school-number-result(result.estimate, ctx.digits)))
       let interval = paper-join(label, math.eq, math.lr([\[] + low + math.comma + h(0.2em) + high + [\]]))
-      return updates + estimate + math.comma + h(1em) + interval
+      return emit(updates, estimate + math.comma + h(1em) + interval)
     }
     if result.at("quartiles", default: false) {
       let (q1, m, q3) = value.components.map(c => render-result(c, aliases: aliases))
-      return updates + (paper-join($Q_1$, math.eq, q1), paper-join($"median"$, math.eq, m), paper-join($Q_3$, math.eq, q3)).join(math.comma + h(1em))
+      return emit(updates, (paper-join($Q_1$, math.eq, q1), paper-join($"median"$, math.eq, m), paper-join($Q_3$, math.eq, q3)).join(math.comma + h(1em)))
     }
-    return updates + if name == none or not store or show-result or names-itself { paper-join(head, relation, shown) } else { head }
+    return emit(updates, if name == none or not store or show-result or names-itself { paper-join(head, relation, shown) } else { head })
   }
 
   if result.kind == "fields" {
@@ -7264,7 +7370,7 @@ let school-builder-output(result, call: none, name: none, store: false, quoted: 
       for field in solutions.first() { updates += save(name + "_" + field.first(), school-field-result(field, ctx)) }
     }
     let shown = solutions.map(fields => school-render-fields(fields, op, ctx, aliases)).join(h(1.2em) + sym.or + h(1.2em))
-    return updates + shown
+    return emit(updates, shown)
   }
 
   // Regression: WordMat style, the fitted function and R².
@@ -7283,7 +7389,7 @@ let school-builder-output(result, call: none, name: none, store: false, quoted: 
     for field in result.fields { updates += save(name + "_" + field.first(), school-field-result(field, ctx)) }
   }
   let r2 = result.fields.filter(f => f.first() == "r2")
-  updates + model + if r2.len() > 0 { math.comma + h(1em) + paper-field(r2.first(), ctx, aliases) } else { [] }
+  emit(updates, model + if r2.len() > 0 { math.comma + h(1em) + paper-field(r2.first(), ctx, aliases) } else { [] })
 }
 
 let calculation-builder(
@@ -7564,8 +7670,8 @@ let calculation-builder(
         if is-calculation-failure(result) { return builder-error(result.error) }
         let output = school-builder-output(result, call: call, name: name, store: stores-result, quoted: assignment != none and assignment.captures.at(0) != none,
           tokens: evaluation-tokens, scope: current, aliases: aliases, ctx: school-ctx, show-result: show-result,
-          result-only: result-only, block: block, variables: variables)
-        if is-calculation-failure(output) { builder-error(output.error) } else if not hidden { output }
+          result-only: result-only, block: block, variables: variables, hidden: hidden)
+        if is-calculation-failure(output) { builder-error(output.error) } else { output }
       }
       let school-op = if display-only { none } else { school-call(evaluation-tokens) }
       if (school-op != none and school-op.operation in current and is-stored-function(current.at(school-op.operation))) {

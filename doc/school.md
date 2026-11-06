@@ -103,7 +103,7 @@ A stored function with the same name as an operation takes precedence, as for CA
 | `expreg(xs, ys)` | y = b·aˣ (positive y; least squares on ln y). |
 | `powreg(xs, ys)` | y = b·xᵃ (positive x and y; least squares on ln x, ln y). |
 | `logreg(xs, ys)` | y = a·ln(x) + b (positive x). |
-| `polyreg(xs, ys, degree)` | y = a·xⁿ + b·xⁿ⁻¹ + … |
+| `polyreg(xs, ys, degree)` | y = a·xⁿ + b·xⁿ⁻¹ + …, degree 1 to 10 |
 | `dotprod(u, v)`, `cross(u, v)`, `norm(u)` | Dot product, 3D cross product, length. |
 | `vecangle(u, v)` | Angle between two non-zero vectors. |
 | `det(M)`, `inv(M)`, `rank(M)` | Determinant, inverse, rank. |
@@ -122,8 +122,8 @@ The CAS operations fall back to numerical methods where they cannot give an exac
 
 | Call | Behaviour |
 | --- | --- |
-| `solve(equation, x, a, b)` | Numerical roots in [a, b]. Also `solve(expression, x, a, b)` and `solve(left, right, x, a, b)`. Shown with `≈`. Sign changes at poles are rejected. Split the interval at known poles. |
-| `integrate(expression, x, a, b)` | Exact when the CAS finds an antiderivative. Otherwise Simpson's rule, shown with `≈`. Refused when the function is undefined in the interval, or when 400 and 800 steps disagree (usually a pole). |
+| `solve(equation, x, a, b)` | Numerical roots in [a, b]. Also `solve(expression, x, a, b)` and `solve(left, right, x, a, b)`. Shown with `≈`. Finds touching roots such as `(x − 1)² = 0` and roots at the edge of the domain such as `sqrt(x) = 0`. Undefined samples are skipped, and sign changes at poles are rejected. |
+| `integrate(expression, x, a, b)` | Exact when the CAS finds an antiderivative. Otherwise Simpson's rule, shown with `≈`. Refused when the function is undefined in the interval, or when 400 and 562 steps disagree by more than a millionth of the integral of \|f\| (usually a pole or a fast oscillation). |
 
 ### Charts
 

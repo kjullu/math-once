@@ -70,6 +70,22 @@
 #eq(`area := integrate(exp(-x^2), x, 0, 1)`)
 #eq(`area * 2`)
 
+= Review regressions
+// Scaling the equation keeps its roots; domain edges and poles do not crash.
+#eq(`rs := solve(1000000000*(x^2 - 2), x, 0, 2)`)
+#eq(`re := solve(sqrt(x), x, 0, 1)`)
+#eq(`rp := solve(1/x, x, -1, 1)`)
+#eq(`rd := solve((x - 0.1234)^2, x, 0, 1)`)
+// Hidden lines still store their results.
+#eq(`hmean := mean(vec(2, 4))`, hidden: true)
+#eq(`hfit := linreg(xv, yv)`, hidden: true)
+#eq(`p8 := polyreg(vec(-4, -3, -2, -1, 0, 1, 2, 3, 4), vec(16, 9, 4, 1, 0, 1, 4, 9, 16), 8)`)
+// Paper notation keeps the brackets that carry meaning.
+#eq(`exp(2)^2`)
+#eq(`Mq := mat(3, 0; 0, 1)`)
+#eq(`inv(M*Mq)`)
+#eq(`dotprod(uu + vv, vv)`)
+
 = Charts
 #eq(`plot(f(x), x, -2.5, 2.5)`)
 #eq(`plot(x^2, 1/x, x, -2, 2)`)
@@ -119,6 +135,12 @@
   assert(close(v.ci.components.at(0).exact, 0.45 - 1.959964 * calc.sqrt(0.45 * 0.55 / 100), tolerance: 1e-4))
   assert(v.r.roots.len() == 3)
   assert(close(v.area.exact, 0.746824, tolerance: 1e-6))
+  assert(v.rs.roots.len() == 1 and close(v.rs.roots.first().val, calc.sqrt(2)))
+  assert(v.re.roots.len() == 1 and calc.abs(v.re.roots.first().val) < 1e-9)
+  assert(v.rp.roots.len() == 0)
+  assert(v.rd.roots.len() == 1 and close(v.rd.roots.first().val, 0.1234, tolerance: 1e-6))
+  assert(close(v.hmean.exact, 3) and v.hfit.function and close(v.hfit_a.exact, 2))
+  assert(close(v.p8_g.exact, 1, tolerance: 1e-6))
   let w = rad()
   assert(close(w.ra.exact, calc.pi / 2))
   assert(close(w.rt_c.exact, calc.sqrt(2)))
