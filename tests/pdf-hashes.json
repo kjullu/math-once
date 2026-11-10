@@ -7,7 +7,7 @@
   "hashes": {
     "examples/all-functions.typ": "2f1e945cb07d74117258992eb20ff669fbf198013e915fa5fe6dc769ce9449ff",
     "examples/basic.typ": "19e6da1da4974c23cfd8bf398ab9a852f7fda9cbb352bc0996d7d24b1a87ae30",
-    "tests/absolute-value.typ": "fb3846fccc9ab4509da106a4bf066dfe8d0d94ab098cfd77ea925be08a27fe4a",
+    "tests/absolute-value.typ": "959dc6c1a126424a00b5cbebd7a9804d1b3eedac3ac876b4422a215677377d2b",
     "tests/affine-temperatures.typ": "c6d0a7525a41702d5a5b5595bed73942823e0537a95ef38b5f92326fe84082d9",
     "tests/all-mathematical-symbols.typ": "ef9f918c0b0c19ee4c1714c618a0ac0a39b578666d57297612fcfd5b0006e215",
     "tests/ambiguous-units.typ": "2ec65af5b3aa3996239cd272194a594a22cb7b82f37989df6acf87a2b21750d5",
@@ -17,7 +17,7 @@
     "tests/builder-options.typ": "d5523e688ce5a8d61f23f825b4c1637244e7f2094f5bf777749a9f9a79477460",
     "tests/calculate.typ": "aa0cece6d220aacd7f2c8ed1955e5bb4c12432122a46c7eca7041f132e38cf3d",
     "tests/content-interpolation.typ": "d471c0cc9e33370223eda45aa6d910efc3af4271e8937bd50c6cecaec11b8b3f",
-    "tests/cross-product.typ": "ea9960a96762214a4ba7c511b702060c1940fb27e7626a60b3bb3e394f02a4c0",
+    "tests/cross-product.typ": "b9b55e1e6aeef14f769bb63e3b9cf779c10443820cb3841cfded5f9569fc62d2",
     "tests/custom-output-units.typ": "fd53aafbc19b463cb9f3e660f1533770305b5c5629c776b03b9c514d36c30251",
     "tests/decimal-unit-noise.typ": "3970098a0e3de2d8ba1d43f64310b032781b9c1b7b8aca78205998db28be5995",
     "tests/degree-alias.typ": "fb2e6a8219f6256532b177ed2d2b464e98b5ae59e402cdbd85b8f2cb299f4ac4",
@@ -34,6 +34,7 @@
     "tests/opaque-units.typ": "217c1807301f844a1384876d54a6ffc4bf59a6dbecea87a7b89eb827c2a7349d",
     "tests/package-import.typ": "ada945f86890ecf7bff8e4f3e68b836461e101fe94f9dde3bc77b22a0a156cb5",
     "tests/paired-signs.typ": "cfc891c64397e5b47a84e95d1ada4bf42f2a7cdc50fa6dafecbcf39e381a22d3",
+    "tests/point-vectors.typ": "9aef4d0ce04924ad7705041c67422ec7cfd3ceb1eacb9b8cdb4e9f211b984d02",
     "tests/public-api.typ": "94a77b358cdc2832cdad01618827753c2552a08f05144ced0440cc7655d8e923",
     "tests/qalc-units.typ": "97fe780ea0067489bf3a4230a6c0c05fbc8ce59ad28fac1195b74fdacfe9e646",
     "tests/rename-unit-errors.typ": "615f9d8334a25d0536d9ffede02f52c53a67389fc28d979c108d5ee154ea7a80",
@@ -63,9 +64,10 @@
     "tests/unit-with-size.typ": "c2a2428c051f1e5540402ebcb46bbd1104bb9fdc562c04a6a4d4a04a2d2ffea8",
     "tests/units.typ": "9aa61851974ccd8d6aa7dc884ea0ca06dcba667ac6a75d2091836dc93f59460f",
     "tests/unload.typ": "71f84b4437e5b939482faf9f3bc8e9f5eadd9d4131a239e500d2db6bb9f6826a",
-    "tests/vector-angles.typ": "ccff3fef94b4be2de3b4e3ea7e3917eecd20a525b9248f7b6e5709955d232e78",
-    "tests/vector-length.typ": "8dc598b21226a00bab44df065f0b73f944bdf4261d7b2d95c3feba7a239816fe",
+    "tests/vector-angles.typ": "93a55fef20f670a70bb4827cc0b905a3cde43b06777d2199816868d2c719ca1f",
+    "tests/vector-length.typ": "4005d2eada028ea0aedeee4ec1424584c5b09f96e086b1af5b2095a44a8f45fb",
     "tests/vector-matrix-errors.typ": "5a85329d8ea71f7409f09b46b3733665cf4522057ec263557c275f58ccaa55ec",
+    "tests/vector-operator-review.typ": "1a840cb18ed3675c20b4a4790047efaf6dd5b0e96638d6aae2a751a42c1fe85b",
     "tests/vectors-matrices.typ": "83e517858ba03536bd85b2d8a5b03bef2273593d2b0f3777e5432c3381378b37"
   }
 }

@@ -23,7 +23,7 @@
   assert(values.arrow_tau.values == (0.0, 0.0, -6.0))
 }
 
-// Non-strict builders render cross product misuse inline.
+// Non-strict builders render cross product misuse inline; a matrix uses ordinary multiplication.
 #let soft = calculation-builder(key: "cross-product-errors")
 #soft($vec(1, 2) times vec(3, 4)$)
 #soft($mat(1, 0; 0, 1) times vec(1, 2)$)

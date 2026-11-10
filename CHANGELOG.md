@@ -2,6 +2,14 @@
 
 ## Dot and cross product demo (based on 0.45.0)
 
+- Magnitude bars now fit their contents, including column vectors, and sit tightly around the expression. Arrows on subscripted vector names now cover the name alone.
+
+- `unit:` and `size:` now apply to each component or cell of a vector or matrix result. Intermediate results inside a longer expression, such as `arrow(F) bullet arrow(s) + 1 "J"`, no longer require their own unit.
+- Fixed `times` with a matrix: `M times arrow(v)` and `M times 2` are ordinary multiplication again.
+- Vector lengths and dot products can be raised to a power, for example `abs(arrow(a))^2`.
+
+- Fixed vectors between points: `arrow(A B)` is now one vector named `AB` with one arrow over both letters, instead of `arrow(A)` times `B`.
+
 - Scalar functions such as `arcsin`, `arccos`, and `sqrt` can now calculate arguments containing vector lengths and dot products.
 
 - Added vector lengths with `abs(vector)` or absolute-value bars, including vector expressions and units.

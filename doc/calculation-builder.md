@@ -626,7 +626,9 @@ The builder supports vector or matrix addition and subtraction with matching sha
 
 Both vectors must have the same number of components. The dot product is a scalar, so it can be used further in the same expression, and `unit:` or `size:` applies to it.
 
-The cross product needs two vectors with three components and returns a vector. `unit:` and `size:` apply to each of its components. Between a number and a vector, or two numbers, `times` is ordinary multiplication.
+The cross product needs two vectors with three components and returns a vector. Between a number and a vector, a matrix and a vector, or two numbers, `times` is ordinary multiplication.
+
+For a vector or matrix result, `unit:` and `size:` apply to each component or cell. Vector lengths and dot products are numbers, so they can be raised to a power, for example `abs(arrow(a))^2`.
 
 ```typ
 #eq($arrow(c) := arrow(a) times arrow(b)$)
@@ -650,7 +652,7 @@ Unary minus binds before addition and subtraction. You can also combine literals
 // mat(6, 8; 10, 12)
 ```
 
-Components and cells are calculated independently and may contain compatible physical or custom units. A whole vector or matrix cannot receive one `unit:` or `size:` option; put units in the individual component or cell expressions.
+Components and cells are calculated independently and may contain compatible physical or custom units. A written `vec(...)` or `mat(...)`, or a stored one used alone, cannot receive `unit:` or `size:`; put units in the individual component or cell expressions. The result of an operation, such as `2 arrow(v)` or `arrow(r) times arrow(F)`, applies them to each component or cell.
 
 Stored functions may return either structure:
 
