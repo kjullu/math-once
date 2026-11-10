@@ -1,4 +1,4 @@
-// Render ohm as Ω (0.45.0)
+// math-once v0.45.1
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas

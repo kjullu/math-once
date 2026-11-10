@@ -1,6 +1,6 @@
 # Changelog
 
-## Render ohm as Ω demo (based on 0.45.0)
+## 0.45.1
 
 - Spelled-out ohm units such as `"ohm"`, `ohm`, and `kohm` now render as `Ω` and `kΩ` in inputs and results. Stored unit names are unchanged, so `result.unit` still reads `"ohm"`.
 
