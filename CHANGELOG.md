@@ -1,5 +1,9 @@
 # Changelog
 
+## GitHub CI tests demo (based on 0.45.0)
+
+- Added GitHub Actions tests for pushes, pull requests, and manual runs. CI runs the runner regression tests and the full compilation, diagnostic, and PDF hash checks with Typst 0.14.2, and retains PDF review files for 14 days on failure.
+
 ## 0.45.0
 
 - `auto-digits: "significant"` now rounds automatically by itself. Builders and `calculate` without an explicit `digits` use `digits: auto` in significant mode and keep 4 decimal places in decimal mode.

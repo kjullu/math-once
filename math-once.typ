@@ -1,4 +1,4 @@
-// math-once v0.45.0
+// GitHub CI tests demo (0.45.0)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas

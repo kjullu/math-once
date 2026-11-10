@@ -118,6 +118,8 @@ See the [changelog](CHANGELOG.md) when upgrading.
 
 ## Testing
 
+GitHub Actions runs the test runner's regression tests and the full fixture suite on every push and pull request. You can also start it manually from the Actions tab. CI pins Typst to 0.14.2 to match `tests/pdf-hashes.json`; update both together when intentionally upgrading the compiler. Failed runs upload a `pdf-review` artifact containing the review report and generated PDFs, available for 14 days. CI never accepts changed hashes automatically.
+
 With Python 3.11 or newer and Typst installed, run:
 
 ```sh
