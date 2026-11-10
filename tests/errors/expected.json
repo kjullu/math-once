@@ -39,5 +39,8 @@
   "invalid-reset-name.typ": "names must contain letters and optional letter or number subscripts",
   "invalid-reset-units.typ": "math-once reset: units must be auto, a boolean, or an array of names",
   "tan-undefined.typ": "math-once calculate: `tan` is undefined at odd multiples of 90 degrees",
-  "invalid-auto-digits.typ": "math-once calculation-builder: auto-digits must be decimal or significant"
+  "invalid-auto-digits.typ": "math-once calculation-builder: auto-digits must be decimal or significant",
+  "vector-star-product.typ": "use `bullet` for the dot product or `times` for the cross product",
+  "dot-product-length.typ": "`bullet` (dot product) requires two vectors",
+  "cross-product-length.typ": "`times` (cross product) requires two vectors with three components"
 }

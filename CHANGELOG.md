@@ -1,5 +1,26 @@
 # Changelog
 
+## Dot and cross product demo (based on 0.45.1)
+
+- Magnitude bars now fit their contents, including column vectors, and sit tightly around the expression. Arrows on subscripted vector names now cover the name alone.
+
+- `unit:` and `size:` now apply to each component or cell of a vector or matrix result. Intermediate results inside a longer expression, such as `arrow(F) bullet arrow(s) + 1 "J"`, no longer require their own unit.
+- Fixed `times` with a matrix: `M times arrow(v)` and `M times 2` are ordinary multiplication again.
+- Vector lengths and dot products can be raised to a power, for example `abs(arrow(a))^2`.
+
+- Fixed vectors between points: `arrow(A B)` is now one vector named `AB` with one arrow over both letters, instead of `arrow(A)` times `B`.
+
+- Scalar functions such as `arcsin`, `arccos`, and `sqrt` can now calculate arguments containing vector lengths and dot products.
+
+- Added vector lengths with `abs(vector)` or absolute-value bars, including vector expressions and units.
+
+- Fixed duplicate results when defining vectors or matrices containing negative numbers.
+
+- Added the dot product for vectors with `bullet` (•), for example `arrow(a) bullet arrow(b)`. The result is a scalar with units, and `unit:` and `size:` apply to it. Vectors must have the same number of components.
+- Added the cross product for vectors with three components with `times` (×), for example `arrow(a) times arrow(b)`. `unit:` and `size:` apply to each component. Between numbers, or a number and a vector, `times` is still ordinary multiplication.
+- `times` now renders as × instead of ⋅, so equations show what was written.
+- The error for `vector * vector` now points to `bullet` for the dot product and `times` for the cross product.
+
 ## 0.45.1
 
 - Spelled-out ohm units such as `"ohm"`, `ohm`, and `kohm` now render as `Ω` and `kΩ` in inputs and results. Stored unit names are unchanged, so `result.unit` still reads `"ohm"`.
