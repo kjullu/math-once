@@ -1,4 +1,4 @@
-// math-once v0.45.0
+// math-once v0.45.1
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3406,6 +3406,12 @@ let is-quoted-unit(token) = token.len() >= 2 and token.starts-with("\"") and tok
 let quoted-unit-name(token) = token.slice(1, token.len() - 1)
 let is-text-unit(token) = token.len() >= 2 and token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix)
 let text-unit-name(token) = token.slice(text-unit-prefix.len(), token.len() - text-unit-suffix.len())
+// Spelled-out ohm units, including prefixed forms such as `kohm`, display as Ω.
+let unit-display-name(name) = if name.ends-with("ohm") and resolve-unit(name) != none {
+  name.slice(0, name.len() - 3) + "Ω"
+} else {
+  name
+}
 let can-end(token) = is-number(token) or is-name(token) or is-quoted-unit(token) or is-text-unit(token) or token == ")"
 let can-start(token) = is-number(token) or is-name(token) or is-quoted-unit(token) or is-text-unit(token) or token == "("
 
@@ -3469,7 +3475,7 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
       } else if (symbol-tokens.len() == 1 and is-math-symbol(symbol-tokens.first())) {
         render-tokens(symbol-tokens, scope: scope, aliases: aliases)
       } else {
-        "upright(\"" + name + "\")"
+        "upright(\"" + unit-display-name(name) + "\")"
       }
     } else if is-name(token) {
       if (token in cas-functions + inverse-trigonometric-names + ("atan2",)
@@ -3493,7 +3499,7 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
       } else if token in ("meter", "metre") {
         "upright(\"m\")"
       } else if resolve-unit(token) != none {
-        "upright(\"" + token + "\")"
+        "upright(\"" + unit-display-name(token) + "\")"
       } else {
         render-variable(token)
       }
