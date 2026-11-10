@@ -1,5 +1,9 @@
 # Changelog
 
+## Render ohm as Ω demo (based on 0.45.0)
+
+- Spelled-out ohm units such as `"ohm"`, `ohm`, and `kohm` now render as `Ω` and `kΩ` in inputs and results. Stored unit names are unchanged, so `result.unit` still reads `"ohm"`.
+
 ## 0.45.0
 
 - `auto-digits: "significant"` now rounds automatically by itself. Builders and `calculate` without an explicit `digits` use `digits: auto` in significant mode and keep 4 decimal places in decimal mode.
