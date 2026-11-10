@@ -1,4 +1,4 @@
-// Dot and cross product (0.45.1)
+// math-once v0.46.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas

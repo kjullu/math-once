@@ -1,6 +1,6 @@
 # Changelog
 
-## Dot and cross product demo (based on 0.45.1)
+## 0.46.0
 
 - Magnitude bars now fit their contents, including column vectors, and sit tightly around the expression. Arrows on subscripted vector names now cover the name alone.
 
