@@ -1,6 +1,6 @@
 # Changelog
 
-## Dot and cross product demo (based on 0.45.0)
+## Dot and cross product demo (based on 0.45.1)
 
 - Magnitude bars now fit their contents, including column vectors, and sit tightly around the expression. Arrows on subscripted vector names now cover the name alone.
 
@@ -20,6 +20,10 @@
 - Added the cross product for vectors with three components with `times` (×), for example `arrow(a) times arrow(b)`. `unit:` and `size:` apply to each component. Between numbers, or a number and a vector, `times` is still ordinary multiplication.
 - `times` now renders as × instead of ⋅, so equations show what was written.
 - The error for `vector * vector` now points to `bullet` for the dot product and `times` for the cross product.
+
+## 0.45.1
+
+- Spelled-out ohm units such as `"ohm"`, `ohm`, and `kohm` now render as `Ω` and `kΩ` in inputs and results. Stored unit names are unchanged, so `result.unit` still reads `"ohm"`.
 
 ## 0.45.0
 

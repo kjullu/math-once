@@ -1,0 +1,47 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Compilation, diagnostics, and PDF hashes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - uses: typst-community/setup-typst@v5
+        with:
+          # Match tests/pdf-hashes.json. Upgrade only with a reviewed baseline.
+          typst-version: '0.14.2'
+
+      - name: Test the test runner
+        run: python3 -B -m unittest discover -s tools/tests -v
+
+      - name: Test fixtures and PDF baselines
+        run: python3 tools/test.py
+
+      - name: Upload PDF review files
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: pdf-review
+          path: build/pdf-review/
+          if-no-files-found: ignore
+          retention-days: 14
