@@ -1,4 +1,4 @@
-// math-once v0.45.1
+// Faster compilation (0.45.1)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3162,6 +3162,24 @@ let text-unit(label) = {
 
 // Convert the supported subset of Typst math back into parser input, including
 // the builder's `:=` storage operator.
+let subscript-pattern = regex("^[\\p{L}0-9]+$")
+let variable-symbol-pattern = regex("^[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*$")
+let letters-pattern = regex("^[\\p{L}]+$")
+let number-pattern = regex("^(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?$")
+let leading-zeros-pattern = regex("^0+")
+let leading-letter-pattern = regex("^\\p{L}")
+let name-pattern = regex("^[\\p{L}°℃℉ℏ₂☉][\\p{L}0-9°℃℉ℏ₂☉]*(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*$")
+let exponent-marker-pattern = regex("[eE]")
+let function-definition-pattern = regex("^\\s*([A-Za-z]+(?:_[A-Za-z0-9]+)*)\\s*\\(([^()]*)\\)\\s*:=\\s*(.+)$")
+let integer-pattern = regex("^[0-9]+$")
+let whitespace-pattern = regex("\\s+")
+let scientific-pattern = regex(
+      "^(?:([0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)\\*)?10\\^\\(?(-?[0-9]+)\\)?$",
+    )
+let quoted-text-pattern = regex("\"([^\"]*)\"")
+let stored-assignment-pattern = regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*:=\\s*(.+)$")
+let calculated-assignment-pattern = regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*=\\s*(.+)$")
+let reset-name-pattern = regex("^[A-Za-z]+(?:_[A-Za-z0-9]+)*$")
 let math-items(value) = if value.has("children") { value.children } else { (value,) }
 
 let math-source-part(value, parse, preserve-text: false) = {
@@ -3197,7 +3215,7 @@ let math-source-part(value, parse, preserve-text: false) = {
         and subscript.ends-with("\"")) {
         subscript = subscript.slice(1, subscript.len() - 1)
       }
-      if regex("^[\\p{L}0-9]+$") not in subscript {
+      if subscript-pattern not in subscript {
         panic("math-once calculate: variable subscripts must contain only letters or digits")
       }
       base += "_" + subscript
@@ -3244,7 +3262,7 @@ let math-source-part(value, parse, preserve-text: false) = {
   }
   if (value.func() == text
     and preserve-text != false
-    and regex("^[\\p{L}°℃℉ℏ₂☉]+(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*$") in token
+    and variable-symbol-pattern in token
     and token not in source-functions
     and (preserve-text == true or resolve-unit(token) != none)) {
     return "\"" + token + "\""
@@ -3260,7 +3278,7 @@ let math-source-part(value, parse, preserve-text: false) = {
   else if token in ("°", "℃", "℉", "ℏ", "₂", "☉") { token }
   else if (repr(value.func()) == "symbol"
     and resolve-unit(token) == none
-    and (symbol-by-value(token) != none or regex("^[\\p{L}]+$") not in token)) {
+    and (symbol-by-value(token) != none or letters-pattern not in token)) {
     normalized-symbol-value(token)
   }
   else { token }
@@ -3277,16 +3295,18 @@ let input-source(source, preserve-text: false) = if type(source) == content and 
   source-string(source)
 }
 
+// Regexes are compiled once here; building one costs about 1.6 ms per call.
+let tokenize-name = "[\\p{L}°℃℉ℏ₂☉][\\p{L}0-9°℃℉ℏ₂☉]*(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*"
+let tokenize-symbolic = "⟦[^⟦⟧]+⟧"
+let tokenize-math-symbol = math-symbol-prefix + "[^" + math-symbol-prefix + math-symbol-suffix + "]+" + math-symbol-suffix
+let tokenize-dotted-name = "[A-Za-z][A-Za-z0-9]*(?:\\.[A-Za-z0-9]+)+"
+let tokenize-raw-symbol = "[\\p{S}\\p{P}]\\p{M}*"
+let tokenize-pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|" + tokenize-symbolic + "|" + tokenize-math-symbol + "|\"" + tokenize-name + "\"|" + tokenize-dotted-name + "|" + tokenize-name + "|:=|[=(),;+*/^+\\-]|" + tokenize-raw-symbol)
+let tokenize-raw-only = regex("^" + tokenize-raw-symbol + "$")
 let tokenize(source) = {
-  let name = "[\\p{L}°℃℉ℏ₂☉][\\p{L}0-9°℃℉ℏ₂☉]*(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*"
-  let symbolic = "⟦[^⟦⟧]+⟧"
-  let math-symbol = math-symbol-prefix + "[^" + math-symbol-prefix + math-symbol-suffix + "]+" + math-symbol-suffix
-  let dotted-name = "[A-Za-z][A-Za-z0-9]*(?:\\.[A-Za-z0-9]+)+"
-  let raw-symbol = "[\\p{S}\\p{P}]\\p{M}*"
-  let pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|" + symbolic + "|" + math-symbol + "|\"" + name + "\"|" + dotted-name + "|" + name + "|:=|[=(),;+*/^+\\-]|" + raw-symbol)
   let tokens = ()
   let cursor = 0
-  for found in source.matches(pattern) {
+  for found in source.matches(tokenize-pattern) {
     if source.slice(cursor, found.start).trim() != "" {
       panic("math-once calculate: unsupported syntax near `" + source.slice(cursor, found.start) + "`")
     }
@@ -3296,7 +3316,7 @@ let tokenize(source) = {
       token
     } else if entry != none and token not in variable-symbols and resolve-unit(token) == none and token not in source-functions {
       normalized-symbol(token, value: entry.value)
-    } else if (regex("^" + raw-symbol + "$") in token
+    } else if (tokenize-raw-only in token
       and resolve-unit(token) == none
       and token not in ("=", "(", ")", ",", ";", "+", "-", "*", "/", "^", "|")) {
       normalized-symbol-value(token)
@@ -3312,7 +3332,7 @@ let tokenize(source) = {
   tokens
 }
 
-let is-number(token) = regex("^(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?$") in token
+let is-number(token) = number-pattern in token
 // Count written decimal places, including trailing zeros and scientific notation.
 let input-decimal-places(token) = {
   let parts = token.replace("E", "e").split("e")
@@ -3345,7 +3365,7 @@ let automatic-digits(tokens, scope, fallback: 4) = {
 // Leading zeros are placeholders; written trailing zeros express precision.
 let input-significant-digits(token) = {
   let mantissa = token.replace("E", "e").split("e").first().replace(".", "")
-  let meaningful = mantissa.replace(regex("^0+"), "")
+  let meaningful = mantissa.replace(leading-zeros-pattern, "")
   calc.max(1, meaningful.len())
 }
 
@@ -3359,7 +3379,7 @@ let automatic-significant-digits(tokens, scope, fallback: 4) = {
       let next = index + 1
       while next < tokens.len() and tokens.at(next) in ("+", "-") { next += 1 }
       // A function exponent such as `abs(2)` includes its argument list.
-      if next + 1 < tokens.len() and regex("^\\p{L}") in tokens.at(next) and tokens.at(next + 1) == "(" { next += 1 }
+      if next + 1 < tokens.len() and leading-letter-pattern in tokens.at(next) and tokens.at(next + 1) == "(" { next += 1 }
       if next < tokens.len() and tokens.at(next) == "(" {
         let depth = 0
         while next < tokens.len() {
@@ -3401,7 +3421,7 @@ let automatic-precision(digits, auto-digits) = {
   if digits == auto and auto-digits == "significant" { (significant: auto) } else { digits }
 }
 
-let is-name(token) = regex("^[\\p{L}°℃℉ℏ₂☉][\\p{L}0-9°℃℉ℏ₂☉]*(?:_[\\p{L}0-9°℃℉ℏ₂☉]+)*$") in token
+let is-name(token) = name-pattern in token
 let is-quoted-unit(token) = token.len() >= 2 and token.starts-with("\"") and token.ends-with("\"")
 let quoted-unit-name(token) = token.slice(1, token.len() - 1)
 let is-text-unit(token) = token.len() >= 2 and token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix)
@@ -3509,7 +3529,7 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
       "plus.minus"
     } else if token == "∓" {
       "minus.plus"
-    } else if is-number(token) and regex("[eE]") in token {
+    } else if is-number(token) and exponent-marker-pattern in token {
       // Written scientific notation renders as a coefficient times a power of ten.
       let (mantissa, exponent) = token.replace("E", "e").split("e")
       let power = mantissa + " dot 10^(" + str(int(exponent)) + ")"
@@ -3660,7 +3680,7 @@ let split-top-level(tokens, separator: ",") = {
 }
 
 let function-definition(source) = {
-  let matched = source.match(regex("^\\s*([A-Za-z]+(?:_[A-Za-z0-9]+)*)\\s*\\(([^()]*)\\)\\s*:=\\s*(.+)$"))
+  let matched = source.match(function-definition-pattern)
   if matched == none { return none }
   let parameters = matched.captures.at(1).split(",").map(item => item.trim())
   if parameters.len() == 0 or parameters.any(item => not is-name(item)) {
@@ -4610,7 +4630,7 @@ let symbolic-result(call, scope) = {
     let center = symbolic-expression(arguments.at(2), scope)
     if is-calculation-failure(center) { return center }
     let order-source = symbolic-source(arguments.at(3))
-    if regex("^[0-9]+$") not in order-source {
+    if integer-pattern not in order-source {
       return calculation-failure("taylor: the order must be a non-negative integer")
     }
     cas.taylor(input, variable, center, int(order-source))
@@ -4691,6 +4711,51 @@ let unit-aliases(scope) = {
     if is-unit-alias(item) { aliases.insert(name, item.original) }
   }
   aliases
+}
+
+// Follow only names reachable from this equation. Function bodies are resolved
+// against the current state at each call, not captured when defined. Visiting
+// each name once also bounds cycles; expand-function-calls reports those later.
+let referenced-scope(tokens, scope) = {
+  let selected = (:)
+  let seen = (:)
+  // Initial values come first, as in the complete state, so validation
+  // reports the same entry when several are invalid.
+  let pending = state-initial-values(scope).keys() + tokens
+  let index = 0
+  while index < pending.len() {
+    let token = pending.at(index)
+    index += 1
+    let name = if is-quoted-unit(token) { quoted-unit-name(token) } else { token }
+    if name in seen { continue }
+    seen.insert(name, true)
+    if is-quoted-unit(token) and name == "Omega" { pending.push("Ω") }
+    if name not in scope { continue }
+    let item = scope.at(name)
+    selected.insert(name, item)
+    if is-stored-function(item) {
+      pending += item.body-tokens
+    } else if is-unit-alias(item) {
+      pending.push(item.original)
+    } else if type(item) == dictionary {
+      // Substitution can introduce units absent from the original expression.
+      let values = (item,)
+      while values.len() > 0 {
+        let value = values.pop()
+        if is-vector-result(value) {
+          values += value.components
+        } else if is-matrix-result(value) {
+          for row in value.rows { values += row }
+        } else if "unit" in value {
+          let unit = result-unit-source(value)
+          if type(unit) == str {
+            pending += unit.matches(tokenize-pattern).map(found => found.text)
+          }
+        }
+      }
+    }
+  }
+  selected
 }
 
 let missing-variables(tokens, scope, unloaded, aliases: (:)) = {
@@ -5259,10 +5324,8 @@ let normalize-size(size, soft: false) = {
     if not is-dimensionless(parsed) {
       return calculation-fail("size must not contain a physical unit", soft: soft)
     }
-    let compact = source.replace(regex("\\s+"), "")
-    let scientific = compact.match(regex(
-      "^(?:([0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)\\*)?10\\^\\(?(-?[0-9]+)\\)?$",
-    ))
+    let compact = source.replace(whitespace-pattern, "")
+    let scientific = compact.match(scientific-pattern)
     if scientific != none {
       let coefficient = scientific.captures.at(0)
       let exponent = scientific.captures.at(1)
@@ -5546,7 +5609,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     none
   } else if text-unit-prefix not in output-unit {
     // Custom labels keep their quotes internally; expose the plain name.
-    output-unit.replace(regex("\"([^\"]*)\""), found => found.captures.first())
+    output-unit.replace(quoted-text-pattern, found => found.captures.first())
   } else {
     tokenize(output-unit).map(token => if is-text-unit(token) { text-unit-name(token) } else if is-quoted-unit(token) {
       quoted-unit-name(token)
@@ -5688,9 +5751,9 @@ let calculation-builder(
     }
     let source = input-source(source, preserve-text: true)
     let parsed-function = function-definition(source)
-    let stored-assignment = source.match(regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*:=\\s*(.+)$"))
+    let stored-assignment = source.match(stored-assignment-pattern)
     let calculated-assignment = if stored-assignment == none {
-      source.match(regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*=\\s*(.+)$"))
+      source.match(calculated-assignment-pattern)
     } else {
       none
     }
@@ -5720,9 +5783,115 @@ let calculation-builder(
       panic("math-once calculation-builder: caption must be content, a string, or none")
     }
 
+    // Include written labels as well as evaluation tokens.
+    let scope-tokens = tokenize(source)
+    // Names used by the output unit. The unit is parsed only where evaluation
+    // reads it, so a malformed unit on a call that never evaluates (a missing
+    // variable, a function definition, display-only math) stays ignored.
+    let unit-scope-tokens() = {
+      let unit-source = if type(unit) == str { unit } else if type(unit) == content and unit.func() == raw {
+        unit.text
+      } else if type(unit) == content and unit.func() == math.equation {
+        input-source(unit, preserve-text: true)
+      } else { "" }
+      let candidates = unit-source.matches(tokenize-pattern).map(found => found.text)
+      if type(unit) == content and unit.func() == math.equation {
+        candidates += normalize-math-unit-tokens(candidates)
+      }
+      candidates
+    }
+    // CAS substitutions follow dictionary insertion order. Keep that order and
+    // its complete scope until substitution can be made order-independent.
+    let full-symbolic-scope = symbolic-call(tokenize(expression)) != none
+
+    // Share assignment rendering between context output and state updates.
+    let assignment-body(result, current, aliases, tokens) = {
+      let name-scope = current
+      name-scope.insert(name, 0)
+      let labelled-body = render-tokens((name,), scope: name-scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current, aliases: aliases)
+      if show-result {
+        let (expanded, has-variables) = expand-variables(tokens, current)
+        if has-variables and show-substitution {
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
+        }
+        let last-visible-tokens = if has-variables and show-substitution { expanded } else { tokens }
+        if ((is-structure-result(result) and not structure-equivalent(last-visible-tokens, result))
+          or result.at("alternatives", default: false)
+          or (not is-structure-result(result)
+            and not equivalent-tokens(last-visible-tokens, result-tokens(result)))) {
+          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases, show-unit: show-unit)
+        }
+      }
+      let visible-body = if result-only {
+        render-result(result, aliases: aliases, show-unit: show-unit)
+      } else {
+        labelled-body
+      }
+      visible-body
+    }
+
+    let stable-tokens = expression-tokens(expression)
+    // Missing-variable recovery is possible only when the expression has names.
+    // Keep the cheaper captured-result writer for literal-only assignments.
+    let needs-stable-update = stable-tokens.any(is-name)
+    let stable-evaluation-tokens = tokenize(expression)
+    let stable-absolute-tokens = absolute-value-tokens(stable-evaluation-tokens)
+    if stable-absolute-tokens != none { stable-evaluation-tokens = stable-absolute-tokens }
+    // Keep the update function identical when missing inputs become available.
+    // Changing recovery writes to captured-result writes requires another layout pass.
+    let store-assignment(old) = {
+      let update-scope = referenced-scope(scope-tokens, old)
+      let update-aliases = unit-aliases(update-scope)
+      let update-unloaded = ()
+      for (stored-name, item) in update-scope {
+        if is-unloaded(item) { update-unloaded.push(stored-name) }
+      }
+      let update-expansion = expand-function-calls(stable-evaluation-tokens, update-scope)
+      if is-calculation-failure(update-expansion) {
+        return old
+      }
+      let update-tokens = update-expansion.first()
+      let update-missing = missing-variables(stable-tokens, update-scope, update-unloaded, aliases: update-aliases)
+      if update-missing.len() > 0 {
+        return old
+      }
+      let update-unit-tokens = unit-scope-tokens()
+      if update-unit-tokens.len() > 0 {
+        update-scope = referenced-scope(scope-tokens + update-unit-tokens, old)
+        update-aliases = unit-aliases(update-scope)
+        update-unloaded = ()
+        for (stored-name, item) in update-scope {
+          if is-unloaded(item) { update-unloaded.push(stored-name) }
+        }
+      }
+      let update-result = calculate-expanded(
+        calculate,
+        update-tokens,
+        automatic-precision(digits, auto-digits),
+        update-scope,
+        unit,
+        size,
+        block,
+        update-unloaded,
+        update-aliases,
+        strict-units: strict-units,
+      )
+      if is-calculation-failure(update-result) {
+        return old
+      }
+      update-result.insert("display", math.equation(assignment-body(update-result, update-scope, update-aliases, stable-tokens), block: block))
+      update-result.insert("variable", name)
+      if name in update-unloaded { update-result.insert("unloaded", true) }
+      old.insert(name, update-result)
+      old
+    }
+
     let equation-body = context {
       let variables = checkpoint-state(key, initial: initial-state)
-      let current = variables.get()
+      let full-current = variables.get()
+      let current = if full-symbolic-scope { full-current } else {
+        referenced-scope(scope-tokens, full-current)
+      }
       let aliases = unit-aliases(current)
       if parsed-function != none {
         if result-only {
@@ -5845,7 +6014,19 @@ let calculation-builder(
       let function-error = if is-calculation-failure(function-expansion) { function-expansion.error } else { none }
       let calculation-tokens = if function-error == none { function-expansion.first() } else { tokens }
       let missing = if display-only { () } else { missing-variables(tokens, current, unloaded, aliases: aliases) }
-      let result = if illegal-assignment or display-only or missing.len() > 0 or function-error != none { none } else {
+      let evaluates = not (illegal-assignment or display-only or missing.len() > 0 or function-error != none)
+      if evaluates and not full-symbolic-scope {
+        let unit-tokens = unit-scope-tokens()
+        if unit-tokens.len() > 0 {
+          current = referenced-scope(scope-tokens + unit-tokens, full-current)
+          aliases = unit-aliases(current)
+          unloaded = ()
+          for (stored-name, item) in current {
+            if is-unloaded(item) { unloaded.push(stored-name) }
+          }
+        }
+      }
+      let result = if not evaluates { none } else {
         calculate-expanded(
           calculate,
           calculation-tokens,
@@ -5875,41 +6056,7 @@ let calculation-builder(
         // second evaluation against the state seen by the update itself so a
         // chain of stored assignments can advance without one layout pass per
         // dependency.
-        checkpoint-update(variables, old => {
-          let update-aliases = unit-aliases(old)
-          let update-unloaded = ()
-          for (stored-name, item) in old {
-            if is-unloaded(item) { update-unloaded.push(stored-name) }
-          }
-          let update-expansion = expand-function-calls(evaluation-tokens, old)
-          if is-calculation-failure(update-expansion) {
-            return old
-          }
-          let update-tokens = update-expansion.first()
-          let update-missing = missing-variables(tokens, old, update-unloaded, aliases: update-aliases)
-          if update-missing.len() > 0 {
-            return old
-          }
-          let update-result = calculate-expanded(
-            calculate,
-            update-tokens,
-            automatic-precision(digits, auto-digits),
-            old,
-            unit,
-            size,
-            block,
-            update-unloaded,
-            update-aliases,
-            strict-units: strict-units,
-          )
-          if is-calculation-failure(update-result) {
-            return old
-          }
-          update-result.insert("variable", name)
-          if name in update-unloaded { update-result.insert("unloaded", true) }
-          old.insert(name, update-result)
-          old
-        })
+        checkpoint-update(variables, store-assignment)
         builder-error("`" + missing.first() + "` is not set")
       } else if missing.len() > 0 and result-only {
         builder-error("`" + missing.first() + "` is not set, so there is no result to show")
@@ -5930,35 +6077,19 @@ let calculation-builder(
           render-tokens(tokens, scope: current, aliases: aliases)
         }
       } else if name != none {
-        let name-scope = current
-        name-scope.insert(name, 0)
-        let labelled-body = render-tokens((name,), scope: name-scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current, aliases: aliases)
-        if show-result {
-          let (expanded, has-variables) = expand-variables(tokens, current)
-          if has-variables and show-substitution {
-            labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
-          }
-          let last-visible-tokens = if has-variables and show-substitution { expanded } else { tokens }
-          if ((is-structure-result(result) and not structure-equivalent(last-visible-tokens, result))
-            or result.at("alternatives", default: false)
-            or (not is-structure-result(result)
-              and not equivalent-tokens(last-visible-tokens, result-tokens(result)))) {
-            labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases, show-unit: show-unit)
-          }
-        }
-        let visible-body = if result-only {
-          render-result(result, aliases: aliases, show-unit: show-unit)
-        } else {
-          labelled-body
-        }
+        let visible-body = assignment-body(result, current, aliases, tokens)
         if stores-result {
           result.insert("display", math.equation(visible-body, block: block))
           result.insert("variable", name)
           if assignment-is-unloaded { result.insert("unloaded", true) }
-          checkpoint-update(variables, old => {
-            old.insert(name, result)
-            old
-          })
+          if needs-stable-update {
+            checkpoint-update(variables, store-assignment)
+          } else {
+            checkpoint-update(variables, old => {
+              old.insert(name, result)
+              old
+            })
+          }
           result.display.body
         } else {
           visible-body
@@ -6006,7 +6137,7 @@ let calculation-builder(
 // Normalize a reset or unload argument to a builder state name.
 let state-name(value, action) = {
   let name = input-source(value).trim()
-  if regex("^[A-Za-z]+(?:_[A-Za-z0-9]+)*$") not in name {
+  if reset-name-pattern not in name {
     panic(
       "math-once " + action
       + ": names must contain letters and optional letter or number subscripts",

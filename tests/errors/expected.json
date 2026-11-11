@@ -39,5 +39,6 @@
   "invalid-reset-name.typ": "names must contain letters and optional letter or number subscripts",
   "invalid-reset-units.typ": "math-once reset: units must be auto, a boolean, or an array of names",
   "tan-undefined.typ": "math-once calculate: `tan` is undefined at odd multiples of 90 degrees",
-  "invalid-auto-digits.typ": "math-once calculation-builder: auto-digits must be decimal or significant"
+  "invalid-auto-digits.typ": "math-once calculation-builder: auto-digits must be decimal or significant",
+  "invalid-initial-order.typ": "scope `alpha` must be a number or calculate result"
 }

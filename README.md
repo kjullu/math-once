@@ -145,6 +145,16 @@ Only hashes are tracked in Git. PDFs are cached by hash under the ignored `build
 
 Run the test runner's own regression tests with `python3 -B -m unittest discover -s tools/tests -v`. These exercise hash acceptance, retained PDFs, additions and removals, failures, timeouts, and compiler changes in temporary projects. A real PDF smoke test also runs when Typst is available.
 
+### Compile speed
+
+```sh
+python3 tools/speed-test.py
+```
+
+This generates documents of several lengths and compiles each one twice: once with math-once, and once as plain Typst math with the same equations and precomputed results. It prints both times, how many times slower math-once is, and the added time per calculation. Use `--sections 1 5 20 50 100` to choose the sizes; each section has 10 calculations. The documents and `results.json` are kept in `build/speed-test/`.
+
+Timings depend on the machine, so this is a measurement and not part of the pass/fail tests. The `Speed test` GitHub Actions workflow runs it on every pull request and shows the table on the run's summary page; `--summary FILE` writes that table. It measures full compiles; `tools/benchmark-incremental.py` measures edits in a running `typst watch`.
+
 ## Why is it called `math-once`?
 
 The project started as `typst-math`, which is still the name of my local folder. Codex later used `math-once` as the heading in an early README. The name probably came from my original request: make something like [eqrun](https://github.com/snlxnet/eqrun), but let me save variables so I only have to do the calculation once. The name stuck, partly because `github.com/kjullu/math-once` is now in my browser autocomplete and I still do not have a better one.

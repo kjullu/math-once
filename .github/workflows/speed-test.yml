@@ -1,0 +1,43 @@
+name: Speed test
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: speed-test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  speed-test:
+    name: Compile speed
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - uses: typst-community/setup-typst@v5
+        with:
+          # Keep in step with the Tests workflow.
+          typst-version: '0.14.2'
+
+      # A measurement, not a pass/fail check: runner speed varies between runs.
+      # The table is shown on the workflow run's summary page.
+      - name: Time generated documents
+        run: python3 tools/speed-test.py --sections 5 20 50 --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        uses: actions/upload-artifact@v5
+        with:
+          name: speed-test-results
+          path: build/speed-test/results.json
+          retention-days: 14

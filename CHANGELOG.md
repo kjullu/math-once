@@ -1,5 +1,15 @@
 # Changelog
 
+## Faster compilation demo (based on 0.45.1)
+
+- Documents with many calculations compile much faster. A generated 500-calculation document went from about 57 s to about 5 s, and the time per calculation no longer grows with the length of the document. Output is unchanged.
+- Regular expressions are built once instead of on every call.
+- Each builder calculation now evaluates against only the variables, stored functions, and unit aliases its expression refers to, instead of copying every stored value. Symbolic calculations still use the complete state.
+- Assignments that depend on earlier results settle in three layout passes instead of four, which also speeds up edits in `typst watch`.
+- Added `tools/speed-test.py`, which times full compiles of generated documents of several lengths. Each document is compiled once with math-once and once as plain Typst math showing the same equations, so the output shows how much compile time math-once adds.
+- Added a `Speed test` GitHub Actions workflow that runs the speed test on pull requests and shows the timing table on the run's summary page.
+- Added regression fixtures for ignored malformed units, stored-function dependencies, renamed units inside stored vectors and matrices, long dependency chains across resets, and the order of invalid initial values.
+
 ## 0.45.1
 
 - Spelled-out ohm units such as `"ohm"`, `ohm`, and `kohm` now render as `Ω` and `kΩ` in inputs and results. Stored unit names are unchanged, so `result.unit` still reads `"ohm"`.
