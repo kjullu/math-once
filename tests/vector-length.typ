@@ -1,0 +1,21 @@
+#import "../math-once.typ": calculation-builder
+#set page(width: auto, height: auto, margin: 12pt)
+#let eq = calculation-builder(key: "vector-length", strict: true)
+#eq($arrow(a) := vec(2, -3, 0)$)
+#eq($arrow(b) := vec(-1, -2, 1)$)
+#eq($|arrow(a) + arrow(b)|$)
+#eq($arrow(v) := arrow(a) times arrow(b)$)
+#eq($"length" := abs(arrow(v))$)
+#eq($"sumlength" := |arrow(a) + arrow(b)|$)
+#eq($"extra" := abs(arrow(v)) + 1$)
+#eq($"zero" := abs(vec(0, 0))$)
+#eq($"distance" := abs(vec(-3 "m", 400 "cm"))$, unit: "m")
+#eq($abs(-3)$)
+#context {
+  let values = eq()
+  assert(calc.abs(values.length.exact - calc.sqrt(62)) < 1e-10)
+  assert(calc.abs(values.sumlength.exact - calc.sqrt(27)) < 1e-10)
+  assert(calc.abs(values.extra.exact - calc.sqrt(62) - 1) < 1e-10)
+  assert(values.zero.exact == 0)
+  assert(values.distance.exact == 5 and values.distance.unit == "m")
+}
