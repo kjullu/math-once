@@ -26,3 +26,7 @@
 - Keep that version synchronized with `typst.toml`, the local-package import example in `README.md`, and `tests/package-import.typ`.
 - Whenever a new version is prepared, create a Git tag with the exact same version, for example `0.38.0`.
 
+
+## Testing
+
+- See [tests/TESTING.md](tests/TESTING.md) for how to run the test suite and review PDF hash changes.
