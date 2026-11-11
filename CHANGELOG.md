@@ -6,8 +6,8 @@
 - Regular expressions are built once instead of on every call.
 - Each builder calculation now evaluates against only the variables, stored functions, and unit aliases its expression refers to, instead of copying every stored value. Symbolic calculations still use the complete state.
 - Assignments that depend on earlier results settle in three layout passes instead of four, which also speeds up edits in `typst watch`.
-- Added `tools/speed-test.py`, which times full compiles of generated documents of several lengths. Each document is compiled once with math-once and once as plain Typst math showing the same equations, so the output shows how much compile time math-once adds.
-- Added a `Speed test` GitHub Actions workflow that runs the speed test on pull requests and shows the timing table on the run's summary page.
+- Added `tools/speed-test.py`, which times full compiles of generated documents of several lengths. Each document is compiled once with math-once and once as plain Typst math showing the same equations, so the output shows how much compile time math-once adds. `--baseline` times an earlier `math-once.typ` as a before column, and `--max-seconds` fails the run when a document is too slow.
+- Added a `Speed test` GitHub Actions workflow that runs the speed test on pull requests against the target branch, posts the before and after table as a pull request comment, and fails when a document exceeds the time limit.
 - Added regression fixtures for ignored malformed units, stored-function dependencies, renamed units inside stored vectors and matrices, long dependency chains across resets, and the order of invalid initial values.
 
 ## 0.45.1

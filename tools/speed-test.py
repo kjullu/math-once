@@ -84,7 +84,8 @@ def plain_section(index):
     ))
 
 
-MATH_ONCE_HEADER = '#import "/math-once.typ": calculation-builder\n#let eq = calculation-builder(digits: 2)\n\n'
+def math_once_header(import_path):
+    return f'#import "{import_path}": calculation-builder\n#let eq = calculation-builder(digits: 2)\n\n'
 
 
 def time_compile(compiler, root, source, timeout):
@@ -101,6 +102,54 @@ def time_compile(compiler, root, source, timeout):
     return elapsed
 
 
+def seconds(value):
+    return "timeout" if value is None else f"{value:.2f} s"
+
+
+def change(before, after):
+    """Describe the current time relative to the baseline, such as '10.0x faster'."""
+    if before is None or after is None:
+        return "unknown"
+    if after <= before:
+        return f"{before / after:.1f}x faster"
+    return f"{after / before:.1f}x slower"
+
+
+def markdown_summary(results, limit):
+    baseline = results["baseline"] is not None
+    too_slow = [entry for entry in results["documents"] if entry["over_limit"]]
+    lines = ["## math-once compile speed", ""]
+    if too_slow:
+        sizes = ", ".join(f"{entry['calls']} calculations ({seconds(entry['math_once_seconds'])})" for entry in too_slow)
+        lines += [f"**Too slow:** the limit is {limit:g} s per document. Over the limit: {sizes}.", ""]
+    elif limit is not None:
+        lines += [f"Every document compiled within the {limit:g} s limit.", ""]
+    header = ["Calculations", "Plain Typst"] + (["Before", "After", "Change"] if baseline else ["math-once"])
+    header += ["Slower than plain", "Per calculation"] + (["Limit"] if limit is not None else [])
+    lines += ["| " + " | ".join(header) + " |", "|" + "---:|" * len(header)]
+    for entry in results["documents"]:
+        plain, after = entry["plain_seconds"], entry["math_once_seconds"]
+        row = [str(entry["calls"]), seconds(plain)]
+        if baseline:
+            row += [seconds(entry["baseline_seconds"]), seconds(after), change(entry["baseline_seconds"], after)]
+        else:
+            row.append(seconds(after))
+        if after is None:
+            row += ["", ""]
+        else:
+            per_call = (after - results["import_only_seconds"]) / entry["calls"] * 1000
+            row += [f"{after / plain:.1f}x", f"{per_call:.1f} ms"]
+        if limit is not None:
+            row.append("**too slow**" if entry["over_limit"] else "ok")
+        lines.append("| " + " | ".join(row) + " |")
+    notes = [f"Median of {results['runs']} cold compiles each with `{results['compiler']}`."]
+    if baseline:
+        notes.append(f"Before is `{results['baseline']}`; After is this change.")
+    notes.append(f"Importing math-once without using it takes {results['import_only_seconds']:.2f} s, "
+                 f"an empty document {results['empty_seconds']:.2f} s; 'Per calculation' excludes the import.")
+    return "\n".join(lines + ["", " ".join(notes), ""]) + "\n"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sections", type=int, nargs="+", default=[1, 5, 20, 50],
@@ -109,6 +158,11 @@ def main():
     parser.add_argument("--timeout", type=float, default=300, help="Seconds per compile")
     parser.add_argument("--output", type=Path, default=None, help="Default: build/speed-test")
     parser.add_argument("--typst", default="typst", help="Typst executable")
+    parser.add_argument("--baseline", type=Path, default=None,
+                        help="An earlier math-once.typ to time as 'before', next to the current one")
+    parser.add_argument("--baseline-label", default=None, help="Name shown for the baseline, such as a branch")
+    parser.add_argument("--max-seconds", type=float, default=None,
+                        help="Exit with status 1 when a math-once document takes longer than this")
     parser.add_argument("--summary", type=Path, default=None,
                         help="Also append the results as a Markdown table to this file, such as $GITHUB_STEP_SUMMARY")
     args = parser.parse_args()
@@ -122,6 +176,16 @@ def main():
     if root not in output.parents:
         parser.error("--output must be inside the repository, so documents can import math-once.typ")
     output.mkdir(parents=True, exist_ok=True)
+    current_header = math_once_header("/math-once.typ")
+    baseline_header = None
+    if args.baseline is not None:
+        if not args.baseline.is_file():
+            parser.error(f"Baseline not found: {args.baseline}")
+        # Typst can only import files inside the project root.
+        copied = output / "baseline-math-once.typ"
+        if args.baseline.resolve() != copied:
+            shutil.copyfile(args.baseline, copied)
+        baseline_header = math_once_header("/" + copied.relative_to(root).as_posix())
 
     def measure(name, text):
         source = output / f"{name}.typ"
@@ -137,42 +201,47 @@ def main():
     # Importing math-once has a fixed cost that is paid once per document,
     # however many calculations follow.
     empty = measure("empty", "Nothing here.\n")
-    import_only = measure("import-only", MATH_ONCE_HEADER + "Nothing here.\n")
+    import_only = measure("import-only", current_header + "Nothing here.\n")
     print(f"Empty document: {empty:.2f} s. Importing math-once without using it: {import_only:.2f} s.\n")
-    print(f"{'calls':>6} {'plain':>9} {'math-once':>10} {'slower':>8} {'per call':>10}")
+    columns = f"{'calls':>6} {'plain':>9}" + (f" {'before':>9}" if baseline_header else "")
+    print(columns + f" {'math-once':>10} {'slower':>8} {'per call':>10}" + (f" {'change':>14}" if baseline_header else ""))
     results = {"compiler": subprocess.check_output([compiler, "--version"], text=True).strip(),
-               "runs": args.runs, "empty_seconds": empty, "import_only_seconds": import_only, "documents": []}
+               "runs": args.runs, "empty_seconds": empty, "import_only_seconds": import_only,
+               "baseline": (args.baseline_label or str(args.baseline)) if baseline_header else None,
+               "max_seconds": args.max_seconds, "documents": []}
+    # A baseline that times out is not timed again at larger sizes.
+    baseline_alive = baseline_header is not None
     for size in sorted(set(args.sections)):
         indexes = range(1, size + 1)
         calls = size * CALLS_PER_SECTION
+        body = "".join(math_once_section(index) for index in indexes)
         plain = measure(f"plain-{size}", "".join(plain_section(index) for index in indexes))
-        with_package = measure(f"math-once-{size}", MATH_ONCE_HEADER + "".join(math_once_section(index) for index in indexes))
-        entry = {"sections": size, "calls": calls, "plain_seconds": plain, "math_once_seconds": with_package}
-        results["documents"].append(entry)
+        before = measure(f"baseline-{size}", baseline_header + body) if baseline_alive else None
+        baseline_alive = before is not None
+        with_package = measure(f"math-once-{size}", current_header + body)
+        over_limit = with_package is None or (args.max_seconds is not None and with_package > args.max_seconds)
+        results["documents"].append({"sections": size, "calls": calls, "plain_seconds": plain,
+                                     "baseline_seconds": before, "math_once_seconds": with_package,
+                                     "over_limit": over_limit})
+        row = f"{calls:>6} {seconds(plain):>9}" + (f" {seconds(before):>9}" if baseline_header else "")
         if with_package is None:
-            print(f"{calls:>6} {plain:>7.2f} s {'timeout':>10}", flush=True)
+            print(row + f" {'timeout':>10}", flush=True)
             print(f"\nStopped: math-once took longer than {args.timeout:g} s. Larger documents were skipped.")
             break
         per_call = (with_package - import_only) / calls * 1000
-        print(f"{calls:>6} {plain:>7.2f} s {with_package:>8.2f} s {with_package / plain:>7.1f}x {per_call:>7.1f} ms", flush=True)
+        row += f" {seconds(with_package):>10} {with_package / plain:>7.1f}x {per_call:>7.1f} ms"
+        print(row + (f" {change(before, with_package):>14}" if baseline_header else ""), flush=True)
     (output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
     if args.summary is not None:
-        lines = ["## math-once compile speed", "",
-                 "| Calculations | Plain Typst | math-once | Slower | Per calculation |", "|---:|---:|---:|---:|---:|"]
-        for entry in results["documents"]:
-            plain, with_package = entry["plain_seconds"], entry["math_once_seconds"]
-            if with_package is None:
-                lines.append(f"| {entry['calls']} | {plain:.2f} s | timeout | | |")
-            else:
-                per_call = (with_package - import_only) / entry["calls"] * 1000
-                lines.append(f"| {entry['calls']} | {plain:.2f} s | {with_package:.2f} s | {with_package / plain:.1f}x | {per_call:.1f} ms |")
-        lines += ["", f"Median of {args.runs} cold compiles each with `{results['compiler']}`. "
-                  f"Importing math-once without using it: {import_only:.2f} s; an empty document: {empty:.2f} s. "
-                  "'Per calculation' excludes the import cost.", ""]
         with args.summary.open("a") as summary:
-            summary.write("\n".join(lines) + "\n")
+            summary.write(markdown_summary(results, args.max_seconds))
     print(f"\nMedian of {args.runs} cold compiles each. 'per call' excludes the import cost.")
     print(f"Documents and results.json: {output}")
+    too_slow = [entry["calls"] for entry in results["documents"] if entry["over_limit"]]
+    if too_slow:
+        limit = f"{args.max_seconds:g} s limit" if args.max_seconds is not None else f"{args.timeout:g} s timeout"
+        print(f"Too slow: the documents with {', '.join(map(str, too_slow))} calculations exceeded the {limit}.")
+        return 1
     return 0
 
 

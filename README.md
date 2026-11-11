@@ -153,7 +153,9 @@ python3 tools/speed-test.py
 
 This generates documents of several lengths and compiles each one twice: once with math-once, and once as plain Typst math with the same equations and precomputed results. It prints both times, how many times slower math-once is, and the added time per calculation. Use `--sections 1 5 20 50 100` to choose the sizes; each section has 10 calculations. The documents and `results.json` are kept in `build/speed-test/`.
 
-Timings depend on the machine, so this is a measurement and not part of the pass/fail tests. The `Speed test` GitHub Actions workflow runs it on every pull request and shows the table on the run's summary page; `--summary FILE` writes that table. It measures full compiles; `tools/benchmark-incremental.py` measures edits in a running `typst watch`.
+Use `--baseline path/to/older/math-once.typ` to time an earlier version next to the current one; the output then has before and after columns and how many times faster or slower the current version is. `--max-seconds 30` makes the command exit with status 1 when a math-once document takes longer than that, and `--summary FILE` writes the table as Markdown.
+
+Timings depend on the machine, so this is not part of `tools/test.py`. The `Speed test` GitHub Actions workflow runs it on every pull request with the target branch as the baseline, posts the table as a comment on the pull request, and fails when a document exceeds the limit set by `MAX_SECONDS` in `.github/workflows/speed-test.yml`. It measures full compiles; `tools/benchmark-incremental.py` measures edits in a running `typst watch`.
 
 ## Why is it called `math-once`?
 

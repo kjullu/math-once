@@ -6,16 +6,22 @@ on:
 
 permissions:
   contents: read
+  # Needed to post the timing table as a pull request comment.
+  pull-requests: write
 
 concurrency:
   group: speed-test-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # A document slower than this fails the job, which notifies through GitHub.
+  MAX_SECONDS: '30'
+
 jobs:
   speed-test:
     name: Compile speed
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
         with:
@@ -30,14 +36,59 @@ jobs:
           # Keep in step with the Tests workflow.
           typst-version: '0.14.2'
 
-      # A measurement, not a pass/fail check: runner speed varies between runs.
-      # The table is shown on the workflow run's summary page.
+      # On pull requests, the target branch's math-once.typ is timed as "before".
+      - name: Fetch the baseline implementation
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          mkdir -p build
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          git show FETCH_HEAD:math-once.typ > build/baseline-math-once.typ
+
       - name: Time generated documents
-        run: python3 tools/speed-test.py --sections 5 20 50 --summary "$GITHUB_STEP_SUMMARY"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          baseline=()
+          if [ -f build/baseline-math-once.typ ]; then
+            baseline=(--baseline build/baseline-math-once.typ --baseline-label "$BASE_REF")
+          fi
+          python3 tools/speed-test.py --sections 5 20 50 "${baseline[@]}" \
+            --max-seconds "$MAX_SECONDS" --summary build/speed-summary.md
+
+      - name: Show the table on the run summary
+        if: ${{ always() }}
+        run: |
+          if [ -f build/speed-summary.md ]; then cat build/speed-summary.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      # One comment per pull request, updated on every run. Pull requests from
+      # forks get a read-only token, so they only have the run summary.
+      - name: Post the table on the pull request
+        if: ${{ always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ ! -f build/speed-summary.md ]; then
+            printf '## math-once compile speed\n\nThe speed test did not finish.\n' > build/speed-summary.md
+          fi
+          marker='<!-- math-once-speed-test -->'
+          { echo "$marker"; cat build/speed-summary.md; echo; echo "[Workflow run]($RUN_URL)"; } > build/speed-comment.md
+          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --paginate \
+            --jq "map(select(.body | startswith(\"$marker\"))) | .[0].id // empty" | head -n 1)
+          if [ -n "$comment_id" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -F body=@build/speed-comment.md > /dev/null
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -F body=@build/speed-comment.md > /dev/null
+          fi
 
       - name: Upload results
+        if: ${{ always() }}
         uses: actions/upload-artifact@v5
         with:
           name: speed-test-results
           path: build/speed-test/results.json
+          if-no-files-found: ignore
           retention-days: 14
