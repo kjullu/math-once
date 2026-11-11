@@ -4,7 +4,7 @@ Status: **phase one PASS**, independently reviewed by Claude Opus 5.5 on 2026-10
 Research date: 2026-10-30. Base package: 0.45.0, school mathematics demo.
 
 > **Update 2026-11-03:** the everyday operations are now written inside the
-> calculation builder (`mean(data)`, `linreg(xs, ys)`, `solve(f(x) = 0, x, a, b)`,
+> calculation builder (`mean(data)`, `linreg(xs, yv)`, `solve(f(x) = 0, x, a, b)`,
 > `plot(f(x), x, a, b)`, …). See [School mathematics](school.md). The
 > `school.*` calls below still work and remain the route for the less common
 > workflows (t-tests, ODEs, slope fields, parametric curves, finance recipes).

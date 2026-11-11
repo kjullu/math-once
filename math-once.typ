@@ -6375,7 +6375,7 @@ let compile-callback(tokens, scope, parameters: ("x",), angles: none, strict: tr
   }
   // Compile and capture the current scope once, rather than once per sample.
   let local = scope
-  for name in parameters { local.remove(name, default: none) }
+  for name in parameters { let _ = local.remove(name, default: none) }
   let expression = symbolic-expression(tokens, local)
   if is-calculation-failure(expression) { return fail(expression.at("error", default: "invalid expression")) }
   let has-trig(a) = {
@@ -6576,21 +6576,26 @@ let school-variable(tokens, operation) = symbolic-name-argument(tokens, operatio
 
 let school-callback(tokens, variable, scope, ctx) = compile-callback(tokens, scope, parameters: (variable,), angles: ctx.angles, strict: false)
 
-// Composite Simpson rule that refuses intervals where the function is
-// undefined instead of silently integrating across a gap. Returns the
-// integral of f and of |f|, which sets the scale of the convergence check.
+// Composite Simpson rule after the substitution x = a + (b - a)(1 - cos(pi t))/2.
+// The substitution packs samples towards the bounds, so square-root edges such
+// as sqrt(1 - x^2) at x = 1 converge; the bounds themselves get weight 0 and
+// are not evaluated. Undefined samples inside the interval refuse the integral.
+// Returns the integral of f and of |f|, which sets the scale of the
+// convergence check.
 let school-simpson(f, a, b, steps: 400) = {
-  let h = (b - a) / steps
+  let h = 1 / steps
   let total = 0.0
   let size = 0.0
-  for i in range(steps + 1) {
-    let y = f(a + i * h)
+  for i in range(1, steps) {
+    let t = i * h
+    let x = a + (b - a) * (1 - calc.cos(calc.pi * t * 1rad)) / 2
+    let y = f(x)
     if y == none { return calculation-failure("the function is undefined somewhere between the bounds") }
-    let w = if i == 0 or i == steps { 1 } else if calc.rem(i, 2) == 1 { 4 } else { 2 }
+    let w = (if calc.rem(i, 2) == 1 { 4 } else { 2 }) * (b - a) * calc.pi / 2 * calc.sin(calc.pi * t * 1rad)
     total += y * w
-    size += calc.abs(y) * w
+    size += calc.abs(y * w)
   }
-  (value: total * h / 3, size: calc.abs(size * h / 3))
+  (value: total * h / 3, size: size * h / 3)
 }
 
 // Numerical roots on [a, b]. Undefined samples (none) are skipped, never
@@ -6943,7 +6948,7 @@ let school-operation(call, scope, ctx) = {
         school-number(argument.slice(2), scope, ctx, key)
       }
       if is-calculation-failure(value) { return value }
-      if key in ("A", "B", "C") and not (0 < value and value < calc.pi) { return calculation-failure("triangle angles must be between 0 and 180°") }
+      if key in ("A", "B", "C") and not (0 < value and value < calc.pi) { return calculation-failure("triangle angles must be between 0 and " + if ctx.angles == "radians" { "π" } else { "180°" }) }
       if key in ("a", "b", "c") and value <= 0 { return calculation-failure("triangle sides must be positive") }
       known.insert(key, value)
     }
@@ -7033,7 +7038,7 @@ let school-numeric-solve(call, scope, ctx) = {
   let f = school-callback(("(",) + args.first() + (")", "-", "(") + args.at(1) + (")",), variable, scope, ctx)
   if is-calculation-failure(f) { return f }
   let local = scope
-  local.remove(variable, default: none)
+  let _ = local.remove(variable, default: none)
   let a = school-number(args.at(3), local, ctx, "a")
   if is-calculation-failure(a) { return a }
   let b = school-number(args.at(4), local, ctx, "b")
@@ -7050,7 +7055,7 @@ let school-numeric-integral(call, scope, ctx) = {
   let f = school-callback(args.first(), variable, scope, ctx)
   if is-calculation-failure(f) { return f }
   let local = scope
-  local.remove(variable, default: none)
+  let _ = local.remove(variable, default: none)
   let a = school-number(args.at(2), local, ctx, "the lower bound")
   if is-calculation-failure(a) { return a }
   let b = school-number(args.at(3), local, ctx, "the upper bound")
@@ -7079,7 +7084,7 @@ let school-chart(call, scope, ctx) = {
     let variable = school-variable(args.at(-3), "plot")
     if is-calculation-failure(variable) { return variable }
     let local = scope
-    local.remove(variable, default: none)
+    let _ = local.remove(variable, default: none)
     let a = school-number(args.at(-2), local, ctx, "a")
     if is-calculation-failure(a) { return a }
     let b = school-number(args.at(-1), local, ctx, "b")
@@ -7230,7 +7235,7 @@ let paper-call-head(call, scope, aliases, name: none) = {
     let law = X + h(0.2em) + sym.tilde.op + h(0.2em) + math.upright("N") + paper-parens(list(..params))
     let body = if op == "normpdf" { math.attach(math.italic("f"), br: X) + paper-parens(r(args.first())) }
       else if op == "invnorm" {
-        let variable = if name == none { math.italic("x") } else { render-tokens((name,), scope: (name: 0), aliases: aliases) }
+        let variable = if name == none { math.italic("x") } else { render-tokens((name,), scope: ((name): 0), aliases: aliases) }
         paper-join(P(X + paper-gap + le + paper-gap + variable), math.eq, r(args.first()))
       }
       else if n == 4 { P(r(args.first()) + paper-gap + le + paper-gap + X + paper-gap + le + paper-gap + r(args.at(1))) }
@@ -7265,6 +7270,9 @@ let paper-roots(variable, roots, digits, approximate: false) = {
 
 // The equation part of solve(...): f(x) = 1, or f(x) = 0 for an expression.
 let paper-solve-equation(arguments, scope, aliases, bounds: none, variable: none) = {
+  // The unknown is a variable here, even when its name is also a unit (t).
+  let scope = scope
+  if variable != none { scope.insert(variable, 0) }
   let r(tokens) = render-tokens(tokens, scope: scope, aliases: aliases)
   let equation = if "=" in arguments.first() { r(arguments.first()) }
     else if arguments.len() >= 3 and bounds == none or arguments.len() == 5 { paper-join(r(arguments.first()), math.eq, r(arguments.at(1))) }
@@ -7375,7 +7383,9 @@ let school-builder-output(result, call: none, name: none, store: false, quoted: 
 
   // Regression: WordMat style, the fitted function and R².
   let function-display = if store {
-    render-tokens(tokenize(name + "(x)"), scope: (x: 0), aliases: aliases)
+    // Rendered as a function, even when the name is also a unit (g).
+    let fitted = function-definition(name + "(x) := x")
+    render-tokens(tokenize(name + "(x)"), scope: (x: 0, (name): fitted), aliases: aliases)
   } else { math.italic("y") }
   let display-body = if type(result.display-body) == str { result.display-body } else { school-polynomial-source(result.display-body, ctx.digits, display: true) }
   let model = paper-join(function-display, math.eq, render-tokens(tokenize(display-body), scope: (x: 0), aliases: aliases))
@@ -7385,7 +7395,14 @@ let school-builder-output(result, call: none, name: none, store: false, quoted: 
     for field in result.fields { body = body.replace("{" + field.first() + "}", name + "_" + field.first()) }
     let definition = function-definition(name + "(x) := " + body)
     if definition == none { return calculation-failure("could not store the fitted function") }
-    updates += checkpoint-update(variables, old => { old.insert(name, definition); old })
+    definition.insert("fitted", true)
+    // Refitting with a model that has fewer coefficients drops the old ones.
+    let stale = "abcdefghijk".clusters().map(c => name + "_" + c) + (name + "_r2",)
+    updates += checkpoint-update(variables, old => {
+      for key in stale { let _ = old.remove(key, default: none) }
+      old.insert(name, definition)
+      old
+    })
     for field in result.fields { updates += save(name + "_" + field.first(), school-field-result(field, ctx)) }
   }
   let r2 = result.fields.filter(f => f.first() == "r2")
@@ -7678,8 +7695,11 @@ let calculation-builder(
         school-op = none
       }
       if school-op != none {
-        // School results are numeric values, so they follow the numeric naming rules.
-        if illegal-assignment {
+        // School results are numeric values, so they follow the numeric naming
+        // rules. Fitted models are functions, so like g(x) := ... they may use
+        // a unit name such as g; the bare name keeps its unit meaning.
+        let fits-function = school-op.operation in ("linreg", "expreg", "powreg", "logreg", "polyreg")
+        if illegal-assignment and not (fits-function and name not in aliases and not is-built-in-constant(name)) {
           builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
           return
         }
@@ -7688,6 +7708,17 @@ let calculation-builder(
           return
         }
         school-line(school-operation(school-op, current, school-ctx), school-op)
+        return
+      }
+      // School operations are whole calculations; inside a larger expression
+      // the result has to be stored first.
+      let nested-school = evaluation-tokens.enumerate().find(((i, t)) => (
+        t in school-calculation-functions + school-chart-functions
+          and evaluation-tokens.at(i + 1, default: none) == "("
+          and not (t in current and is-stored-function(current.at(t)))))
+      if nested-school != none {
+        let op = nested-school.last()
+        builder-error("store " + op + " on its own line first, for example r := " + op + "(...), then use r")
         return
       }
       let cas-call = if display-only { none } else { symbolic-call(evaluation-tokens) }
@@ -7716,6 +7747,17 @@ let calculation-builder(
         let solve-arguments = cas-call.arguments.len() + if cas-call.arguments.len() > 0 and "=" in cas-call.arguments.first() { 1 } else { 0 }
         if cas-call.operation == "solve" and solve-arguments in (4, 5) and cas-call.arguments.len() >= 4 {
           school-line(school-numeric-solve(cas-call, current, school-ctx), cas-call)
+          return
+        }
+        // Fitted models have decimal coefficients that the exact CAS cannot
+        // solve reliably; they go through the numerical methods instead.
+        let uses-fit = cas-call.arguments.flatten().any(t => t in current and type(current.at(t)) == dictionary and current.at(t).at("fitted", default: false))
+        if uses-fit and cas-call.operation == "solve" {
+          builder-error("a fitted model is solved numerically; give an interval, for example solve(f(x) = 15, x, 0, 20)")
+          return
+        }
+        if uses-fit and cas-call.operation == "integrate" and cas-call.arguments.len() == 4 {
+          school-line(school-numeric-integral(cas-call, current, school-ctx), cas-call)
           return
         }
         let result = symbolic-result(cas-call, current)

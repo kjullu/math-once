@@ -42,10 +42,10 @@ the line shows the mathematics:
 | `binompdf(10, 0.5, 3)` | X ∼ b(10, 0.5): P(X = 3) = 0.117 |
 | `normcdf(90, 110, 100, 15)` | X ∼ N(100, 15): P(90 ≤ X ≤ 110) ≈ 0.495 |
 | `invnorm(0.975)` | X ∼ N(0, 1): P(X ≤ x) = 0.975 ⇔ x ≈ 1.960 |
-| `dotprod(u, v)`, `cross(u, v)` | u⃗ · v⃗, u⃗ × v⃗ |
-| `norm(u)`, `vecangle(u, v)` | \|u⃗\|, ∠(u⃗, v⃗) |
-| `inv(M)`, `linsolve(M, b)` | M⁻¹, M · x⃗ = b ⇔ x⃗ = … |
-| `fit := linreg(xs, ys)` | fit(x) = 1.94x + 1.15,  R² = 0.996 |
+| `dotprod(p, q)`, `cross(p, q)` | p⃗ · q⃗, p⃗ × q⃗ |
+| `norm(p)`, `vecangle(p, q)` | \|p⃗\|, ∠(p⃗, q⃗) |
+| `inv(M)`, `linsolve(M, w)` | M⁻¹, M · x⃗ = w ⇔ x⃗ = … |
+| `fit := linreg(xs, yv)` | fit(x) = 1.94x + 1.15,  R² = 0.996 |
 | `describe(data)` | table of n, μ, σ, s, min, Q₁, median, Q₃, max |
 | `triangle(a = 3, b = 4, c = 5)` | angles A, B, C beside sides a, b, c, and the area |
 | `chi2gof(...)`, `chi2ind(...)` | χ² = 0.4,  df = 2,  p = 0.819 |
@@ -82,6 +82,16 @@ A stored solve shows only the solved equation; the name still holds the roots.
 
 A stored function with the same name as an operation takes precedence, as for CAS calls.
 
+- **One operation per line.** An operation is a whole calculation. To use its
+  result in a larger expression, store it first: `cum := binomcdf(10, 0.5, 3)`,
+  then `1 - cum`.
+- **Names.** Many short names are units: `m`, `s`, `g`, `h`, `t`, `u`, `b`, `ys`
+  (yoctosecond), `yd` (yard), `hm` (hectometre). Use names such as `xs`, `yv`,
+  `p`, `q`, `data`. A fitted model may still be called `g`, like `g(x) := …`.
+- **Fitted models** have decimal coefficients, so equations with them are solved
+  numerically: `solve(fit(x) = 15, x, 0, 20)`. Definite integrals of them are
+  numerical as well.
+
 ## Operations
 
 | Operation | Result |
@@ -99,15 +109,15 @@ A stored function with the same name as an operation takes precedence, as for CA
 | `normpdf(x)`, `normpdf(x, μ, σ)` | Normal density. |
 | `normcdf(x)`, `normcdf(x, μ, σ)`, `normcdf(a, b, μ, σ)` | P(X ≤ x), or P(a ≤ X ≤ b). Absolute error about 10⁻⁷. |
 | `invnorm(p)`, `invnorm(p, μ, σ)` | x with P(X ≤ x) = p. |
-| `linreg(xs, ys)` | y = a·x + b. |
-| `expreg(xs, ys)` | y = b·aˣ (positive y; least squares on ln y). |
-| `powreg(xs, ys)` | y = b·xᵃ (positive x and y; least squares on ln x, ln y). |
-| `logreg(xs, ys)` | y = a·ln(x) + b (positive x). |
-| `polyreg(xs, ys, degree)` | y = a·xⁿ + b·xⁿ⁻¹ + …, degree 1 to 10 |
-| `dotprod(u, v)`, `cross(u, v)`, `norm(u)` | Dot product, 3D cross product, length. |
-| `vecangle(u, v)` | Angle between two non-zero vectors. |
+| `linreg(xs, yv)` | y = a·x + b. |
+| `expreg(xs, yv)` | y = b·aˣ (positive y; least squares on ln y). |
+| `powreg(xs, yv)` | y = b·xᵃ (positive x and y; least squares on ln x, ln y). |
+| `logreg(xs, yv)` | y = a·ln(x) + b (positive x). |
+| `polyreg(xs, yv, degree)` | y = a·xⁿ + b·xⁿ⁻¹ + …, degree 1 to 10 |
+| `dotprod(p, q)`, `cross(p, q)`, `norm(p)` | Dot product, 3D cross product, length. |
+| `vecangle(p, q)` | Angle between two non-zero vectors. |
 | `det(M)`, `inv(M)`, `rank(M)` | Determinant, inverse, rank. |
-| `linsolve(M, b)` | Solution of M·x = b as a vector. |
+| `linsolve(M, w)` | Solution of M·x = w as a vector. |
 | `triangle(a = 3, b = 4, C = 90)` | Solves a triangle from three named measurements (sides `a b c`, opposite angles `A B C`). Stores `a b c A B C area`. When two triangles fit (SSA), both are shown and storing is refused. |
 | `chi2gof(observed, expected)` | Goodness-of-fit test: `chi2`, `df`, `p`. Expected may be counts or probabilities summing to 1. |
 | `chi2ind(table)` | Independence test for a matrix of counts: `chi2`, `df`, `p`. |
@@ -123,14 +133,14 @@ The CAS operations fall back to numerical methods where they cannot give an exac
 | Call | Behaviour |
 | --- | --- |
 | `solve(equation, x, a, b)` | Numerical roots in [a, b]. Also `solve(expression, x, a, b)` and `solve(left, right, x, a, b)`. Shown with `≈`. Finds touching roots such as `(x − 1)² = 0` and roots at the edge of the domain such as `sqrt(x) = 0`. Undefined samples are skipped, and sign changes at poles are rejected. |
-| `integrate(expression, x, a, b)` | Exact when the CAS finds an antiderivative. Otherwise Simpson's rule, shown with `≈`. Refused when the function is undefined in the interval, or when 400 and 562 steps disagree by more than a millionth of the integral of \|f\| (usually a pole or a fast oscillation). |
+| `integrate(expression, x, a, b)` | Exact when the CAS finds an antiderivative. Otherwise a numerical value, shown with `≈`. Square-root edges such as `sqrt(1 - x^2)` at x = 1 are fine. Refused when the function is undefined inside the interval, has a pole there, or oscillates too fast to sample. |
 
 ### Charts
 
 | Call | Chart |
 | --- | --- |
 | `plot(f(x), x, a, b)`, `plot(f(x), g(x), …, x, a, b)` | Graphs on [a, b]. Gaps where a function is undefined, and the y-axis ignores extreme values near poles. |
-| `scatter(xs, ys)`, `scatter(xs, ys, fit(x), x)` | Data points, optionally with a model curve. |
+| `scatter(xs, yv)`, `scatter(xs, yv, fit(x), x)` | Data points, optionally with a model curve. |
 | `histogram(data, edges)` | Counts in the intervals given by an increasing `edges` vector. |
 | `boxplot(data)` | Box plot with median-of-halves quartiles. |
 
@@ -368,4 +378,4 @@ Typst requires parentheses when calling functions stored in these dictionaries.
 
 The calculation builder retains its historical degree default. Set `calculation-builder(angles: "radians")` when using numerical trigonometric results alongside CAS derivatives and integrals. CAS calculus always uses radians. Geometry has its own explicit `school.angles(mode: "degrees")` adapter.
 
-Natural logarithms, base-ten logarithms and exponentials use `ln(x)`, `log(x)` and `exp(x)`. Logarithms require positive dimensionless arguments. Define a reusable derivative with `df(x) := diff(f(x),x)` before creating its callback. For fitted coefficients use descriptive names, or explicitly quoted variables such as `"a" := 2` and `"b" := 1`. Refer to these as `"a"*x + "b"`; bare `a` and `b` retain their physical unit meanings.
+Natural logarithms, base-ten logarithms and exponentials use `ln(x)`, `log(x)` and `exp(x)`. Logarithms require positive dimensionless arguments. Define a reusable derivative with `df(x) := diff(f(x),x)` before creating its callback. Builder regressions store their coefficients as `fit_a`, `fit_b`, …, so no quoting is needed. For coefficients you store yourself, use descriptive names or quoted variables such as `"a" := 2`; bare `a` and `b` keep their unit meanings.

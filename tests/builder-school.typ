@@ -86,6 +86,33 @@
 #eq(`inv(M*Mq)`)
 #eq(`dotprod(uu + vv, vv)`)
 
+= Second review regressions
+#let ev = calculation-builder(key: "builder-school-review", digits: 4, angles: "radians")
+// A stored x does not break operations that use x as their variable.
+#ev(`x := 5`)
+#ev(`plot(x^2, x, 0, 1)`)
+#ev(`rx := solve(x^2 - 2, x, 0, 3)`)
+// Square-root edges converge.
+#ev(`qc := integrate(sqrt(1 - x^2), x, 0, 1)`)
+// A fitted model may use a unit name, and refitting drops old coefficients.
+#ev(`xd := vec(1, 2, 3, 4, 5)`)
+#ev(`yw := vec(2.3, 4.1, 6.2, 7.8, 10.4)`)
+#ev(`g := polyreg(xd, yw, 2)`)
+#ev(`g := expreg(xd, yw)`)
+#ev(`g(2)`)
+#ev(`tg := solve(g(t) = 15, t, 0, 20)`)
+#ev(`ig := integrate(g(x), x, 0, 2)`)
+#ev(`"s" := invnorm(0.9)`)
+#context {
+  let v = ev()
+  assert(v.rx.roots.len() == 1 and close(v.rx.roots.first().val, calc.sqrt(2)))
+  assert(close(v.qc.exact, calc.pi / 4, tolerance: 1e-6))
+  assert(v.g.function and "g_c" not in v)
+  let (ga, gb) = (v.g_a.exact, v.g_b.exact)
+  assert(close(v.tg.roots.first().val, calc.ln(15 / gb) / calc.ln(ga), tolerance: 1e-6))
+  assert(close(v.ig.exact, gb * (calc.pow(ga, 2) - 1) / calc.ln(ga), tolerance: 1e-6))
+}
+
 = Charts
 #eq(`plot(f(x), x, -2.5, 2.5)`)
 #eq(`plot(x^2, 1/x, x, -2, 2)`)

@@ -52,6 +52,8 @@
   "bridge-degree-nested.typ": "CAS trig calculus uses radians; select angles: radians",
   "builder-degree-nested.typ": "CAS trig calculus uses radians; select angles: radians",
   "builder-school-chart-store.typ": "math-once calculation-builder: plot draws a chart and cannot be stored or labelled with =",
+  "builder-school-fitted-solve.typ": "math-once calculation-builder: a fitted model is solved numerically; give an interval, for example solve(f(x) = 15, x, 0, 20)",
+  "builder-school-nested.typ": "math-once calculation-builder: store binomcdf on its own line first, for example r := binomcdf(...), then use r",
   "builder-school-not-vector.typ": "math-once calculation-builder: data must be a vector of numbers, for example vec(2, 4, 5)",
   "builder-school-chi2-zero.typ": "math-once calculation-builder: the observed counts must not all be zero",
   "builder-school-pole.typ": "math-once calculation-builder: the numerical integral does not converge; check for a pole or a fast oscillation between the bounds",
