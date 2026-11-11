@@ -1,6 +1,6 @@
 # Changelog
 
-## Faster compilation demo (based on 0.45.1)
+## Faster compilation demo (based on 0.46.0)
 
 - Lowered the pull request compile-speed limit from 30 s to 7.5 s per document.
 - Documents with many calculations compile much faster. A generated 500-calculation document went from about 57 s to about 5 s, and the time per calculation no longer grows with the length of the document. Output is unchanged.
@@ -10,6 +10,27 @@
 - Added `tools/speed-test.py`, which times full compiles of generated documents of several lengths. Each document is compiled once with math-once and once as plain Typst math showing the same equations, so the output shows how much compile time math-once adds. `--baseline` times an earlier `math-once.typ` as a before column, and `--max-seconds` fails the run when a document is too slow.
 - Added a `Speed test` GitHub Actions workflow that runs the speed test on pull requests against the target branch, posts the before and after table as a pull request comment, and fails when a document exceeds the time limit.
 - Added regression fixtures for ignored malformed units, stored-function dependencies, renamed units inside stored vectors and matrices, long dependency chains across resets, and the order of invalid initial values.
+
+## 0.46.0
+
+- Magnitude bars now fit their contents, including column vectors, and sit tightly around the expression. Arrows on subscripted vector names now cover the name alone.
+
+- `unit:` and `size:` now apply to each component or cell of a vector or matrix result. Intermediate results inside a longer expression, such as `arrow(F) bullet arrow(s) + 1 "J"`, no longer require their own unit.
+- Fixed `times` with a matrix: `M times arrow(v)` and `M times 2` are ordinary multiplication again.
+- Vector lengths and dot products can be raised to a power, for example `abs(arrow(a))^2`.
+
+- Fixed vectors between points: `arrow(A B)` is now one vector named `AB` with one arrow over both letters, instead of `arrow(A)` times `B`.
+
+- Scalar functions such as `arcsin`, `arccos`, and `sqrt` can now calculate arguments containing vector lengths and dot products.
+
+- Added vector lengths with `abs(vector)` or absolute-value bars, including vector expressions and units.
+
+- Fixed duplicate results when defining vectors or matrices containing negative numbers.
+
+- Added the dot product for vectors with `bullet` (•), for example `arrow(a) bullet arrow(b)`. The result is a scalar with units, and `unit:` and `size:` apply to it. Vectors must have the same number of components.
+- Added the cross product for vectors with three components with `times` (×), for example `arrow(a) times arrow(b)`. `unit:` and `size:` apply to each component. Between numbers, or a number and a vector, `times` is still ordinary multiplication.
+- `times` now renders as × instead of ⋅, so equations show what was written.
+- The error for `vector * vector` now points to `bullet` for the dot product and `times` for the cross product.
 
 ## 0.45.1
 

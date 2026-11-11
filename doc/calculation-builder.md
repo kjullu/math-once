@@ -552,6 +552,24 @@ preserving units:
 // length = |-3 cm| = 3 cm
 ```
 
+Vector lengths use `abs` or balanced bars. Both accept vector expressions:
+
+```typ
+#eq($|arrow(a) + arrow(b)|$)
+#eq($abs(arrow(a) times arrow(b))$)
+```
+
+Scalar functions can use these results directly. To find the angle between two
+nonzero vectors, use the dot product and `arccos`:
+
+```typ
+#eq($arccos((arrow(a) bullet arrow(b)) / (abs(arrow(a)) dot abs(arrow(b))))$)
+```
+
+Using `arcsin` with the cross-product length gives an angle between 0° and 90°,
+so it cannot distinguish an acute angle from its supplementary obtuse angle.
+
+
 Other uses of `|`, including infix and non-numeric notation, remain
 display-only.
 
@@ -592,7 +610,35 @@ Use Typst's built-in `mat(...)` for matrices:
 
 `arrow(v)` changes how the stored name is drawn; its state key is `arrow_v`. `vec(...)` creates the vector value. Matrix rows are separated by semicolons and cells by commas, matching Typst's native matrix syntax.
 
-The builder supports vector or matrix addition and subtraction with matching shapes, scalar multiplication, division of a vector or matrix by a scalar, matrix multiplication, matrix–vector multiplication, and row-vector–matrix multiplication. `vector * vector` is rejected because it is ambiguous between a dot product, an outer product, and component-wise multiplication.
+The builder supports vector or matrix addition and subtraction with matching shapes, scalar multiplication, division of a vector or matrix by a scalar, matrix multiplication, matrix–vector multiplication, row-vector–matrix multiplication, dot products, and cross products. `vector * vector` is rejected because it is ambiguous; write `bullet` (•) for the dot product and `times` (×) for the cross product:
+
+```typ
+#eq($arrow(a) := vec(1, 2, 3)$)
+#eq($arrow(b) := vec(4, 5, 6)$)
+#eq($c := arrow(a) bullet arrow(b)$)
+// c = a⃗ • b⃗ = 32
+
+#eq($arrow(F) := vec(2 "N", 3 "N")$)
+#eq($arrow(s) := vec(4 "m", 1 "m")$)
+#eq($w_F := arrow(F) bullet arrow(s)$, unit: "J")
+// w_F = F⃗ • s⃗ = 11 J
+```
+
+Both vectors must have the same number of components. The dot product is a scalar, so it can be used further in the same expression, and `unit:` or `size:` applies to it.
+
+The cross product needs two vectors with three components and returns a vector. Between a number and a vector, a matrix and a vector, or two numbers, `times` is ordinary multiplication.
+
+For a vector or matrix result, `unit:` and `size:` apply to each component or cell. Vector lengths and dot products are numbers, so they can be raised to a power, for example `abs(arrow(a))^2`.
+
+```typ
+#eq($arrow(c) := arrow(a) times arrow(b)$)
+// c⃗ = a⃗ × b⃗ = vec(-3, 6, -3)
+
+#eq($arrow(r) := vec(0 "m", 2 "m", 0 "m")$)
+#eq($arrow(F) := vec(3 "N", 0 "N", 0 "N")$)
+#eq($arrow(tau) := arrow(r) times arrow(F)$, unit: "N m")
+// τ⃗ = r⃗ × F⃗ = vec(0 Nm, 0 Nm, -6 Nm)
+```
 
 Unary minus binds before addition and subtraction. You can also combine literals directly:
 
@@ -606,7 +652,7 @@ Unary minus binds before addition and subtraction. You can also combine literals
 // mat(6, 8; 10, 12)
 ```
 
-Components and cells are calculated independently and may contain compatible physical or custom units. A whole vector or matrix cannot receive one `unit:` or `size:` option; put units in the individual component or cell expressions.
+Components and cells are calculated independently and may contain compatible physical or custom units. A written `vec(...)` or `mat(...)`, or a stored one used alone, cannot receive `unit:` or `size:`; put units in the individual component or cell expressions. The result of an operation, such as `2 arrow(v)` or `arrow(r) times arrow(F)`, applies them to each component or cell.
 
 Stored functions may return either structure:
 

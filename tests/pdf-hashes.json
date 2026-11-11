@@ -7,10 +7,10 @@
   "hashes": {
     "examples/all-functions.typ": "2f1e945cb07d74117258992eb20ff669fbf198013e915fa5fe6dc769ce9449ff",
     "examples/basic.typ": "19e6da1da4974c23cfd8bf398ab9a852f7fda9cbb352bc0996d7d24b1a87ae30",
-    "tests/absolute-value.typ": "fb3846fccc9ab4509da106a4bf066dfe8d0d94ab098cfd77ea925be08a27fe4a",
+    "tests/absolute-value.typ": "959dc6c1a126424a00b5cbebd7a9804d1b3eedac3ac876b4422a215677377d2b",
     "tests/affine-temperatures.typ": "c6d0a7525a41702d5a5b5595bed73942823e0537a95ef38b5f92326fe84082d9",
     "tests/alias-in-function-structures.typ": "8574ba8c0c257eae8da8063b4de30bf6149e189862eb567c9a7bc43a666658de",
-    "tests/all-mathematical-symbols.typ": "56a769b1f6b1953f81797c795dea380bf7b0a01cc27050b6fd0d176ab475f15f",
+    "tests/all-mathematical-symbols.typ": "ef9f918c0b0c19ee4c1714c618a0ac0a39b578666d57297612fcfd5b0006e215",
     "tests/ambiguous-units.typ": "2ec65af5b3aa3996239cd272194a594a22cb7b82f37989df6acf87a2b21750d5",
     "tests/auto-digits.typ": "df59b994561ef7c0b455dd8d52ebecb3f803477b165347390f757790ce127145",
     "tests/automatic-block-layout.typ": "b8d2368a318623211c53f68d4f3c3e6ca0f158ee7bb2e8766a0b24dd0ea5ce7f",
@@ -64,7 +64,14 @@
     "tests/unit-with-size.typ": "c2a2428c051f1e5540402ebcb46bbd1104bb9fdc562c04a6a4d4a04a2d2ffea8",
     "tests/units.typ": "9aa61851974ccd8d6aa7dc884ea0ca06dcba667ac6a75d2091836dc93f59460f",
     "tests/unload.typ": "71f84b4437e5b939482faf9f3bc8e9f5eadd9d4131a239e500d2db6bb9f6826a",
-    "tests/vector-matrix-errors.typ": "a8ab0fc84e026fabf48888c7cb1618dd5cf8c177e7c6f59deb1f2274046e7741",
-    "tests/vectors-matrices.typ": "83e517858ba03536bd85b2d8a5b03bef2273593d2b0f3777e5432c3381378b37"
+    "tests/vector-matrix-errors.typ": "5a85329d8ea71f7409f09b46b3733665cf4522057ec263557c275f58ccaa55ec",
+    "tests/vectors-matrices.typ": "83e517858ba03536bd85b2d8a5b03bef2273593d2b0f3777e5432c3381378b37",
+    "tests/cross-product.typ": "b9b55e1e6aeef14f769bb63e3b9cf779c10443820cb3841cfded5f9569fc62d2",
+    "tests/dot-product.typ": "e5f11911c1d22a254b9bc86167d81c83fcb724fd3408108f2db5b52200d95206",
+    "tests/negative-structure-display.typ": "8b2969ae727d26a9356c50101ddfaee3b930beec216432d0af5fd30330ea3dd5",
+    "tests/point-vectors.typ": "9aef4d0ce04924ad7705041c67422ec7cfd3ceb1eacb9b8cdb4e9f211b984d02",
+    "tests/vector-angles.typ": "93a55fef20f670a70bb4827cc0b905a3cde43b06777d2199816868d2c719ca1f",
+    "tests/vector-length.typ": "4005d2eada028ea0aedeee4ec1424584c5b09f96e086b1af5b2095a44a8f45fb",
+    "tests/vector-operator-review.typ": "1a840cb18ed3675c20b4a4790047efaf6dd5b0e96638d6aae2a751a42c1fe85b"
   }
 }
