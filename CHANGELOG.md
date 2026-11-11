@@ -2,6 +2,7 @@
 
 ## Faster compilation demo (based on 0.45.1)
 
+- Lowered the pull request compile-speed limit from 30 s to 7.5 s per document.
 - Documents with many calculations compile much faster. A generated 500-calculation document went from about 57 s to about 5 s, and the time per calculation no longer grows with the length of the document. Output is unchanged.
 - Regular expressions are built once instead of on every call.
 - Each builder calculation now evaluates against only the variables, stored functions, and unit aliases its expression refers to, instead of copying every stored value. Symbolic calculations still use the complete state.

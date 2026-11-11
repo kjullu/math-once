@@ -15,7 +15,7 @@ concurrency:
 
 env:
   # A document slower than this fails the job, which notifies through GitHub.
-  MAX_SECONDS: '30'
+  MAX_SECONDS: '7.5'
 
 jobs:
   speed-test:
