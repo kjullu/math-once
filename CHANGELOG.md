@@ -1,5 +1,12 @@
 # Changelog
 
+## Faster result-only rendering demo (based on 0.46.0)
+
+- Result-only stored assignments skip building the unused equation and substitution display. Calculations and displayed results are unchanged.
+- The incremental benchmark can exercise dependent assignment chains and result-only output. It now uses three fresh watch processes by default and retains individual samples and median edit times.
+- The compile-speed benchmark retains individual samples and can include stored functions, vectors, matrices, and large initial-state dictionaries with `--workload mixed` and `--initial-values`.
+- Benchmark control-document timeouts now produce incomplete reports and a nonzero exit code instead of crashing while calculating ratios or formatting durations. Added regression checks for each timeout path.
+
 ## Faster compilation demo (based on 0.46.0)
 
 - Lowered the pull request compile-speed limit from 30 s to 7.5 s per document.

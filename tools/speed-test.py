@@ -84,8 +84,35 @@ def plain_section(index):
     ))
 
 
-def math_once_header(import_path):
-    return f'#import "{import_path}": calculation-builder\n#let eq = calculation-builder(digits: 2)\n\n'
+def mixed_section(index, plain=False):
+    """Stored vector-valued functions and matrix products supplement scalars."""
+    if plain:
+        return "\n".join((
+            f'$ f_({index})(x) = vec(x, 2) $',
+            f'$ "vector"_({index}) = f_({index})({index}) = vec({index}, 2) $',
+            f'$ "matrix"_({index}) = mat(1, 2; 3, 4) $',
+            f'$ "product"_({index}) = "matrix"_({index}) "vector"_({index}) = vec({index + 4}, {3 * index + 8}) $',
+            "",
+        ))
+    return "\n".join((
+        f'#eq(`f_{index}(x) := vec(x, 2)`)',
+        f'#eq(`vector_{index} := f_{index}({index})`)',
+        f'#eq(`matrix_{index} := mat(1, 2; 3, 4)`)',
+        f'#eq(`product_{index} := matrix_{index} * vector_{index}`)',
+        '#context {',
+        '  let stored = eq()',
+        f'  assert(stored.at("product_{index}").values == ({index + 4}.0, {3 * index + 8}.0))',
+        '}',
+        "",
+    ))
+
+
+def math_once_header(import_path, initial_values=0):
+    initial = ""
+    if initial_values:
+        initial = (", initial-state: { let values = (:); for i in range(" + str(initial_values)
+                   + ') { values.insert("seed_" + str(i), i) }; values }')
+    return f'#import "{import_path}": calculation-builder\n#let eq = calculation-builder(digits: 2{initial})\n\n'
 
 
 def time_compile(compiler, root, source, timeout):
@@ -117,13 +144,18 @@ def change(before, after):
 
 def markdown_summary(results, limit):
     baseline = results["baseline"] is not None
+    controls_timed_out = (results["empty_seconds"] is None or results["import_only_seconds"] is None
+                          or any(entry["plain_seconds"] is None for entry in results["documents"]))
     too_slow = [entry for entry in results["documents"] if entry["over_limit"]]
     lines = ["## math-once compile speed", ""]
     if too_slow:
         sizes = ", ".join(f"{entry['calls']} calculations ({seconds(entry['math_once_seconds'])})" for entry in too_slow)
-        lines += [f"**Too slow:** the limit is {limit:g} s per document. Over the limit: {sizes}.", ""]
-    elif limit is not None:
+        description = "a compile timed out" if limit is None else f"the limit is {limit:g} s per document"
+        lines += [f"**Too slow:** {description}. Affected documents: {sizes}.", ""]
+    elif limit is not None and not controls_timed_out:
         lines += [f"Every document compiled within the {limit:g} s limit.", ""]
+    if controls_timed_out:
+        lines += ["**Incomplete:** a control document timed out; ratios or per-calculation costs may be unavailable.", ""]
     header = ["Calculations", "Plain Typst"] + (["Before", "After", "Change"] if baseline else ["math-once"])
     header += ["Slower than plain", "Per calculation"] + (["Limit"] if limit is not None else [])
     lines += ["| " + " | ".join(header) + " |", "|" + "---:|" * len(header)]
@@ -137,23 +169,25 @@ def markdown_summary(results, limit):
         if after is None:
             row += ["", ""]
         else:
-            per_call = (after - results["import_only_seconds"]) / entry["calls"] * 1000
-            row += [f"{after / plain:.1f}x", f"{per_call:.1f} ms"]
+            imported = results["import_only_seconds"]
+            per_call = "" if imported is None else f"{(after - imported) / entry['calls'] * 1000:.1f} ms"
+            row += ["" if plain is None else f"{after / plain:.1f}x", per_call]
         if limit is not None:
             row.append("**too slow**" if entry["over_limit"] else "ok")
         lines.append("| " + " | ".join(row) + " |")
     notes = [f"Median of {results['runs']} cold compiles each with `{results['compiler']}`."]
+    notes.append(f"Workload: {results['workload']}; initial variables: {results['initial_values']}.")
     if baseline:
         notes.append(f"Before is `{results['baseline']}`; After is this change.")
-    notes.append(f"Importing math-once without using it takes {results['import_only_seconds']:.2f} s, "
-                 f"an empty document {results['empty_seconds']:.2f} s; 'Per calculation' excludes the import.")
+    notes.append(f"Importing math-once without using it: {seconds(results['import_only_seconds'])}; "
+                 f"empty document: {seconds(results['empty_seconds'])}. 'Per calculation' excludes the import.")
     return "\n".join(lines + ["", " ".join(notes), ""]) + "\n"
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sections", type=int, nargs="+", default=[1, 5, 20, 50],
-                        help=f"Document sizes; each section has {CALLS_PER_SECTION} math-once calls")
+                        help="Document sizes; each section has 10 scalar calls, or 14 mixed calls")
     parser.add_argument("--runs", type=int, default=3, help="Compiles per document; the median is reported")
     parser.add_argument("--timeout", type=float, default=300, help="Seconds per compile")
     parser.add_argument("--output", type=Path, default=None, help="Default: build/speed-test")
@@ -165,9 +199,18 @@ def main():
                         help="Exit with status 1 when a math-once document takes longer than this")
     parser.add_argument("--summary", type=Path, default=None,
                         help="Also append the results as a Markdown table to this file, such as $GITHUB_STEP_SUMMARY")
+    parser.add_argument("--workload", choices=("scalar", "mixed"), default="scalar",
+                        help="Mixed adds stored functions, vectors, and matrices")
+    parser.add_argument("--initial-values", type=int, default=0, help="Seed the builder with this many unused initial variables")
     args = parser.parse_args()
     if args.runs < 1 or any(size < 1 for size in args.sections):
         parser.error("sections and runs must be positive")
+    if args.initial_values < 0:
+        parser.error("initial-values must be nonnegative")
+    if not math.isfinite(args.timeout) or args.timeout <= 0:
+        parser.error("timeout must be finite and positive")
+    if args.max_seconds is not None and (not math.isfinite(args.max_seconds) or args.max_seconds <= 0):
+        parser.error("max-seconds must be finite and positive")
     compiler = shutil.which(args.typst)
     if compiler is None:
         parser.error(f"Typst executable not found: {args.typst}")
@@ -176,7 +219,7 @@ def main():
     if root not in output.parents:
         parser.error("--output must be inside the repository, so documents can import math-once.typ")
     output.mkdir(parents=True, exist_ok=True)
-    current_header = math_once_header("/math-once.typ")
+    current_header = math_once_header("/math-once.typ", args.initial_values)
     baseline_header = None
     if args.baseline is not None:
         if not args.baseline.is_file():
@@ -185,37 +228,39 @@ def main():
         copied = output / "baseline-math-once.typ"
         if args.baseline.resolve() != copied:
             shutil.copyfile(args.baseline, copied)
-        baseline_header = math_once_header("/" + copied.relative_to(root).as_posix())
+        baseline_header = math_once_header("/" + copied.relative_to(root).as_posix(), args.initial_values)
+
+    samples = {}
 
     def measure(name, text):
         source = output / f"{name}.typ"
         source.write_text(text)
-        times = []
+        times = samples[name] = []
         for _ in range(args.runs):
             elapsed = time_compile(compiler, root, source, args.timeout)
+            times.append(elapsed)
             if elapsed is None:
                 return None
-            times.append(elapsed)
         return statistics.median(times)
 
     # Importing math-once has a fixed cost that is paid once per document,
     # however many calculations follow.
     empty = measure("empty", "Nothing here.\n")
     import_only = measure("import-only", current_header + "Nothing here.\n")
-    print(f"Empty document: {empty:.2f} s. Importing math-once without using it: {import_only:.2f} s.\n")
+    print(f"Empty document: {seconds(empty)}. Importing math-once without using it: {seconds(import_only)}.\n")
     columns = f"{'calls':>6} {'plain':>9}" + (f" {'before':>9}" if baseline_header else "")
     print(columns + f" {'math-once':>10} {'slower':>8} {'per call':>10}" + (f" {'change':>14}" if baseline_header else ""))
     results = {"compiler": subprocess.check_output([compiler, "--version"], text=True).strip(),
-               "runs": args.runs, "empty_seconds": empty, "import_only_seconds": import_only,
+               "runs": args.runs, "initial_values": args.initial_values, "workload": args.workload, "empty_seconds": empty, "import_only_seconds": import_only,
                "baseline": (args.baseline_label or str(args.baseline)) if baseline_header else None,
-               "max_seconds": args.max_seconds, "documents": []}
+               "max_seconds": args.max_seconds, "samples_seconds": samples, "documents": []}
     # A baseline that times out is not timed again at larger sizes.
     baseline_alive = baseline_header is not None
     for size in sorted(set(args.sections)):
         indexes = range(1, size + 1)
-        calls = size * CALLS_PER_SECTION
-        body = "".join(math_once_section(index) for index in indexes)
-        plain = measure(f"plain-{size}", "".join(plain_section(index) for index in indexes))
+        calls = size * (CALLS_PER_SECTION + (4 if args.workload == "mixed" else 0))
+        body = "".join(math_once_section(index) + (mixed_section(index) if args.workload == "mixed" else "") for index in indexes)
+        plain = measure(f"plain-{size}", "".join(plain_section(index) + (mixed_section(index, plain=True) if args.workload == "mixed" else "") for index in indexes))
         before = measure(f"baseline-{size}", baseline_header + body) if baseline_alive else None
         baseline_alive = before is not None
         with_package = measure(f"math-once-{size}", current_header + body)
@@ -228,8 +273,9 @@ def main():
             print(row + f" {'timeout':>10}", flush=True)
             print(f"\nStopped: math-once took longer than {args.timeout:g} s. Larger documents were skipped.")
             break
-        per_call = (with_package - import_only) / calls * 1000
-        row += f" {seconds(with_package):>10} {with_package / plain:>7.1f}x {per_call:>7.1f} ms"
+        per_call = "unknown" if import_only is None else f"{(with_package - import_only) / calls * 1000:.1f} ms"
+        ratio = "unknown" if plain is None else f"{with_package / plain:.1f}x"
+        row += f" {seconds(with_package):>10} {ratio:>8} {per_call:>10}"
         print(row + (f" {change(before, with_package):>14}" if baseline_header else ""), flush=True)
     (output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
     if args.summary is not None:
@@ -241,6 +287,9 @@ def main():
     if too_slow:
         limit = f"{args.max_seconds:g} s limit" if args.max_seconds is not None else f"{args.timeout:g} s timeout"
         print(f"Too slow: the documents with {', '.join(map(str, too_slow))} calculations exceeded the {limit}.")
+        return 1
+    if empty is None or import_only is None or any(entry["plain_seconds"] is None for entry in results["documents"]):
+        print("Incomplete benchmark: a control document timed out.")
         return 1
     return 0
 

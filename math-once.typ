@@ -1,4 +1,4 @@
-// Faster compilation (0.46.0)
+// Faster result-only rendering (0.46.0)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -5970,6 +5970,9 @@ let calculation-builder(
 
     // Share assignment rendering between context output and state updates.
     let assignment-body(result, current, aliases, tokens) = {
+      if result-only {
+        return render-result(result, aliases: aliases, show-unit: show-unit)
+      }
       let name-scope = current
       name-scope.insert(name, 0)
       let labelled-body = render-tokens((name,), scope: name-scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current, aliases: aliases)
@@ -5986,12 +5989,7 @@ let calculation-builder(
           labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases, show-unit: show-unit)
         }
       }
-      let visible-body = if result-only {
-        render-result(result, aliases: aliases, show-unit: show-unit)
-      } else {
-        labelled-body
-      }
-      visible-body
+      labelled-body
     }
 
     let stable-tokens = expression-tokens(expression)

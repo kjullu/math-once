@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 import re
 import shutil
+import statistics
 import subprocess
 import time
 
@@ -22,10 +23,25 @@ def main():
     parser.add_argument("--sections", type=int, default=8)
     parser.add_argument("--equations", type=int, default=30)
     parser.add_argument("--timings", action="store_true", help="Also retain compiler traces, which add overhead")
+    parser.add_argument("--runs", type=int, default=3, help="Fresh watch processes; report median edit times")
+    parser.add_argument("--workload", choices=("independent", "chain"), default="independent")
+    parser.add_argument("--result-only", action="store_true", help="Render only results, including stored assignments")
     args = parser.parse_args()
-    if args.sections < 1 or args.equations < 1:
-        parser.error("sections and equations must be positive")
+    if args.sections < 1 or args.equations < 1 or args.runs < 1:
+        parser.error("sections, equations, and runs must be positive")
     output = args.output.resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    runs = [benchmark(args, output / f"run-{run + 1}") for run in range(args.runs)]
+    results = []
+    for index, entry in enumerate(runs[0]):
+        samples = [run[index]["seconds"] for run in runs]
+        results.append({"edit": entry["edit"], "median_seconds": statistics.median(samples),
+                        "samples_seconds": samples})
+    (output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
+    print(json.dumps(results, indent=2))
+
+
+def benchmark(args, output):
     output.mkdir(parents=True, exist_ok=True)
     implementation = args.implementation.resolve()
     copied = output / "math-once.typ"
@@ -40,16 +56,23 @@ def main():
         body = "#reset()\n"
         if extra:
             body += '#eq(`extra := 99`)\n'
-        body += "".join(
-            f'#eq(`v_{index} := {value} * {multiplier}`)\n'
-            for index, value in enumerate(values)
-        )
+        expected = []
+        for index, value in enumerate(values):
+            if args.workload == "chain" and index > 0:
+                expression = f"v_{index - 1} + {multiplier}"
+                expected.append(expected[-1] + multiplier)
+            else:
+                expression = f"{value} * {multiplier}"
+                expected.append(value * multiplier)
+            options = ", result-only: true" if args.result_only else ""
+            body += f'#eq(`v_{index} := {expression}`{options})\n'
+
         # Validate section routing during each edit, as well as measuring it.
         body += "#context {\n  let stored = eq()\n"
         body += f"  assert(stored.len() == {args.equations + int(extra)})\n"
         body += "".join(
-            f'  assert(stored.at("v_{index}").exact == {value * multiplier})\n'
-            for index, value in enumerate(values)
+            f'  assert(stored.at("v_{index}").exact == {value})\n'
+            for index, value in enumerate(expected)
         )
         return body + "}\n"
 
@@ -106,6 +129,12 @@ def main():
         finally:
             process.terminate()
             process.wait(timeout=10)
+    for result in results:
+        match = re.fullmatch(r"([0-9.]+)\s*(ns|µs|μs|us|ms|s)", result["time"])
+        if match is None:
+            raise ValueError(f"Unrecognized Typst duration: {result['time']}")
+        result["seconds"] = float(match[1]) * {"ns": 1e-9, "µs": 1e-6, "μs": 1e-6,
+                                               "us": 1e-6, "ms": 1e-3, "s": 1}[match[2]]
     (output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
     (output / "environment.json").write_text(json.dumps({
         "compiler": subprocess.check_output(["typst", "--version"], text=True).strip(),
@@ -113,8 +142,10 @@ def main():
         "sections": args.sections,
         "equations_per_section": args.equations,
         "traces": args.timings,
+        "workload": args.workload,
+        "result_only": args.result_only,
     }, indent=2) + "\n")
-    print(json.dumps(results, indent=2))
+    return results
 
 
 if __name__ == "__main__":

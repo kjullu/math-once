@@ -39,3 +39,22 @@ Use `--baseline path/to/older/math-once.typ` to time an earlier version next to 
 
 Timings depend on the machine, so this is not part of `tools/test.py`. The `Speed test` GitHub Actions workflow runs it on every pull request with the target branch as the baseline, posts the table as a comment on the pull request, and fails when a document exceeds the limit set by `MAX_SECONDS` in `.github/workflows/speed-test.yml`. It measures full compiles; `tools/benchmark-incremental.py` measures edits in a running `typst watch`.
 
+
+Use `--workload mixed` to add a stored vector-valued function and a matrix product to each section. Each mixed section has 14 builder calls and checks the product's components. `--initial-values 100` seeds the builder with 100 unused variables to measure the cost of a large initial state. For example:
+
+```sh
+python3 tools/speed-test.py --workload mixed --initial-values 100 --sections 5 20 --runs 5
+```
+
+Cold-compile `results.json` also retains individual samples under `samples_seconds`. A timeout in an empty, import-only, or plain document marks the benchmark incomplete and fails the command. The report retains available timings and leaves unavailable ratios blank.
+
+For edits in a persistent watch process, run:
+
+```sh
+python3 tools/benchmark-incremental.py --workload chain --runs 5 --output build/watch-chain
+python3 tools/benchmark-incremental.py --workload chain --result-only --runs 5 --output build/watch-results
+```
+
+The default workload uses independent assignments. `--workload chain` makes every assignment depend on the preceding result, so changing the first value must update the entire chain. Every section checks all its stored values after each edit. `--result-only` also applies to the assignments themselves.
+
+Each run starts a fresh watch process and retains sources, logs, timings, and compiler metadata under `run-N/`. The top-level `results.json` contains the samples and median for each edit. The default is three runs. For a before/after comparison, pass `--implementation path/to/older/math-once.typ` and use separate output directories. On a busy machine, alternate before/after runs to reduce bias from changing load. Compiler traces from `--timings` add overhead; use them to investigate work done rather than to claim normal compile speed.
