@@ -8,6 +8,7 @@
 - Each builder call creates much smaller closures, and the token work that does not depend on stored values runs once instead of in every layout pass.
 - Helpers that are called thousands of times no longer receive the complete stored state or whole result dictionaries. Typst hashes every argument of every function call, so this removes most of the time spent outside the calculations themselves.
 - Added regression fixtures for assignments after `unload`, function definitions and renames that depend on earlier state, and stored results shown with every display option.
+- Lowered the pull request compile-speed limit from 7.5 s to 5 s per document. The 500-calculation document takes about 2.5 s on the GitHub runner.
 
 ## 0.47.0
 
