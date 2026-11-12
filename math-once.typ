@@ -1,4 +1,4 @@
-// math-once v0.47.0
+// math-once v0.47.1
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -543,30 +543,31 @@ let prefixable = (
 
 let binary-prefixable = ("bit", "B", "byte", "o", "octet")
 
-let resolve-unit(name) = {
-  if name in units { return units.at(name) }
+// Resolve the finite prefix catalog once, preserving the first matching prefix.
+let prefixed-units = {
+  let resolved = (:)
   for (prefix, factor) in prefixes {
-    if name.starts-with(prefix) {
-      let base = name.slice(prefix.len())
-      if base in prefixable {
-        let unit = units.at(base)
-        if unit.at("offset", default: 0.0) == 0.0 {
-          return (scale: factor * unit.scale, dims: unit.dims, offset: 0.0)
-        }
+    for base in prefixable {
+      let unit = units.at(base)
+      let name = prefix + base
+      if name not in resolved and unit.at("offset", default: 0.0) == 0.0 {
+        resolved.insert(name, (scale: factor * unit.scale, dims: unit.dims, offset: 0.0))
       }
     }
   }
   for (prefix, factor) in binary-prefixes {
-    if name.starts-with(prefix) {
-      let base = name.slice(prefix.len())
-      if base in binary-prefixable {
-        let unit = units.at(base)
-        return (scale: factor * unit.scale, dims: unit.dims, offset: 0.0)
+    for base in binary-prefixable {
+      let unit = units.at(base)
+      let name = prefix + base
+      if name not in resolved {
+        resolved.insert(name, (scale: factor * unit.scale, dims: unit.dims, offset: 0.0))
       }
     }
   }
-  none
+  resolved
 }
+
+let resolve-unit(name) = units.at(name, default: prefixed-units.at(name, default: none))
 
 let resolve-unit-with-aliases(name, aliases: (:)) = {
   if name in aliases { resolve-unit(aliases.at(name)) } else { resolve-unit(name) }
@@ -3129,12 +3130,8 @@ let variable-symbols = (
   Omega: "Ω",
 )
 
-let variable-symbol-name(symbol) = {
-  for (name, value) in variable-symbols {
-    if value == symbol { return name }
-  }
-  none
-}
+let variable-symbol-names = variable-symbols.pairs().map(((name, value)) => (value, name)).to-dict()
+let variable-symbol-name(symbol) = variable-symbol-names.at(symbol, default: none)
 
 let cas-functions = ("simplify", "diff", "integrate", "solve", "factor", "limit", "taylor")
 let rounding-functions = ("floor", "ceil", "round")
@@ -3185,34 +3182,39 @@ let calculated-assignment-pattern = regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)
 let reset-name-pattern = regex("^[A-Za-z]+(?:_[A-Za-z0-9]+)*$")
 let math-items(value) = if value.has("children") { value.children } else { (value,) }
 
+let source-space = [ ].func()
+let source-sequence = $a b$.body.func()
+let source-symbol = $alpha$.body.func()
+let vector-point-pattern = regex("^\\p{Lu}( \\p{Lu})+$")
 let math-source-part(value, parse, preserve-text: false) = {
-  if repr(value.func()) == "space" { return "" }
-  if repr(value.func()) == "sequence" {
+  let func = value.func()
+  if func == source-space { return "" }
+  if func == source-sequence {
     return parse(value)
   }
-  if repr(value.func()) == "accent" {
+  if func == math.accent {
     let base = parse(value.base)
     // Point names such as `arrow(A B)` form one vector name, `arrow_AB`.
-    if regex("^\\p{Lu}( \\p{Lu})+$") in base { base = base.replace(" ", "") }
+    if vector-point-pattern in base { base = base.replace(" ", "") }
     return "arrow_" + base
   }
-  if value.func() == math.vec {
+  if func == math.vec {
     return "vec(" + value.children.map(child => parse(child)).join(",") + ")"
   }
-  if value.func() == math.mat {
+  if func == math.mat {
     return "matrix(" + value.rows.map(row => row.map(child => parse(child)).join(",")).join(";") + ")"
   }
-  if value.func() == math.frac {
+  if func == math.frac {
     return "(" + parse(value.num) + ")/(" + parse(value.denom) + ")"
   }
-  if value.func() == math.root {
+  if func == math.root {
     return if value.has("index") {
       "root(" + parse(value.index) + "," + parse(value.radicand) + ")"
     } else {
       "sqrt(" + parse(value.radicand) + ")"
     }
   }
-  if value.func() == math.attach {
+  if func == math.attach {
     let base = math-source-part(value.base, parse)
     if value.has("b") {
       let subscript = parse(value.b)
@@ -3231,7 +3233,7 @@ let math-source-part(value, parse, preserve-text: false) = {
     }
     return base
   }
-  if value.func() == math.lr {
+  if func == math.lr {
     let parts = math-items(value.body)
     if parts.len() >= 3 {
       let left = parts.first()
@@ -3255,18 +3257,18 @@ let math-source-part(value, parse, preserve-text: false) = {
     }
     return parse(value.body)
   }
-  if value.func() == math.op {
+  if func == math.op {
     return parse(value.text)
   }
   if not value.has("text") {
-    panic("math-once calculate: unsupported Typst math element `" + repr(value.func()) + "`")
+    panic("math-once calculate: unsupported Typst math element `" + repr(func) + "`")
   }
 
   let token = value.text.trim()
   if token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix) {
     return token
   }
-  if (value.func() == text
+  if (func == text
     and preserve-text != false
     and variable-symbol-pattern in token
     and token not in source-functions
@@ -3282,7 +3284,7 @@ let math-source-part(value, parse, preserve-text: false) = {
   else if token in ("−",) { "-" }
   else if token in ("(", ")", ",", ";", "+", "-", "*", "×", "/", "^", "=") { token }
   else if token in ("°", "℃", "℉", "ℏ", "₂", "☉") { token }
-  else if (repr(value.func()) == "symbol"
+  else if (func == source-symbol
     and resolve-unit(token) == none
     and (symbol-by-value(token) != none or letters-pattern not in token)) {
     normalized-symbol-value(token)
@@ -3290,10 +3292,15 @@ let math-source-part(value, parse, preserve-text: false) = {
   else { token }
 }
 
-let math-source-body(body, preserve-text: false) = math-items(body).map(item => {
+let math-source-body(body, preserve-text: false) = {
   let parse = child => math-source-body(child, preserve-text: preserve-text)
-  if item == [#math.eq] { "=" } else { math-source-part(item, parse, preserve-text: preserve-text) }
-}).filter(item => item != "").join(" ")
+  let parts = ()
+  for item in math-items(body) {
+    let part = if item == [#math.eq] { "=" } else { math-source-part(item, parse, preserve-text: preserve-text) }
+    if part != "" { parts.push(part) }
+  }
+  parts.join(" ")
+}
 
 let input-source(source, preserve-text: false) = if type(source) == content and source.func() == math.equation {
   math-source-body(source.body, preserve-text: preserve-text).trim()
@@ -3317,11 +3324,11 @@ let tokenize(source) = {
       panic("math-once calculate: unsupported syntax near `" + source.slice(cursor, found.start) + "`")
     }
     let token = found.text
-    let entry = symbol-by-name(token)
-    tokens.push(if is-math-symbol(token) {
+    let entry = typst-symbol-catalog.at(token, default: none)
+    tokens.push(if (token.starts-with(math-symbol-prefix) and token.ends-with(math-symbol-suffix)) {
       token
     } else if entry != none and token not in variable-symbols and resolve-unit(token) == none and token not in source-functions {
-      normalized-symbol(token, value: entry.value)
+      normalized-symbol(token, value: entry)
     } else if (tokenize-raw-only in token
       and resolve-unit(token) == none
       and token not in ("=", "(", ")", ",", ";", "+", "-", "*", "×", "/", "^", "|")) {
@@ -3352,7 +3359,7 @@ let input-decimal-places(token) = {
 let automatic-digits(tokens, scope, fallback: 4) = {
   let places = ()
   for token in tokens {
-    if is-number(token) {
+    if (number-pattern in token) {
       places.push(input-decimal-places(token))
     } else if token in scope {
       let item = scope.at(token)
@@ -3398,8 +3405,8 @@ let automatic-significant-digits(tokens, scope, fallback: 4) = {
       exponent-end = next + 1
       continue
     }
-    if index < exponent-end and is-number(token) { continue }
-    if is-number(token) {
+    if index < exponent-end and (number-pattern in token) { continue }
+    if (number-pattern in token) {
       counts.push(input-significant-digits(token))
     } else if token in scope {
       let item = scope.at(token)
@@ -3428,9 +3435,9 @@ let automatic-precision(digits, auto-digits) = {
 }
 
 let is-name(token) = name-pattern in token
-let is-quoted-unit(token) = token.len() >= 2 and token.starts-with("\"") and token.ends-with("\"")
+let is-quoted-unit(token) = token.starts-with("\"") and token.ends-with("\"") and token.len() >= 2
 let quoted-unit-name(token) = token.slice(1, token.len() - 1)
-let is-text-unit(token) = token.len() >= 2 and token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix)
+let is-text-unit(token) = token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix) and token.len() >= 2
 let text-unit-name(token) = token.slice(text-unit-prefix.len(), token.len() - text-unit-suffix.len())
 // Spelled-out ohm units, including prefixed forms such as `kohm`, display as Ω.
 let unit-display-name(name) = if name.ends-with("ohm") and resolve-unit(name) != none {
@@ -3438,8 +3445,8 @@ let unit-display-name(name) = if name.ends-with("ohm") and resolve-unit(name) !=
 } else {
   name
 }
-let can-end(token) = is-number(token) or is-name(token) or is-quoted-unit(token) or is-text-unit(token) or token == ")"
-let can-start(token) = is-number(token) or is-name(token) or is-quoted-unit(token) or is-text-unit(token) or token == "("
+let can-end(token) = (number-pattern in token) or (name-pattern in token) or (token.starts-with("\"") and token.ends-with("\"") and token.len() >= 2) or (token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix) and token.len() >= 2) or token == ")"
+let can-start(token) = (number-pattern in token) or (name-pattern in token) or (token.starts-with("\"") and token.ends-with("\"") and token.len() >= 2) or (token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix) and token.len() >= 2) or token == "("
 
 let add-implicit-multiplication(tokens) = {
   let result = ()
@@ -3455,9 +3462,11 @@ let add-implicit-multiplication(tokens) = {
   result
 }
 
+let degree-tokens = ("deg", "degree", "degrees", "°", "\"deg\"", "\"degree\"", "\"degrees\"", "\"°\"")
 let is-degree-token(token, scope: (:), aliases: (:)) = {
-  let name = if is-quoted-unit(token) { quoted-unit-name(token) } else { token }
-  name in ("deg", "degree", "degrees", "°") and name not in scope and name not in aliases
+  if token not in degree-tokens { return false }
+  let name = if token.starts-with("\"") { quoted-unit-name(token) } else { token }
+  name not in scope and name not in aliases
 }
 
 let unit-gap(tokens, aliases: (:)) = {
@@ -3494,7 +3503,16 @@ let absolute-value-tokens(tokens) = {
   if depth == 0 { result } else { none }
 }
 
+let rendered-operator-names = cas-functions + inverse-trigonometric-names + ("atan2",)
+let point-name-pattern = regex("^[A-Z]{2,}$")
+let plain-display-number-pattern = regex("^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)$")
+
 let render-tokens(tokens, scope: (:), aliases: (:)) = {
+  // A plain displayed scalar already is the exact math source the general
+  // renderer would assemble. Preserve eval's content tree directly.
+  if tokens.len() == 1 and plain-display-number-pattern in tokens.first() {
+    return eval(tokens.first(), mode: "math").body
+  }
   // Give magnitudes real paired delimiters so they scale with column vectors.
   // Leave unpaired/infix bars (such as a conditional) untouched.
   let absolute = absolute-value-tokens(tokens)
@@ -3502,7 +3520,7 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
   let absolute-opens = ()
   let absolute-closes = ()
   let parentheses = ()
-  for (index, token) in tokens.enumerate() {
+  for (index, token) in (if "abs" in tokens { tokens } else { () }).enumerate() {
     if token == "(" {
       let magnitude = tokens.at(index - 1, default: none) == "abs"
       parentheses.push(magnitude)
@@ -3515,7 +3533,7 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
     let parts = token.split("_")
     let render-part(part) = if part in variable-symbols {
       part
-    } else if part.len() == 1 or is-number(part) {
+    } else if part.len() == 1 or (number-pattern in part) {
       part
     } else {
       "\"" + part + "\""
@@ -3527,25 +3545,26 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
     "\"" + token + "\""
   }
 
-  let rendered = tokens.enumerate().map(((index, token)) => {
-    if index in absolute-opens {
+  let rendered = ()
+  for (index, token) in tokens.enumerate() {
+    rendered.push(if index in absolute-opens {
       "lr(|"
     } else if index in absolute-closes {
       "|)"
     } else if token == "abs" and index + 1 in absolute-opens {
       ""
-    } else if is-math-symbol(token) {
+    } else if (token.starts-with(math-symbol-prefix) and token.ends-with(math-symbol-suffix)) {
       let payload = math-symbol-payload(token)
       if payload.starts-with(":") {
         "class(\"normal\", " + repr(payload.slice(1)) + ")"
       } else {
         payload
       }
-    } else if is-text-unit(token) {
+    } else if (token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix) and token.len() >= 2) {
       "upright(\"" + text-unit-name(token) + "\")"
-    } else if is-degree-token(token, scope: scope, aliases: aliases) {
+    } else if (token in degree-tokens and (if token.starts-with("\"") { token.slice(1, token.len() - 1) } else { token }) not in scope and (if token.starts-with("\"") { token.slice(1, token.len() - 1) } else { token }) not in aliases) {
       "degree"
-    } else if is-quoted-unit(token) {
+    } else if (token.starts-with("\"") and token.ends-with("\"") and token.len() >= 2) {
       let name = quoted-unit-name(token)
       let symbol-tokens = tokenize(name)
       if resolve-unit(name) == none and name in variable-symbols {
@@ -3555,8 +3574,8 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
       } else {
         "upright(\"" + unit-display-name(name) + "\")"
       }
-    } else if is-name(token) {
-      if (token in cas-functions + inverse-trigonometric-names + ("atan2",)
+    } else if (name-pattern in token) {
+      if (token in rendered-operator-names
         and index + 1 < tokens.len()
         and tokens.at(index + 1) == "(") {
         "op(\"" + token + "\")"
@@ -3570,7 +3589,7 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
         let name = token.slice(6)
         let parts = name.split("_")
         // Draw point names such as `AB` as italic letters under one arrow.
-        if regex("^[A-Z]{2,}$") in parts.first() and parts.first() not in variable-symbols {
+        if point-name-pattern in parts.first() and parts.first() not in variable-symbols {
           let points = parts.first().clusters().join(" ")
           let rest = parts.slice(1)
           "arrow(" + points + ")" + if rest.len() > 0 { "_" + render-variable(rest.join("_")) } else { "" }
@@ -3598,7 +3617,7 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
       "plus.minus"
     } else if token == "∓" {
       "minus.plus"
-    } else if is-number(token) and exponent-marker-pattern in token {
+    } else if (number-pattern in token) and exponent-marker-pattern in token {
       // Written scientific notation renders as a coefficient times a power of ten.
       let (mantissa, exponent) = token.replace("E", "e").split("e")
       let power = mantissa + " dot 10^(" + str(int(exponent)) + ")"
@@ -3607,8 +3626,8 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
       if neighbors.any(item => item in ("/", "^")) { "(" + power + ")" } else { power }
     } else {
       token
-    }
-  })
+    })
+  }
   let source = ""
   for (index, item) in rendered.enumerate() {
     if item == "" { continue }
@@ -3703,7 +3722,7 @@ let expression-tokens(source) = {
 let dot-product-token = math-symbol-prefix + "bullet" + math-symbol-suffix
 let cross-product-message = "`times` (cross product) requires two vectors with three components"
 let dot-product-message = "`bullet` (dot product) requires two vectors with the same number of components"
-let is-display-only-token(token) = (is-math-symbol(token) and token != dot-product-token) or token == "|"
+let is-display-only-token(token) = (token.starts-with(math-symbol-prefix) and token.ends-with(math-symbol-suffix) and token != dot-product-token) or token == "|"
 
 let split-top-level(tokens, separator: ",") = {
   let parts = ()
@@ -3727,7 +3746,7 @@ let function-definition(source) = {
   let matched = source.match(function-definition-pattern)
   if matched == none { return none }
   let parameters = matched.captures.at(1).split(",").map(item => item.trim())
-  if parameters.len() == 0 or parameters.any(item => not is-name(item)) {
+  if parameters.len() == 0 or parameters.any(item => not (name-pattern in item)) {
     return none
   }
   let body = matched.captures.at(2).trim()
@@ -3805,18 +3824,18 @@ let expand-function-calls(tokens, scope, stack: (), depth: 0) = {
           stack: stack,
           depth: depth + 1,
         )
-        if is-calculation-failure(expanded-argument) { return expanded-argument }
+        if (type(expanded-argument) == dictionary and "error" in expanded-argument) { return expanded-argument }
         expanded-arguments.push(expanded-argument.first())
       }
       let expanded = substitute-function(definition, expanded-arguments)
-      if is-calculation-failure(expanded) { return expanded }
+      if (type(expanded) == dictionary and "error" in expanded) { return expanded }
       let nested = expand-function-calls(
         expanded,
         scope,
         stack: stack + (token,),
         depth: depth + 1,
       )
-      if is-calculation-failure(nested) { return nested }
+      if (type(nested) == dictionary and "error" in nested) { return nested }
       result.push("(")
       result += nested.first()
       result.push(")")
@@ -3845,7 +3864,7 @@ let function-call-name(tokens, index) = {
 
 let is-vector-result(result) = type(result) == dictionary and result.at("vector", default: false)
 let is-matrix-result(result) = type(result) == dictionary and result.at("matrix", default: false)
-let is-structure-result(result) = is-vector-result(result) or is-matrix-result(result)
+let is-structure-result(result) = type(result) == dictionary and (result.at("vector", default: false) or result.at("matrix", default: false))
 
 let numeric-scope(scope) = {
   let result = (:)
@@ -3855,7 +3874,7 @@ let numeric-scope(scope) = {
     let initial-state-marker = type(value) == dictionary and value.at("initial-state-marker", default: false)
     let stored-function = type(value) == dictionary and value.at("function", default: false)
     let symbolic-result = type(value) == dictionary and value.at("symbolic", default: false)
-    let structure-result = is-structure-result(value)
+    let structure-result = (type(value) == dictionary and (value.at("vector", default: false) or value.at("matrix", default: false)))
     if (not unloaded-marker
       and not unit-alias
       and not initial-state-marker
@@ -3940,13 +3959,13 @@ let matrix-result(rows, source: none) = (
 let intermediate-calculation(calculate-fn, source, ..args) = {
   let named = args.named()
   let result = calculate-fn(source, ..named)
-  if (is-calculation-failure(result)
+  if ((type(result) == dictionary and "error" in result)
     and named.at("unit", default: none) == none
     and result.error.starts-with("ambiguous unit")) {
     for fallback in ("1/s", "m^2/s^2", "kg*m^2/s^2", "cd") {
       named.insert("unit", fallback)
       let retry = calculate-fn(source, ..named)
-      if not is-calculation-failure(retry) { return retry }
+      if not (type(retry) == dictionary and "error" in retry) { return retry }
     }
   }
   result
@@ -3955,10 +3974,10 @@ let intermediate-calculation(calculate-fn, source, ..args) = {
 // `unit` and `size` apply to the final result: a scalar, or each component or
 // cell of a vector or matrix. Intermediate results use base SI units.
 let structure-operation(calculate-fn, left, operator, right, digits, aliases, unit: none, size: none, final: true) = {
-  let left-vector = is-vector-result(left)
-  let right-vector = is-vector-result(right)
-  let left-matrix = is-matrix-result(left)
-  let right-matrix = is-matrix-result(right)
+  let left-vector = (type(left) == dictionary and left.at("vector", default: false))
+  let right-vector = (type(right) == dictionary and right.at("vector", default: false))
+  let left-matrix = (type(left) == dictionary and left.at("matrix", default: false))
+  let right-matrix = (type(right) == dictionary and right.at("matrix", default: false))
   let left-structure = left-vector or left-matrix
   let right-structure = right-vector or right-matrix
 
@@ -4019,7 +4038,7 @@ let structure-operation(calculate-fn, left, operator, right, digits, aliases, un
         "mathoncel" + str(i) + " * mathoncer" + str(j) + " - mathoncel" + str(j) + " * mathoncer" + str(i),
         scope,
       )
-      if is-calculation-failure(result) { return result }
+      if (type(result) == dictionary and "error" in result) { return result }
       components.push(result)
     }
     return structure(vector-result(components))
@@ -4033,7 +4052,7 @@ let structure-operation(calculate-fn, left, operator, right, digits, aliases, un
       let components = ()
       for (a, b) in left.components.zip(right.components) {
         let result = combine(a, operator, b)
-        if is-calculation-failure(result) { return result }
+        if (type(result) == dictionary and "error" in result) { return result }
         components.push(result)
       }
       return structure(vector-result(components))
@@ -4047,7 +4066,7 @@ let structure-operation(calculate-fn, left, operator, right, digits, aliases, un
         let row = ()
         for (a, b) in left-row.zip(right-row) {
           let result = combine(a, operator, b)
-          if is-calculation-failure(result) { return result }
+          if (type(result) == dictionary and "error" in result) { return result }
           row.push(result)
         }
         rows.push(row)
@@ -4065,7 +4084,7 @@ let structure-operation(calculate-fn, left, operator, right, digits, aliases, un
       let components = ()
       for component in left.components {
         let result = combine(component, "/", right)
-        if is-calculation-failure(result) { return result }
+        if (type(result) == dictionary and "error" in result) { return result }
         components.push(result)
       }
       return structure(vector-result(components))
@@ -4075,7 +4094,7 @@ let structure-operation(calculate-fn, left, operator, right, digits, aliases, un
       let row = ()
       for cell in source-row {
         let result = combine(cell, "/", right)
-        if is-calculation-failure(result) { return result }
+        if (type(result) == dictionary and "error" in result) { return result }
         row.push(result)
       }
       rows.push(row)
@@ -4092,7 +4111,7 @@ let structure-operation(calculate-fn, left, operator, right, digits, aliases, un
       let components = ()
       for component in right.components {
         let result = combine(left, "*", component)
-        if is-calculation-failure(result) { return result }
+        if (type(result) == dictionary and "error" in result) { return result }
         components.push(result)
       }
       return structure(vector-result(components))
@@ -4102,7 +4121,7 @@ let structure-operation(calculate-fn, left, operator, right, digits, aliases, un
       let row = ()
       for cell in source-row {
         let result = combine(left, "*", cell)
-        if is-calculation-failure(result) { return result }
+        if (type(result) == dictionary and "error" in result) { return result }
         row.push(result)
       }
       rows.push(row)
@@ -4115,7 +4134,7 @@ let structure-operation(calculate-fn, left, operator, right, digits, aliases, un
       let components = ()
       for component in left.components {
         let result = combine(component, "*", right)
-        if is-calculation-failure(result) { return result }
+        if (type(result) == dictionary and "error" in result) { return result }
         components.push(result)
       }
       return structure(vector-result(components))
@@ -4125,7 +4144,7 @@ let structure-operation(calculate-fn, left, operator, right, digits, aliases, un
       let row = ()
       for cell in source-row {
         let result = combine(cell, "*", right)
-        if is-calculation-failure(result) { return result }
+        if (type(result) == dictionary and "error" in result) { return result }
         row.push(result)
       }
       rows.push(row)
@@ -4144,7 +4163,7 @@ let structure-operation(calculate-fn, left, operator, right, digits, aliases, un
     let components = ()
     for row in left.rows {
       let result = sum-of-products(row, right.components)
-      if is-calculation-failure(result) { return result }
+      if (type(result) == dictionary and "error" in result) { return result }
       components.push(result)
     }
     return structure(vector-result(components))
@@ -4157,7 +4176,7 @@ let structure-operation(calculate-fn, left, operator, right, digits, aliases, un
     let components = ()
     for column in range(right.shape.last()) {
       let result = sum-of-products(left.components, right.rows.map(row => row.at(column)))
-      if is-calculation-failure(result) { return result }
+      if (type(result) == dictionary and "error" in result) { return result }
       components.push(result)
     }
     return structure(vector-result(components))
@@ -4171,7 +4190,7 @@ let structure-operation(calculate-fn, left, operator, right, digits, aliases, un
     let row = ()
     for column in range(right.shape.last()) {
       let result = sum-of-products(left-row, right.rows.map(source-row => source-row.at(column)))
-      if is-calculation-failure(result) { return result }
+      if (type(result) == dictionary and "error" in result) { return result }
       row.push(result)
     }
     rows.push(row)
@@ -4200,6 +4219,18 @@ let top-level-structure-operator(tokens) = {
 }
 
 let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, strict-units: false, unit: none, size: none, final: true) = {
+  let has-structure = dot-product-token in tokens
+  if not has-structure {
+    for token in tokens {
+      if token in ("vec", "mat", "matrix") { has-structure = true; break }
+      let item = scope.at(token, default: none)
+      if type(item) == dictionary and (item.at("vector", default: false) or item.at("matrix", default: false)) {
+        has-structure = true
+        break
+      }
+    }
+  }
+  if not has-structure { return none }
   tokens = unwrap-tokens(tokens)
   let scalar-scope = numeric-scope(scope)
   let components = vector-components(tokens)
@@ -4219,7 +4250,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
         strict-units: strict-units,
         soft: true,
       )
-      if is-calculation-failure(result) { return result }
+      if (type(result) == dictionary and "error" in result) { return result }
       if result.at("alternatives", default: false) {
         return calculation-failure("paired plus/minus results are not supported inside a vector")
       }
@@ -4254,7 +4285,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
           strict-units: strict-units,
           soft: true,
         )
-        if is-calculation-failure(result) { return result }
+        if (type(result) == dictionary and "error" in result) { return result }
         if result.at("alternatives", default: false) {
           return calculation-failure("paired plus/minus results are not supported inside a matrix")
         }
@@ -4267,7 +4298,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
 
   if tokens.len() == 1 {
     let stored = scope.at(tokens.first(), default: none)
-    if is-structure-result(stored) { return stored }
+    if (type(stored) == dictionary and (stored.at("vector", default: false) or stored.at("matrix", default: false))) { return stored }
   }
 
   let operator-index = top-level-structure-operator(tokens)
@@ -4275,23 +4306,23 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
     let left-tokens = tokens.slice(0, operator-index)
     let right-tokens = tokens.slice(operator-index + 1)
     let left = evaluate-structure(calculate-fn, left-tokens, digits, scope, aliases, unloaded, strict-units: strict-units, final: false)
-    if is-calculation-failure(left) { return left }
+    if (type(left) == dictionary and "error" in left) { return left }
     let right = evaluate-structure(calculate-fn, right-tokens, digits, scope, aliases, unloaded, strict-units: strict-units, final: false)
-    if is-calculation-failure(right) { return right }
+    if (type(right) == dictionary and "error" in right) { return right }
     if left == none and right == none { return none }
     if left == none {
       left = intermediate-calculation(
         calculate-fn, left-tokens.join(" "), digits: digits, scope: scalar-scope, block: false,
         unloaded: unloaded, aliases: aliases, strict-units: strict-units, soft: true,
       )
-      if is-calculation-failure(left) { return left }
+      if (type(left) == dictionary and "error" in left) { return left }
     }
     if right == none {
       right = intermediate-calculation(
         calculate-fn, right-tokens.join(" "), digits: digits, scope: scalar-scope, block: false,
         unloaded: unloaded, aliases: aliases, strict-units: strict-units, soft: true,
       )
-      if is-calculation-failure(right) { return right }
+      if (type(right) == dictionary and "error" in right) { return right }
     }
     return structure-operation(
       calculate-fn, left, tokens.at(operator-index), right, digits, aliases, unit: unit, size: size, final: final,
@@ -4303,11 +4334,11 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
     let argument-tokens = unwrap-tokens(tokens.slice(1))
     if argument-tokens != tokens.slice(1) {
       let argument = evaluate-structure(calculate-fn, argument-tokens, digits, scope, aliases, unloaded, strict-units: strict-units, final: false)
-      if is-calculation-failure(argument) { return argument }
-      if is-matrix-result(argument) {
+      if (type(argument) == dictionary and "error" in argument) { return argument }
+      if (type(argument) == dictionary and argument.at("matrix", default: false)) {
         return calculation-failure(tokens.first() + " requires a scalar" + if tokens.first() == "abs" { " or vector, not a matrix" } else { ", not a matrix" })
       }
-      if is-vector-result(argument) and tokens.first() == "abs" {
+      if (type(argument) == dictionary and argument.at("vector", default: false)) and tokens.first() == "abs" {
         let component-scope = (:)
         let terms = ()
         for (index, component) in argument.components.enumerate() {
@@ -4328,7 +4359,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
           )
         }
       }
-      if argument != none and not is-structure-result(argument) {
+      if argument != none and not (type(argument) == dictionary and (argument.at("vector", default: false) or argument.at("matrix", default: false))) {
         let source = tokens.first() + "(mathonceargument)"
         return if final {
           calculate-fn(
@@ -4347,7 +4378,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
 
   if tokens.len() > 1 and tokens.first() == "-" {
     let inner = evaluate-structure(calculate-fn, tokens.slice(1), digits, scope, aliases, unloaded, strict-units: strict-units, final: false)
-    if is-calculation-failure(inner) { return inner }
+    if (type(inner) == dictionary and "error" in inner) { return inner }
     if inner != none {
       let minus-one = calculate-fn("-1", digits: digits, block: false, soft: true)
       return structure-operation(calculate-fn, minus-one, "*", inner, digits, aliases, unit: unit, size: size, final: final)
@@ -4368,7 +4399,7 @@ let paired-sign-branches(tokens) = (
   tokens.map(token => if token == "±" { "-" } else if token == "∓" { "+" } else { token }),
 )
 
-let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, unloaded, aliases, strict-units: false) = {
+let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, unloaded, aliases, strict-units: false, render: true) = {
   let result = evaluate-structure(
     calculate-fn,
     add-implicit-multiplication(tokens),
@@ -4392,10 +4423,11 @@ let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, u
       aliases: aliases,
       strict-units: strict-units,
       soft: true,
+      render: render,
     )
   }
-  if is-calculation-failure(result) { return result }
-  if (is-structure-result(result) and (unit != none or size != none)
+  if (type(result) == dictionary and "error" in result) { return result }
+  if ((type(result) == dictionary and (result.at("vector", default: false) or result.at("matrix", default: false))) and (unit != none or size != none)
     and not result.at("unit-applied", default: false)) {
     return calculation-failure("unit and size are not supported for a whole vector or matrix result")
   }
@@ -4408,11 +4440,11 @@ let equivalent-tokens(left, right) = {
   right = comparable-unit-tokens(right)
   if left.len() != right.len() { return false }
   for (left-token, right-token) in left.zip(right) {
-    if is-number(left-token) and is-number(right-token) {
+    if (number-pattern in left-token) and (number-pattern in right-token) {
       if float(left-token) != float(right-token) { return false }
-    } else if is-quoted-unit(left-token) and quoted-unit-name(left-token) == right-token {
+    } else if (left-token.starts-with("\"") and left-token.ends-with("\"") and left-token.len() >= 2) and quoted-unit-name(left-token) == right-token {
       continue
-    } else if is-quoted-unit(right-token) and quoted-unit-name(right-token) == left-token {
+    } else if (right-token.starts-with("\"") and right-token.ends-with("\"") and right-token.len() >= 2) and quoted-unit-name(right-token) == left-token {
       continue
     } else if left-token != right-token {
       return false
@@ -4507,14 +4539,14 @@ let result-tokens(result) = {
 // Retokenize displayed components so negative values use the same separate
 // minus and number tokens as the written expression.
 let structure-equivalent(tokens, result) = {
-  if is-vector-result(result) {
+  if (type(result) == dictionary and result.at("vector", default: false)) {
     let components = vector-components(tokens)
     return (components != none
       and components.len() == result.components.len()
       and components.zip(result.components).all(((tokens, component)) =>
         equivalent-tokens(tokens, tokenize(result-tokens(component).join(" ")))))
   }
-  if is-matrix-result(result) {
+  if (type(result) == dictionary and result.at("matrix", default: false)) {
     let rows = matrix-rows(tokens)
     return (rows != none
       and rows.len() == result.rows.len()
@@ -4573,8 +4605,8 @@ let expand-variables(tokens, scope) = {
     let unloaded-marker = type(item) == dictionary and item.at("unloaded", default: false) and "si-value" not in item
     let unit-alias = type(item) == dictionary and item.at("unit-alias", default: false)
     let symbolic-result = type(item) == dictionary and item.at("symbolic", default: false)
-    let structure-result = is-structure-result(item)
-    if (is-name(token)
+    let structure-result = (type(item) == dictionary and (item.at("vector", default: false) or item.at("matrix", default: false)))
+    if ((name-pattern in token)
       and token in scope
       and not unloaded-marker
       and not unit-alias
@@ -4623,8 +4655,8 @@ let built-in-constants = (e: calc.e, pi: calc.pi)
 let is-built-in-constant(name) = name in built-in-constants
 let is-stored-variable(item) = (
   not is-unloaded-marker(item)
-  and not is-unit-alias(item)
-  and not is-stored-function(item)
+  and not (type(item) == dictionary and item.at("unit-alias", default: false))
+  and not (type(item) == dictionary and item.at("function", default: false))
   and not is-initial-state-marker(item)
 )
 
@@ -4652,7 +4684,7 @@ let symbolic-call(tokens) = {
   )
 }
 
-let symbolic-token-name(token) = if is-quoted-unit(token) {
+let symbolic-token-name(token) = if (token.starts-with("\"") and token.ends-with("\"") and token.len() >= 2) {
   quoted-unit-name(token)
 } else {
   token
@@ -4750,24 +4782,24 @@ let symbolic-result(call, scope) = {
   }
 
   let input = symbolic-expression(arguments.first(), scope)
-  if is-calculation-failure(input) { return input }
+  if (type(input) == dictionary and "error" in input) { return input }
 
   let result = if operation == "simplify" {
     cas.simplify(input)
   } else if operation in ("diff", "integrate") {
     let variable = symbolic-name-argument(arguments.at(1), operation)
-    if is-calculation-failure(variable) { return variable }
+    if (type(variable) == dictionary and "error" in variable) { return variable }
     if operation == "diff" { cas.diff(input, variable) } else { cas.integrate(input, variable) }
   } else if operation == "solve" {
     let variable-tokens = arguments.last()
     let variable = symbolic-name-argument(variable-tokens, operation)
-    if is-calculation-failure(variable) { return variable }
+    if (type(variable) == dictionary and "error" in variable) { return variable }
     let right = if arguments.len() == 3 {
       symbolic-expression(arguments.at(1), scope)
     } else {
       0
     }
-    if is-calculation-failure(right) { return right }
+    if (type(right) == dictionary and "error" in right) { return right }
     cas.solve(input, rhs: right, var: variable)
   } else if operation == "factor" {
     let variable = if arguments.len() == 2 {
@@ -4775,19 +4807,19 @@ let symbolic-result(call, scope) = {
     } else {
       "x"
     }
-    if is-calculation-failure(variable) { return variable }
+    if (type(variable) == dictionary and "error" in variable) { return variable }
     cas.factor(input, variable)
   } else if operation == "limit" {
     let variable = symbolic-name-argument(arguments.at(1), operation)
-    if is-calculation-failure(variable) { return variable }
+    if (type(variable) == dictionary and "error" in variable) { return variable }
     let target = symbolic-expression(arguments.at(2), scope)
-    if is-calculation-failure(target) { return target }
+    if (type(target) == dictionary and "error" in target) { return target }
     cas.limit(input, variable, target)
   } else {
     let variable = symbolic-name-argument(arguments.at(1), operation)
-    if is-calculation-failure(variable) { return variable }
+    if (type(variable) == dictionary and "error" in variable) { return variable }
     let center = symbolic-expression(arguments.at(2), scope)
-    if is-calculation-failure(center) { return center }
+    if (type(center) == dictionary and "error" in center) { return center }
     let order-source = symbolic-source(arguments.at(3))
     if integer-pattern not in order-source {
       return calculation-failure("taylor: the order must be a non-negative integer")
@@ -4867,10 +4899,13 @@ let checkpoint-update(variables, update) = if query(here()).len() > 0 {
 let unit-aliases(scope) = {
   let aliases = (:)
   for (name, item) in scope {
-    if is-unit-alias(item) { aliases.insert(name, item.original) }
+    if (type(item) == dictionary and item.at("unit-alias", default: false)) { aliases.insert(name, item.original) }
   }
   aliases
 }
+
+// Memoize only the unit spelling, never the stored result or builder state.
+let referenced-unit-tokens(unit) = unit.matches(tokenize-pattern).map(found => found.text)
 
 // Follow only names reachable from this equation. Function bodies are resolved
 // against the current state at each call, not captured when defined. Visiting
@@ -4880,35 +4915,45 @@ let referenced-scope(tokens, scope) = {
   let seen = (:)
   // Initial values come first, as in the complete state, so validation
   // reports the same entry when several are invalid.
-  let pending = state-initial-values(scope).keys() + tokens
+  let marker = scope.at(initial-state-marker-name, default: none)
+  let initial = if type(marker) == dictionary and marker.at("initial-state-marker", default: false) { marker.values } else { (:) }
+  let pending = initial.keys() + tokens
   let index = 0
   while index < pending.len() {
     let token = pending.at(index)
     index += 1
-    let name = if is-quoted-unit(token) { quoted-unit-name(token) } else { token }
+    let quoted = token.starts-with("\"") and token.ends-with("\"") and token.len() >= 2
+    let name = if quoted { token.slice(1, token.len() - 1) } else { token }
     if name in seen { continue }
     seen.insert(name, true)
-    if is-quoted-unit(token) and name == "Omega" { pending.push("Ω") }
+    if quoted and name == "Omega" { pending.push("Ω") }
     if name not in scope { continue }
     let item = scope.at(name)
     selected.insert(name, item)
-    if is-stored-function(item) {
+    if (type(item) == dictionary and item.at("function", default: false)) {
       pending += item.body-tokens
-    } else if is-unit-alias(item) {
+    } else if (type(item) == dictionary and item.at("unit-alias", default: false)) {
       pending.push(item.original)
+    } else if type(item) == dictionary and not item.at("vector", default: false) and not item.at("matrix", default: false) {
+      if "unit" in item {
+        let unit = item.at("unit-source", default: item.unit)
+        if type(unit) == str {
+          pending += referenced-unit-tokens(unit)
+        }
+      }
     } else if type(item) == dictionary {
       // Substitution can introduce units absent from the original expression.
       let values = (item,)
       while values.len() > 0 {
         let value = values.pop()
-        if is-vector-result(value) {
+        if (type(value) == dictionary and value.at("vector", default: false)) {
           values += value.components
-        } else if is-matrix-result(value) {
+        } else if (type(value) == dictionary and value.at("matrix", default: false)) {
           for row in value.rows { values += row }
         } else if "unit" in value {
-          let unit = result-unit-source(value)
+          let unit = value.at("unit-source", default: value.unit)
           if type(unit) == str {
-            pending += unit.matches(tokenize-pattern).map(found => found.text)
+            pending += referenced-unit-tokens(unit)
           }
         }
       }
@@ -4920,7 +4965,7 @@ let referenced-scope(tokens, scope) = {
 let missing-variables(tokens, scope, unloaded, aliases: (:)) = {
   let missing = ()
   for token in tokens {
-    if (is-name(token)
+    if ((name-pattern in token)
       and token not in source-functions
       and token != "to"
       and (token not in scope or is-unloaded-marker(scope.at(token, default: (:))))
@@ -4935,12 +4980,13 @@ let missing-variables(tokens, scope, unloaded, aliases: (:)) = {
 let normalize-scope(scope) = {
   let normalized = (:)
   for (name, item) in scope {
-    if (is-unloaded-marker(item)
-      or is-unit-alias(item)
-      or is-initial-state-marker(item)
-      or is-stored-function(item)
-      or is-symbolic-result(item)) { continue }
-    if resolve-unit(name) != none and not is-unloaded(item) {
+    if type(item) == dictionary and (
+      (item.at("unloaded", default: false) == true and "si-value" not in item)
+      or item.at("unit-alias", default: false)
+      or item.at("initial-state-marker", default: false)
+      or item.at("function", default: false)
+      or item.at("symbolic", default: false)) { continue }
+    if resolve-unit(name) != none and not (type(item) == dictionary and item.at("unloaded", default: false) == true) {
       panic(
         "math-once calculate: `" + name
         + "` is a unit name and cannot be used as a variable",
@@ -5202,7 +5248,7 @@ let apply-function(name, argument, soft: false) = {
     argument.si-value
   }
   let special = special-angle-value(name, angle, soft: soft)
-  if is-calculation-failure(special) {
+  if (type(special) == dictionary and "error" in special) {
     return special
   }
   quantity(
@@ -5313,14 +5359,14 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
         return (calculation-fail("`" + token + "` must be followed by parentheses", soft: soft), position)
       }
       let (first, next) = parse-expression(tokens, position + 2)
-      if is-calculation-failure(first) { return (first, next) }
+      if (type(first) == dictionary and "error" in first) { return (first, next) }
       if token in ("root", "atan2") {
         if next >= tokens.len() or tokens.at(next) != "," {
           let arguments = if token == "root" { "an index and a radicand" } else { "y and x arguments" }
           return (calculation-fail("`" + token + "` requires " + arguments, soft: soft), next)
         }
         let (second, closing) = parse-expression(tokens, next + 1)
-        if is-calculation-failure(second) { return (second, closing) }
+        if (type(second) == dictionary and "error" in second) { return (second, closing) }
         if closing >= tokens.len() or tokens.at(closing) != ")" {
           return (calculation-fail("missing closing parenthesis after `" + token + "`", soft: soft), closing)
         }
@@ -5329,7 +5375,7 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
         } else {
           apply-atan2(first, second, soft: soft)
         }
-        if is-calculation-failure(left) { return (left, closing + 1) }
+        if (type(left) == dictionary and "error" in left) { return (left, closing + 1) }
         position = closing + 1
       } else {
         if next >= tokens.len() or tokens.at(next) != ")" {
@@ -5346,18 +5392,18 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
               add-implicit-multiplication(tokenize(first.preferred)),
               aliases: aliases, custom-units: true, strict-units: strict-units, soft: soft,
             )
-            if is-calculation-failure(preferred-unit) { return (preferred-unit, next + 1) }
+            if (type(preferred-unit) == dictionary and "error" in preferred-unit) { return (preferred-unit, next + 1) }
           }
           apply-rounding(token, first, preferred-unit: preferred-unit, soft: soft)
         } else {
           apply-function(token, first, soft: soft)
         }
-        if is-calculation-failure(left) { return (left, next + 1) }
+        if (type(left) == dictionary and "error" in left) { return (left, next + 1) }
         position = next + 1
       }
     } else if token == "+" or token == "-" {
       let (operand, next) = parse-expression(tokens, position + 1, minimum: 3)
-      if is-calculation-failure(operand) { return (operand, next) }
+      if (type(operand) == dictionary and "error" in operand) { return (operand, next) }
       left = if token == "-" {
         quantity(
           -operand.si-value,
@@ -5372,18 +5418,18 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
       position = next
     } else if token == "(" {
       let (inside, next) = parse-expression(tokens, position + 1)
-      if is-calculation-failure(inside) { return (inside, next) }
+      if (type(inside) == dictionary and "error" in inside) { return (inside, next) }
       if next >= tokens.len() or tokens.at(next) != ")" {
         return (calculation-fail("missing closing parenthesis", soft: soft), next)
       }
       left = inside
       position = next + 1
-    } else if is-number(token) {
+    } else if (number-pattern in token) {
       left = quantity(float(token))
       position += 1
-    } else if is-name(token) or is-quoted-unit(token) or is-text-unit(token) {
-      let symbolic = is-text-unit(token)
-      let quoted = is-quoted-unit(token)
+    } else if (name-pattern in token) or (token.starts-with("\"") and token.ends-with("\"") and token.len() >= 2) or (token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix) and token.len() >= 2) {
+      let symbolic = (token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix) and token.len() >= 2)
+      let quoted = (token.starts-with("\"") and token.ends-with("\"") and token.len() >= 2)
       let unit-name = if symbolic { text-unit-name(token) } else if quoted { quoted-unit-name(token) } else { token }
       if quoted and unit-name == "Omega" { unit-name = "Ω" }
       if symbolic and custom-units {
@@ -5457,16 +5503,16 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
       if op-precedence < minimum { break }
       let next-minimum = if op == "^" { op-precedence } else { op-precedence + 1 }
       let (right, next) = parse-expression(tokens, position + 1, minimum: next-minimum)
-      if is-calculation-failure(right) { return (right, next) }
+      if (type(right) == dictionary and "error" in right) { return (right, next) }
       left = apply-op(op, left, right, soft: soft)
-      if is-calculation-failure(left) { return (left, next) }
+      if (type(left) == dictionary and "error" in left) { return (left, next) }
       position = next
     }
     (left, position)
   }
 
   let (result, position) = parse-expression(tokens, 0)
-  if is-calculation-failure(result) { return result }
+  if (type(result) == dictionary and "error" in result) { return result }
   if position != tokens.len() {
     return calculation-fail("unexpected token `" + tokens.at(position) + "`", soft: soft)
   }
@@ -5481,7 +5527,7 @@ let normalize-size(size, soft: false) = {
   } else if type(size) in (str, content) {
     let source = input-source(size)
     let parsed = parse(add-implicit-multiplication(tokenize(source)), soft: soft)
-    if is-calculation-failure(parsed) { return parsed }
+    if (type(parsed) == dictionary and "error" in parsed) { return parsed }
     if not is-dimensionless(parsed) {
       return calculation-fail("size must not contain a physical unit", soft: soft)
     }
@@ -5537,12 +5583,13 @@ let normalize-math-unit-tokens(tokens) = {
 /// and the operators `+`, `-`, `*`, `/`, `^`, `±`, and `∓`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
-let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), aliases: (:), strict-units: false, soft: false) = {
+/// `render: false` leaves `display` empty for callers that render their own.
+let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), aliases: (:), strict-units: false, soft: false, render: true) = {
   if type(strict-units) != bool {
     return calculation-fail("strict-units must be a boolean", soft: soft)
   }
   let normalized-size = normalize-size(size, soft: soft)
-  if is-calculation-failure(normalized-size) { return normalized-size }
+  if (type(normalized-size) == dictionary and "error" in normalized-size) { return normalized-size }
   let size = if normalized-size == none { none } else { normalized-size.value }
   let size-notation = if normalized-size == none { none } else { normalized-size.notation }
   // Preserve quoted Typst math text so `"m"` remains an explicit metre even
@@ -5611,7 +5658,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
         strict-units: strict-units,
         soft: true,
       )
-      if is-calculation-failure(branch) {
+      if (type(branch) == dictionary and "error" in branch) {
         return calculation-fail(branch.error, soft: soft)
       }
       branches.push(branch)
@@ -5640,7 +5687,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     strict-units: strict-units,
     soft: soft,
   )
-  if is-calculation-failure(result) { return result }
+  if (type(result) == dictionary and "error" in result) { return result }
   let output-unit = result.preferred
   let output-scale = 1.0
   let output-offset = 0.0
@@ -5652,7 +5699,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
       strict-units: strict-units,
       soft: soft,
     )
-    if is-calculation-failure(target) { return target }
+    if (type(target) == dictionary and "error" in target) { return target }
     if target.dims != result.dims or target.opaque != result.opaque {
       if is-dimensionless(result) and not is-dimensionless(target) {
         // A requested unit on a plain number assigns that physical dimension.
@@ -5682,7 +5729,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
       }
     }
     // Keep quotes on custom labels so a stored preferred unit can be parsed again.
-    output-unit = target-tokens.map(token => if is-quoted-unit(token) and resolve-unit(quoted-unit-name(token)) != none {
+    output-unit = target-tokens.map(token => if (token.starts-with("\"") and token.ends-with("\"") and token.len() >= 2) and resolve-unit(quoted-unit-name(token)) != none {
       quoted-unit-name(token)
     } else { token }).join("")
     output-scale = if target.affine == none { target.si-value } else { target.affine.scale }
@@ -5752,21 +5799,24 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     }
   } else if digits == auto { digits = input-digits }
   let value = calc.round(exact, digits: digits)
-  let scientific-output = is-scientific-size-unit(output-unit)
-  let display-body = render-tokens(expression-tokens, scope: scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em)
-  if output-unit != none {
-    let output-tokens = if target-tokens != none { target-tokens } else { tokenize(output-unit) }
-    if scientific-output {
-      display-body += render-tokens(
-        display-number-tokens(value, exact: exact, digits: digits, significant-digits: significant) + ("*",) + output-tokens,
-        aliases: aliases,
-      )
+  let display = if render {
+    let scientific-output = is-scientific-size-unit(output-unit)
+    let display-body = render-tokens(expression-tokens, scope: scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em)
+    if output-unit != none {
+      let output-tokens = if target-tokens != none { target-tokens } else { tokenize(output-unit) }
+      if scientific-output {
+        display-body += render-tokens(
+          display-number-tokens(value, exact: exact, digits: digits, significant-digits: significant) + ("*",) + output-tokens,
+          aliases: aliases,
+        )
+      } else {
+        let rendered-value = render-tokens(display-number-tokens(value, exact: exact, digits: digits, significant-digits: significant))
+        display-body += rendered-value + unit-gap(output-tokens, aliases: aliases) + render-tokens(output-tokens, aliases: aliases)
+      }
     } else {
-      let rendered-value = render-tokens(display-number-tokens(value, exact: exact, digits: digits, significant-digits: significant))
-      display-body += rendered-value + unit-gap(output-tokens, aliases: aliases) + render-tokens(output-tokens, aliases: aliases)
+      display-body += render-tokens(display-number-tokens(value, exact: exact, digits: digits, significant-digits: significant))
     }
-  } else {
-    display-body += render-tokens(display-number-tokens(value, exact: exact, digits: digits, significant-digits: significant))
+    math.equation(display-body, block: block)
   }
 
   let public-unit = if output-unit == none {
@@ -5795,7 +5845,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     input-significant-digits: if significant == none { input-significant } else { significant },
     ..if significant == none { (:) } else { (significant-digits: significant) },
     source: source,
-    display: math.equation(display-body, block: block),
+    display: display,
   )
 }
 
@@ -5848,6 +5898,418 @@ let calculation-builder(
     panic("math-once calculation-builder: " + message)
   } else {
     text(fill: red, [math-once: #message.])
+  }
+
+  // The functions below are defined once per builder. Each runner call
+  // describes its equation with a small `spec` dictionary instead of creating
+  // its own closures over the runner's local variables.
+
+  // Names used by the output unit. The unit is parsed only where evaluation
+  // reads it, so a malformed unit on a call that never evaluates (a missing
+  // variable, a function definition, display-only math) stays ignored.
+  let unit-scope-tokens(unit) = {
+    let unit-source = if type(unit) == str { unit } else if type(unit) == content and unit.func() == raw {
+      unit.text
+    } else if type(unit) == content and unit.func() == math.equation {
+      input-source(unit, preserve-text: true)
+    } else { "" }
+    let candidates = unit-source.matches(tokenize-pattern).map(found => found.text)
+    if type(unit) == content and unit.func() == math.equation {
+      candidates += normalize-math-unit-tokens(candidates)
+    }
+    candidates
+  }
+
+  // State names that unit tokens can select in referenced-scope. When none
+  // of them is stored, adding the unit tokens leaves the scope unchanged.
+  let unit-state-names(unit-tokens) = {
+    let names = ()
+    for token in unit-tokens {
+      if is-quoted-unit(token) {
+        let unit-name = quoted-unit-name(token)
+        names.push(unit-name)
+        if unit-name == "Omega" { names.push("Ω") }
+      } else {
+        names.push(token)
+      }
+    }
+    names
+  }
+
+  // Share assignment rendering between context output and state updates.
+  let assignment-body(spec, result, current, aliases) = {
+    let tokens = spec.tokens
+    let name-scope = current
+    name-scope.insert(spec.name, 0)
+    let labelled-body = render-tokens((spec.name,), scope: name-scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current, aliases: aliases)
+    if spec.show-result {
+      let (expanded, has-variables) = expand-variables(tokens, current)
+      if has-variables and spec.show-substitution {
+        labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
+      }
+      let last-visible-tokens = if has-variables and spec.show-substitution { expanded } else { tokens }
+      let structure-result = (type(result) == dictionary
+        and (result.at("vector", default: false) or result.at("matrix", default: false)))
+      if ((structure-result and not structure-equivalent(last-visible-tokens, result))
+        or result.at("alternatives", default: false)
+        or (not structure-result
+          and not equivalent-tokens(last-visible-tokens, result-tokens(result)))) {
+        labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases, show-unit: spec.show-unit)
+      }
+    }
+    let visible-body = if spec.result-only {
+      render-result(result, aliases: aliases, show-unit: spec.show-unit)
+    } else {
+      labelled-body
+    }
+    visible-body
+  }
+
+  // Evaluate a stored assignment into the entry that the state keeps. The
+  // update and the context output share these inner call sites, so the same
+  // inputs reuse one memoized calculation and display.
+  let stored-entry(spec, scope, aliases, unloaded, tokens) = {
+    let result = calculate-expanded(
+      calculate,
+      tokens,
+      spec.precision,
+      scope,
+      spec.unit,
+      spec.size,
+      spec.block,
+      unloaded,
+      aliases,
+      strict-units: strict-units,
+      render: false,
+    )
+    if type(result) == dictionary and "error" in result { return result }
+    result.insert("display", math.equation(assignment-body(spec, result, scope, aliases), block: spec.block))
+    result.insert("variable", spec.name)
+    if spec.name in unloaded { result.insert("unloaded", true) }
+    result
+  }
+
+  // Keep the update function identical when missing inputs become available.
+  // Changing recovery writes to captured-result writes requires another layout pass.
+  let store-assignment(spec, old) = {
+    // Paired signs and display-only symbols never emit this update.
+    if spec.has-paired-sign or spec.has-display-symbol {
+      return old
+    }
+    let name = spec.name
+    let target = old.at(name, default: none)
+    let target-is-dictionary = type(target) == dictionary
+    if ((resolve-unit(name) != none or is-built-in-constant(name)
+        or (target-is-dictionary and target.at("unit-alias", default: false)))
+      and not (target-is-dictionary and target.at("unloaded", default: false) == true)) {
+      return old
+    }
+    let update-scope = referenced-scope(spec.scope-tokens, old)
+    let update-aliases = (:)
+    let update-unloaded = ()
+    for (stored-name, item) in update-scope {
+      if type(item) == dictionary {
+        if item.at("unit-alias", default: false) { update-aliases.insert(stored-name, item.original) }
+        if item.at("unloaded", default: false) == true { update-unloaded.push(stored-name) }
+      }
+    }
+    let update-expansion = expand-function-calls(spec.evaluation-tokens, update-scope)
+    if type(update-expansion) == dictionary and "error" in update-expansion {
+      return old
+    }
+    let update-tokens = update-expansion.first()
+    let update-missing = missing-variables(spec.tokens, update-scope, update-unloaded, aliases: update-aliases)
+    if update-missing.len() > 0 {
+      return old
+    }
+    let update-unit-tokens = unit-scope-tokens(spec.unit)
+    let update-rescope = false
+    for unit-name in unit-state-names(update-unit-tokens) {
+      if unit-name in old { update-rescope = true; break }
+    }
+    if update-rescope {
+      update-scope = referenced-scope(spec.scope-tokens + update-unit-tokens, old)
+      update-aliases = (:)
+      update-unloaded = ()
+      for (stored-name, item) in update-scope {
+        if type(item) == dictionary {
+          if item.at("unit-alias", default: false) { update-aliases.insert(stored-name, item.original) }
+          if item.at("unloaded", default: false) == true { update-unloaded.push(stored-name) }
+        }
+      }
+    }
+    let entry = stored-entry(spec, update-scope, update-aliases, update-unloaded, update-tokens)
+    if type(entry) == dictionary and "error" in entry {
+      return old
+    }
+    old.insert(name, entry)
+    old
+  }
+
+  let store-function(spec, old) = {
+    let parsed-function = spec.parsed-function
+    let target = old.at(parsed-function.name, default: none)
+    let target-is-dictionary = type(target) == dictionary
+    if ((target-is-dictionary and target.at("unit-alias", default: false))
+      or ((is-built-in-constant(parsed-function.name)
+        or resolve-unit(parsed-function.name) != none)
+        and not (target-is-dictionary and target.at("unloaded", default: false) == true))) {
+      return old
+    }
+    old.insert(parsed-function.name, parsed-function)
+    old
+  }
+
+  // Render the equation against the state at the caller's context. With
+  // `update: none`, the caller emits the state update itself.
+  let equation-content(spec, variables, update) = {
+    let name = spec.name
+    let source = spec.source
+    let tokens = spec.tokens
+    let evaluation-tokens = spec.evaluation-tokens
+    let scope-tokens = spec.scope-tokens
+    let parsed-function = spec.parsed-function
+    let stores-result = spec.stores-result
+    let calculated-assignment = spec.calculated-assignment
+    let display-only = spec.display-only
+    let full-symbolic-scope = spec.full-symbolic-scope
+    let has-absolute-bars = spec.has-absolute-bars
+    let has-paired-sign = spec.has-paired-sign
+    let has-display-symbol = spec.has-display-symbol
+    let result-only = spec.result-only
+    let show-result = spec.show-result
+    let show-substitution = spec.show-substitution
+    let show-unit = spec.show-unit
+    let unit = spec.unit
+    let size = spec.size
+    let block = spec.block
+    let full-current = variables.get()
+    let current = if full-symbolic-scope { full-current } else {
+      referenced-scope(scope-tokens, full-current)
+    }
+    let aliases = (:)
+    let unloaded = ()
+    for (stored-name, item) in current {
+      if type(item) == dictionary {
+        if item.at("unit-alias", default: false) { aliases.insert(stored-name, item.original) }
+        if item.at("unloaded", default: false) == true { unloaded.push(stored-name) }
+      }
+    }
+    if parsed-function != none {
+      if result-only {
+        builder-error("a function definition has no calculated result to show by itself")
+        return
+      }
+      let function-name-is-unloaded = parsed-function.name in unloaded
+      let reserved-function-name = (parsed-function.name in aliases
+        or (is-built-in-constant(parsed-function.name) and not function-name-is-unloaded)
+        or (resolve-unit(parsed-function.name) != none and not function-name-is-unloaded))
+      checkpoint-update(variables, update)
+      if reserved-function-name {
+        builder-error("`" + parsed-function.name + "` is a reserved unit or constant name and cannot be used as a function")
+        return
+      }
+      render-tokens(tokenize(source.replace(":=", "=")), scope: current, aliases: aliases)
+      return
+    }
+    let assignment-is-unloaded = stores-result and name != none and name in unloaded
+    let illegal-assignment = (stores-result
+      and name != none
+      and (resolve-unit(name) != none or name in aliases or is-built-in-constant(name))
+      and not assignment-is-unloaded)
+    let reserved-name-kind = if name != none and is-built-in-constant(name) {
+      "a built-in constant"
+    } else {
+      "a unit name"
+    }
+    if has-paired-sign and stores-result and not illegal-assignment {
+      builder-error("plus/minus expressions have two paired results and cannot be stored as one value")
+      return
+    }
+    if has-display-symbol {
+      if illegal-assignment {
+        builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
+      } else if stores-result {
+        builder-error("display-only mathematical symbols cannot be stored as one numeric value")
+      } else if result-only {
+        builder-error("a display-only expression has no calculated result to show by itself")
+      } else {
+        let visible-tokens = if calculated-assignment {
+          tokenize(source)
+        } else {
+          tokens
+        }
+        render-tokens(visible-tokens, scope: current, aliases: aliases)
+      }
+      return
+    }
+    let cas-call = spec.cas-call
+    if cas-call != none and cas-call.operation in current {
+      let operation = current.at(cas-call.operation)
+      if type(operation) == dictionary and operation.at("function", default: false) {
+        cas-call = none
+      }
+    }
+    if cas-call != none {
+      let illegal-symbolic-assignment = (stores-result
+        and name != none
+        and (name in aliases or is-built-in-constant(name)))
+      if illegal-symbolic-assignment {
+        builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
+        return
+      }
+      if unit != none or size != none {
+        builder-error("symbolic calculations do not accept unit or size")
+        return
+      }
+
+      let result = symbolic-result(cas-call, current)
+      if type(result) == dictionary and "error" in result {
+        builder-error(result.error)
+        return
+      }
+
+      let written = render-tokens(evaluation-tokens, scope: current, aliases: aliases)
+      let labelled-body = if name != none {
+        let name-scope = current
+        name-scope.insert(name, 0)
+        (render-tokens((name,), scope: name-scope, aliases: aliases)
+          + h(0.25em) + math.eq + h(0.25em) + written)
+      } else {
+        written
+      }
+      if (name == none or not stores-result or show-result) {
+        labelled-body += h(0.25em) + math.eq + h(0.25em) + render-symbolic-result(result)
+      }
+      if result-only {
+        labelled-body = render-symbolic-result(result)
+      }
+
+      if stores-result {
+        result.insert("display", math.equation(labelled-body, block: block))
+        result.insert("variable", name)
+        checkpoint-update(variables, old => {
+          old.insert(name, result)
+          old
+        })
+        result.display.body
+      } else {
+        labelled-body
+      }
+      return
+    }
+    let function-expansion = if display-only { (evaluation-tokens, false) } else { expand-function-calls(evaluation-tokens, current) }
+    let function-error = if type(function-expansion) == dictionary and "error" in function-expansion { function-expansion.error } else { none }
+    let calculation-tokens = if function-error == none { function-expansion.first() } else { tokens }
+    let missing = if display-only { () } else { missing-variables(tokens, current, unloaded, aliases: aliases) }
+    let evaluates = not (illegal-assignment or display-only or missing.len() > 0 or function-error != none)
+    if evaluates and not full-symbolic-scope {
+      let unit-tokens = unit-scope-tokens(unit)
+      let rescope = false
+      for unit-name in unit-state-names(unit-tokens) {
+        if unit-name in full-current { rescope = true; break }
+      }
+      if rescope {
+        current = referenced-scope(scope-tokens + unit-tokens, full-current)
+        aliases = (:)
+        unloaded = ()
+        for (stored-name, item) in current {
+          if type(item) == dictionary {
+            if item.at("unit-alias", default: false) { aliases.insert(stored-name, item.original) }
+            if item.at("unloaded", default: false) == true { unloaded.push(stored-name) }
+          }
+        }
+      }
+    }
+    let result = if not evaluates { none } else if stores-result {
+      stored-entry(spec, current, aliases, unloaded, calculation-tokens)
+    } else {
+      calculate-expanded(
+        calculate,
+        calculation-tokens,
+        spec.precision,
+        current,
+        unit,
+        size,
+        block,
+        unloaded,
+        aliases,
+        strict-units: strict-units,
+        render: false,
+      )
+    }
+    let calculation-error = if type(result) == dictionary and "error" in result { result.error } else { none }
+    let unresolved-absolute = (has-absolute-bars
+      and (missing.len() > 0 or function-error != none or calculation-error != none))
+
+    if illegal-assignment {
+      if update != none and not has-paired-sign { checkpoint-update(variables, update) }
+      builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
+    } else if unresolved-absolute and stores-result {
+      if update != none { checkpoint-update(variables, update) }
+      builder-error("a non-numeric absolute-value expression cannot be stored as one value")
+    } else if unresolved-absolute {
+      let visible-tokens = if calculated-assignment { tokenize(source) } else { tokens }
+      render-tokens(visible-tokens, scope: current, aliases: aliases)
+    } else if missing.len() > 0 and stores-result {
+      // Contextual state reads lag behind updates during layout. Queue a
+      // second evaluation against the state seen by the update itself so a
+      // chain of stored assignments can advance without one layout pass per
+      // dependency.
+      if update != none { checkpoint-update(variables, update) }
+      builder-error("`" + missing.first() + "` is not set")
+    } else if missing.len() > 0 and result-only {
+      builder-error("`" + missing.first() + "` is not set, so there is no result to show")
+    } else if missing.len() > 0 and (calculated-assignment or has-paired-sign) {
+      // Preserve ordinary symbolic equations when their right-hand side
+      // cannot be evaluated from known variables, numbers, and units.
+      render-tokens(tokenize(source), scope: current, aliases: aliases)
+    } else if missing.len() > 0 {
+      builder-error("`" + missing.first() + "` is not set")
+    } else if function-error != none {
+      if update != none and stores-result { checkpoint-update(variables, update) }
+      builder-error(function-error)
+    } else if calculation-error != none {
+      if update != none and stores-result { checkpoint-update(variables, update) }
+      builder-error(calculation-error)
+    } else if display-only {
+      if result-only {
+        builder-error("a display-only equation has no calculated result to show by itself")
+      } else {
+        render-tokens(tokens, scope: current, aliases: aliases)
+      }
+    } else if name != none {
+      if stores-result {
+        // stored-entry already rendered the display and marked an unloaded name.
+        if update != none { checkpoint-update(variables, update) }
+        result.display.body
+      } else {
+        assignment-body(spec, result, current, aliases)
+      }
+    } else {
+      if result-only {
+        return render-result(result, aliases: aliases, show-unit: show-unit)
+      }
+      let labelled-body = render-tokens(tokens, scope: current, aliases: aliases)
+      if (show-substitution
+        and function-expansion.last()
+        and vector-components(calculation-tokens) == none
+        and matrix-rows(calculation-tokens) == none) {
+        labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(calculation-tokens, scope: numeric-scope(current), aliases: aliases)
+      }
+      let (expanded, has-variables) = expand-variables(tokens, current)
+      if has-variables and show-substitution {
+        labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
+      }
+      let last-visible-tokens = if has-variables and show-substitution { expanded } else { tokens }
+      if ((is-structure-result(result) and not structure-equivalent(last-visible-tokens, result))
+        or result.at("alternatives", default: false)
+        or (not is-structure-result(result)
+          and not equivalent-tokens(last-visible-tokens, result-tokens(result)))) {
+        labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases, show-unit: show-unit)
+      }
+      labelled-body
+    }
   }
 
   (
@@ -5931,7 +6393,8 @@ let calculation-builder(
       assignment.captures.at(1)
     }
     let expression = if assignment == none { source } else { assignment.captures.at(2) }
-    let display-only = assignment == none and "=" in tokenize(source)
+    let display-tokens = if assignment == none { tokenize(source) } else { none }
+    let display-only = display-tokens != none and "=" in display-tokens
 
     if hidden and (not stores-result or parsed-function != none) {
       panic("math-once calculation-builder: hidden requires a stored scalar, vector, or matrix assignment")
@@ -5948,346 +6411,115 @@ let calculation-builder(
     }
 
     // Include written labels as well as evaluation tokens.
-    let scope-tokens = tokenize(source)
-    // Names used by the output unit. The unit is parsed only where evaluation
-    // reads it, so a malformed unit on a call that never evaluates (a missing
-    // variable, a function definition, display-only math) stays ignored.
-    let unit-scope-tokens() = {
-      let unit-source = if type(unit) == str { unit } else if type(unit) == content and unit.func() == raw {
-        unit.text
-      } else if type(unit) == content and unit.func() == math.equation {
-        input-source(unit, preserve-text: true)
-      } else { "" }
-      let candidates = unit-source.matches(tokenize-pattern).map(found => found.text)
-      if type(unit) == content and unit.func() == math.equation {
-        candidates += normalize-math-unit-tokens(candidates)
-      }
-      candidates
-    }
+    let scope-tokens = if display-tokens != none { display-tokens } else { tokenize(source) }
     // CAS substitutions follow dictionary insertion order. Keep that order and
     // its complete scope until substitution can be made order-independent.
-    let full-symbolic-scope = symbolic-call(tokenize(expression)) != none
-
-    // Share assignment rendering between context output and state updates.
-    let assignment-body(result, current, aliases, tokens) = {
-      let name-scope = current
-      name-scope.insert(name, 0)
-      let labelled-body = render-tokens((name,), scope: name-scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current, aliases: aliases)
-      if show-result {
-        let (expanded, has-variables) = expand-variables(tokens, current)
-        if has-variables and show-substitution {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
-        }
-        let last-visible-tokens = if has-variables and show-substitution { expanded } else { tokens }
-        if ((is-structure-result(result) and not structure-equivalent(last-visible-tokens, result))
-          or result.at("alternatives", default: false)
-          or (not is-structure-result(result)
-            and not equivalent-tokens(last-visible-tokens, result-tokens(result)))) {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases, show-unit: show-unit)
+    let evaluation-tokens = if assignment == none { scope-tokens } else { tokenize(expression) }
+    let symbolic = symbolic-call(evaluation-tokens)
+    let full-symbolic-scope = symbolic != none
+    // The written and evaluated tokens do not depend on the state, so derive
+    // them once here instead of in every layout pass. The written tokens are
+    // those of expression-tokens(expression): the evaluation tokens before a
+    // top-level conversion.
+    let tokens = if display-only { display-tokens } else {
+      let written = evaluation-tokens
+      let depth = 0
+      for (index, token) in evaluation-tokens.enumerate() {
+        if token == "(" { depth += 1 }
+        if token == ")" { depth -= 1 }
+        if token in ("to", "=") and depth == 0 {
+          written = evaluation-tokens.slice(0, index)
+          break
         }
       }
-      let visible-body = if result-only {
-        render-result(result, aliases: aliases, show-unit: show-unit)
-      } else {
-        labelled-body
-      }
-      visible-body
+      written
     }
-
-    let stable-tokens = expression-tokens(expression)
-    // Missing-variable recovery is possible only when the expression has names.
-    // Keep the cheaper captured-result writer for literal-only assignments.
-    let needs-stable-update = stable-tokens.any(is-name)
-    let stable-evaluation-tokens = tokenize(expression)
-    let stable-absolute-tokens = absolute-value-tokens(stable-evaluation-tokens)
-    if stable-absolute-tokens != none { stable-evaluation-tokens = stable-absolute-tokens }
-    // Keep the update function identical when missing inputs become available.
-    // Changing recovery writes to captured-result writes requires another layout pass.
-    let store-assignment(old) = {
-      let update-scope = referenced-scope(scope-tokens, old)
-      let update-aliases = unit-aliases(update-scope)
-      let update-unloaded = ()
-      for (stored-name, item) in update-scope {
-        if is-unloaded(item) { update-unloaded.push(stored-name) }
-      }
-      let update-expansion = expand-function-calls(stable-evaluation-tokens, update-scope)
-      if is-calculation-failure(update-expansion) {
-        return old
-      }
-      let update-tokens = update-expansion.first()
-      let update-missing = missing-variables(stable-tokens, update-scope, update-unloaded, aliases: update-aliases)
-      if update-missing.len() > 0 {
-        return old
-      }
-      let update-unit-tokens = unit-scope-tokens()
-      if update-unit-tokens.len() > 0 {
-        update-scope = referenced-scope(scope-tokens + update-unit-tokens, old)
-        update-aliases = unit-aliases(update-scope)
-        update-unloaded = ()
-        for (stored-name, item) in update-scope {
-          if is-unloaded(item) { update-unloaded.push(stored-name) }
-        }
-      }
-      let update-result = calculate-expanded(
-        calculate,
-        update-tokens,
-        automatic-precision(digits, auto-digits),
-        update-scope,
-        unit,
-        size,
-        block,
-        update-unloaded,
-        update-aliases,
-        strict-units: strict-units,
-      )
-      if is-calculation-failure(update-result) {
-        return old
-      }
-      update-result.insert("display", math.equation(assignment-body(update-result, update-scope, update-aliases, stable-tokens), block: block))
-      update-result.insert("variable", name)
-      if name in update-unloaded { update-result.insert("unloaded", true) }
-      old.insert(name, update-result)
-      old
+    let has-absolute-bars = "|" in evaluation-tokens
+    let absolute-evaluation-tokens = absolute-value-tokens(evaluation-tokens)
+    if absolute-evaluation-tokens != none { evaluation-tokens = absolute-evaluation-tokens }
+    let cas-call = if display-only { none } else if absolute-evaluation-tokens == none { symbolic } else {
+      symbolic-call(evaluation-tokens)
     }
-
-    let equation-body = context {
-      let variables = checkpoint-state(key, initial: initial-state)
-      let full-current = variables.get()
-      let current = if full-symbolic-scope { full-current } else {
-        referenced-scope(scope-tokens, full-current)
-      }
-      let aliases = unit-aliases(current)
-      if parsed-function != none {
-        if result-only {
-          builder-error("a function definition has no calculated result to show by itself")
-          return
-        }
-        let function-name-is-unloaded = (parsed-function.name in current
-          and is-unloaded(current.at(parsed-function.name)))
-        let reserved-function-name = (parsed-function.name in aliases
-          or (is-built-in-constant(parsed-function.name) and not function-name-is-unloaded)
-          or (resolve-unit(parsed-function.name) != none and not function-name-is-unloaded))
-        if reserved-function-name {
-          builder-error("`" + parsed-function.name + "` is a reserved unit or constant name and cannot be used as a function")
-          return
-        }
-        checkpoint-update(variables, old => {
-          old.insert(parsed-function.name, parsed-function)
-          old
-        })
-        render-tokens(tokenize(source.replace(":=", "=")), scope: current, aliases: aliases)
-        return
-      }
-      let unloaded = ()
-      for (stored-name, item) in current {
-        if is-unloaded(item) { unloaded.push(stored-name) }
-      }
-      let assignment-is-unloaded = stores-result and name != none and name in unloaded
-      let illegal-assignment = (stores-result
-        and name != none
-        and (resolve-unit(name) != none or name in aliases or is-built-in-constant(name))
-        and not assignment-is-unloaded)
-      let reserved-name-kind = if name != none and is-built-in-constant(name) {
-        "a built-in constant"
-      } else {
-        "a unit name"
-      }
-      let tokens = if display-only { tokenize(source) } else { expression-tokens(expression) }
-      let evaluation-tokens = if display-only { tokens } else { tokenize(expression) }
-      let has-absolute-bars = "|" in evaluation-tokens
-      let absolute-tokens = absolute-value-tokens(evaluation-tokens)
-      if absolute-tokens != none { evaluation-tokens = absolute-tokens }
-      let has-paired-sign = evaluation-tokens.any(token => token in ("±", "∓"))
-      if has-paired-sign and stores-result and not illegal-assignment {
-        builder-error("plus/minus expressions have two paired results and cannot be stored as one value")
-        return
-      }
-      let has-display-symbol = evaluation-tokens.any(is-display-only-token)
-      if has-display-symbol {
-        if illegal-assignment {
-          builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
-        } else if stores-result {
-          builder-error("display-only mathematical symbols cannot be stored as one numeric value")
-        } else if result-only {
-          builder-error("a display-only expression has no calculated result to show by itself")
-        } else {
-          let visible-tokens = if calculated-assignment != none {
-            tokenize(source)
-          } else {
-            tokens
-          }
-          render-tokens(visible-tokens, scope: current, aliases: aliases)
-        }
-        return
-      }
-      let cas-call = if display-only { none } else { symbolic-call(evaluation-tokens) }
-      if (cas-call != none
-        and cas-call.operation in current
-        and is-stored-function(current.at(cas-call.operation))) {
-        cas-call = none
-      }
-      if cas-call != none {
-        let illegal-symbolic-assignment = (stores-result
-          and name != none
-          and (name in aliases or is-built-in-constant(name)))
-        if illegal-symbolic-assignment {
-          builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
-          return
-        }
-        if unit != none or size != none {
-          builder-error("symbolic calculations do not accept unit or size")
-          return
-        }
-
-        let result = symbolic-result(cas-call, current)
-        if is-calculation-failure(result) {
-          builder-error(result.error)
-          return
-        }
-
-        let written = render-tokens(evaluation-tokens, scope: current, aliases: aliases)
-        let labelled-body = if name != none {
-          let name-scope = current
-          name-scope.insert(name, 0)
-          (render-tokens((name,), scope: name-scope, aliases: aliases)
-            + h(0.25em) + math.eq + h(0.25em) + written)
-        } else {
-          written
-        }
-        if (name == none or not stores-result or show-result) {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-symbolic-result(result)
-        }
-        if result-only {
-          labelled-body = render-symbolic-result(result)
-        }
-
-        if stores-result {
-          result.insert("display", math.equation(labelled-body, block: block))
-          result.insert("variable", name)
-          checkpoint-update(variables, old => {
-            old.insert(name, result)
-            old
-          })
-          result.display.body
-        } else {
-          labelled-body
-        }
-        return
-      }
-      let function-expansion = if display-only { (evaluation-tokens, false) } else { expand-function-calls(evaluation-tokens, current) }
-      let function-error = if is-calculation-failure(function-expansion) { function-expansion.error } else { none }
-      let calculation-tokens = if function-error == none { function-expansion.first() } else { tokens }
-      let missing = if display-only { () } else { missing-variables(tokens, current, unloaded, aliases: aliases) }
-      let evaluates = not (illegal-assignment or display-only or missing.len() > 0 or function-error != none)
-      if evaluates and not full-symbolic-scope {
-        let unit-tokens = unit-scope-tokens()
-        if unit-tokens.len() > 0 {
-          current = referenced-scope(scope-tokens + unit-tokens, full-current)
-          aliases = unit-aliases(current)
-          unloaded = ()
-          for (stored-name, item) in current {
-            if is-unloaded(item) { unloaded.push(stored-name) }
-          }
-        }
-      }
-      let result = if not evaluates { none } else {
-        calculate-expanded(
-          calculate,
-          calculation-tokens,
-          automatic-precision(digits, auto-digits),
-          current,
-          unit,
-          size,
-          block,
-          unloaded,
-          aliases,
-          strict-units: strict-units,
-        )
-      }
-      let calculation-error = if is-calculation-failure(result) { result.error } else { none }
-      let unresolved-absolute = (has-absolute-bars
-        and (missing.len() > 0 or function-error != none or calculation-error != none))
-
-      if illegal-assignment {
-        builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
-      } else if unresolved-absolute and stores-result {
-        builder-error("a non-numeric absolute-value expression cannot be stored as one value")
-      } else if unresolved-absolute {
-        let visible-tokens = if calculated-assignment != none { tokenize(source) } else { tokens }
-        render-tokens(visible-tokens, scope: current, aliases: aliases)
-      } else if missing.len() > 0 and stores-result {
-        // Contextual state reads lag behind updates during layout. Queue a
-        // second evaluation against the state seen by the update itself so a
-        // chain of stored assignments can advance without one layout pass per
-        // dependency.
-        checkpoint-update(variables, store-assignment)
-        builder-error("`" + missing.first() + "` is not set")
-      } else if missing.len() > 0 and result-only {
-        builder-error("`" + missing.first() + "` is not set, so there is no result to show")
-      } else if missing.len() > 0 and (calculated-assignment != none or has-paired-sign) {
-        // Preserve ordinary symbolic equations when their right-hand side
-        // cannot be evaluated from known variables, numbers, and units.
-        render-tokens(tokenize(source), scope: current, aliases: aliases)
-      } else if missing.len() > 0 {
-        builder-error("`" + missing.first() + "` is not set")
-      } else if function-error != none {
-        builder-error(function-error)
-      } else if calculation-error != none {
-        builder-error(calculation-error)
-      } else if display-only {
-        if result-only {
-          builder-error("a display-only equation has no calculated result to show by itself")
-        } else {
-          render-tokens(tokens, scope: current, aliases: aliases)
-        }
-      } else if name != none {
-        let visible-body = assignment-body(result, current, aliases, tokens)
-        if stores-result {
-          result.insert("display", math.equation(visible-body, block: block))
-          result.insert("variable", name)
-          if assignment-is-unloaded { result.insert("unloaded", true) }
-          if needs-stable-update {
-            checkpoint-update(variables, store-assignment)
-          } else {
-            checkpoint-update(variables, old => {
-              old.insert(name, result)
-              old
-            })
-          }
-          result.display.body
-        } else {
-          visible-body
-        }
-      } else {
-        if result-only {
-          return render-result(result, aliases: aliases, show-unit: show-unit)
-        }
-        let labelled-body = render-tokens(tokens, scope: current, aliases: aliases)
-        if (show-substitution
-          and function-expansion.last()
-          and vector-components(calculation-tokens) == none
-          and matrix-rows(calculation-tokens) == none) {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(calculation-tokens, scope: numeric-scope(current), aliases: aliases)
-        }
-        let (expanded, has-variables) = expand-variables(tokens, current)
-        if has-variables and show-substitution {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
-        }
-        let last-visible-tokens = if has-variables and show-substitution { expanded } else { tokens }
-        if ((is-structure-result(result) and not structure-equivalent(last-visible-tokens, result))
-          or result.at("alternatives", default: false)
-          or (not is-structure-result(result)
-            and not equivalent-tokens(last-visible-tokens, result-tokens(result)))) {
-          labelled-body += h(0.25em) + math.eq + h(0.25em) + render-result(result, aliases: aliases, show-unit: show-unit)
-        }
-        labelled-body
+    let has-paired-sign = "±" in evaluation-tokens or "∓" in evaluation-tokens
+    // Only bars and math-symbol tokens can be display-only.
+    let has-display-symbol = false
+    for token in evaluation-tokens {
+      if (token == "|" or token.starts-with(math-symbol-prefix)) and is-display-only-token(token) {
+        has-display-symbol = true
+        break
       }
     }
-    let output = _make-equation(
-      _captioned-body(equation-body, caption, gap),
-      block,
-      supplement,
+    let spec = (
+      source: source,
+      name: name,
+      stores-result: stores-result,
+      calculated-assignment: calculated-assignment != none,
+      display-only: display-only,
+      parsed-function: parsed-function,
+      scope-tokens: scope-tokens,
+      evaluation-tokens: evaluation-tokens,
+      tokens: tokens,
+      full-symbolic-scope: full-symbolic-scope,
+      cas-call: cas-call,
+      has-absolute-bars: has-absolute-bars,
+      has-paired-sign: has-paired-sign,
+      has-display-symbol: has-display-symbol,
+      precision: automatic-precision(digits, auto-digits),
+      unit: unit,
+      size: size,
+      block: block,
+      show-result: show-result,
+      show-substitution: show-substitution,
+      show-unit: show-unit,
+      result-only: result-only,
     )
+    // Created once here, the update stays identical in every layout pass.
+    let update = if parsed-function != none {
+      store-function.with(spec)
+    } else if stores-result {
+      store-assignment.with(spec)
+    } else {
+      none
+    }
+    // A stored numeric assignment always emits store-assignment. Once the
+    // update has run, the state after it holds the finished display, so the
+    // equation reads that instead of evaluating and rendering it again.
+    let reads-stored-display = (stores-result
+      and parsed-function == none
+      and not full-symbolic-scope
+      and cas-call == none
+      and not has-paired-sign
+      and not has-display-symbol)
+    let equation-body = if reads-stored-display {
+      context {
+        let variables = checkpoint-state(key, initial: initial-state)
+        // Capture only values that stay the same in every layout pass. The
+        // inner context's location depends on them, and a moved location
+        // costs another pass.
+        let before = here()
+        checkpoint-update(variables, update)
+        // Only this update lies between the two reads and it writes only
+        // `name`. An unchanged entry means it failed or stored an identical
+        // value; then the state after it equals the state before it.
+        context {
+          let stored = variables.get().at(name, default: none)
+          if stored != none and stored != variables.at(before).at(name, default: none) {
+            stored.display.body
+          } else {
+            equation-content(spec, variables, none)
+          }
+        }
+      }
+    } else {
+      context equation-content(spec, checkpoint-state(key, initial: initial-state), update)
+    }
+    // Avoid memoizing helpers over a context that captures the runner scope.
+    let body = if caption == none { equation-body } else { _captioned-body(equation-body, caption, gap) }
+    let output = if supplement == auto {
+      math.equation(body, block: block)
+    } else {
+      math.equation(body, block: block, supplement: supplement)
+    }
     if hidden {
       box(width: 0pt, height: 0pt, place(hide[#output]))
     } else if label == none {
@@ -6460,9 +6692,7 @@ let unload(..names, key: "math-once-calculation") = {
 let rename-unit(from, to, key: "math-once-calculation") = {
   let from = state-name(from, "rename-unit")
   let to = state-name(to, "rename-unit")
-  context {
-    let variables = checkpoint-state(key)
-    let old = variables.get()
+  let rename-info(old) = {
     let aliases = unit-aliases(old)
     let original = aliases.at(from, default: from)
     let source-is-unloaded = from in old and is-unloaded(old.at(from)) and from not in aliases
@@ -6479,24 +6709,30 @@ let rename-unit(from, to, key: "math-once-calculation") = {
       none
     }
 
+    (aliases, original, error)
+  }
+  let rename(old) = {
+    let (aliases, original, error) = rename-info(old)
+    if error != none { return old }
+    if from in aliases { let _ = old.remove(from) }
+    if original in old and type(old.at(original)) == dictionary and "si-value" in old.at(original) {
+      let value = old.at(original)
+      value.insert("unloaded", true)
+      value.insert("renamed-unit", true)
+      old.insert(original, value)
+    } else {
+      old.insert(original, (unloaded: true, renamed-unit: true))
+    }
+    old.insert(to, (unit-alias: true, original: original))
+    old
+  }
+  context {
+    let variables = checkpoint-state(key)
+    let (_, _, error) = rename-info(variables.get())
+    checkpoint-update(variables, rename)
+
     if error != none {
       align(center, text(fill: red, [math-once: #error.]))
-    } else {
-      checkpoint-update(variables, old => {
-        if from in aliases {
-          let _ = old.remove(from)
-        }
-        if original in old and type(old.at(original)) == dictionary and "si-value" in old.at(original) {
-          let value = old.at(original)
-          value.insert("unloaded", true)
-          value.insert("renamed-unit", true)
-          old.insert(original, value)
-        } else {
-          old.insert(original, (unloaded: true, renamed-unit: true))
-        }
-        old.insert(to, (unit-alias: true, original: original))
-        old
-      })
     }
   }
 }
