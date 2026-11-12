@@ -1,6 +1,6 @@
 # Changelog
 
-## Faster compilation demo (based on 0.46.0)
+## 0.47.0
 
 - Added regression assertions for output-unit aliases in string, raw, and math input, nested vector and matrix values, and redefined stored-function dependencies.
 
