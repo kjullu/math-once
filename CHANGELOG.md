@@ -1,5 +1,14 @@
 # Changelog
 
+## Faster compiles of real documents demo (based on 0.47.0)
+
+- Real documents compile faster. A 21-page physics document with 135 calculations, 22 resets, and 12 unloads went from about 2.3 s to about 1.5 s, and a generated 500-calculation document from about 8.1 s to about 4.2 s. Output is unchanged.
+- An assignment to an unloaded unit name, such as `m := 5 "kg"` after `unload($m$)`, no longer costs an extra layout pass. The same applies to function definitions after `unload`, chained `rename-unit` calls, and stored absolute values. The document above settles in three layout passes instead of five.
+- A stored assignment shows the result that its state update already calculated, instead of calculating and rendering it a second time.
+- Each builder call creates much smaller closures, and the token work that does not depend on stored values runs once instead of in every layout pass.
+- Helpers that are called thousands of times no longer receive the complete stored state or whole result dictionaries. Typst hashes every argument of every function call, so this removes most of the time spent outside the calculations themselves.
+- Added regression fixtures for assignments after `unload`, function definitions and renames that depend on earlier state, and stored results shown with every display option.
+
 ## 0.47.0
 
 - Added regression assertions for output-unit aliases in string, raw, and math input, nested vector and matrix values, and redefined stored-function dependencies.
