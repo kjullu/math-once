@@ -1,4 +1,4 @@
-// Faster compiles of real documents (0.47.0)
+// math-once v0.47.1
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
