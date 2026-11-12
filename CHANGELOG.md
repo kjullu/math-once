@@ -2,6 +2,8 @@
 
 ## Faster compilation demo (based on 0.46.0)
 
+- Added regression assertions for output-unit aliases in string, raw, and math input, nested vector and matrix values, and redefined stored-function dependencies.
+
 - Lowered the pull request compile-speed limit from 30 s to 7.5 s per document.
 - Documents with many calculations compile much faster. A generated 500-calculation document went from about 57 s to about 5 s, and the time per calculation no longer grows with the length of the document. Output is unchanged.
 - Regular expressions are built once instead of on every call.
