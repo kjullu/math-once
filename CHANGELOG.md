@@ -1,5 +1,12 @@
 # Changelog
 
+## Clearer option errors demo (based on 0.49.0)
+
+- Passing a boolean to `unit:` in a builder or `calculate` now explains that it selects an output unit and points to `show-unit: false` for hiding the unit, instead of reporting an invalid expression. Other wrong `unit:` values name the option and the value.
+- Builder equations now reject unknown named options, such as a misspelled `show-units:`, and list the valid ones. Before, a typo was silently ignored.
+- Wrong types for `show-result:`, `label:`, `gap:`, `supplement:`, `initial-state:`, `key:`, `scope:`, `block:` in `calculate`, `indent:` in `equation-outline` and `numbering:` in `number-labelled-equations` now fail with a message that names the option, shows an example, and includes the value passed. A string `label:` used to be printed as text after the equation.
+- Non-name arguments to `unload`, `rename-unit` and the reset helpers now say that names must be strings or math, instead of reporting an invalid expression.
+
 ## 0.49.0
 
 - Added logarithms to calculations and builder equations, following qalc: `ln(x)` is the natural logarithm, and `log_b(x)` (also `log_b x`, or `log(x, b)` in text) uses base `b`, so `log_10(100)` is 2 and `log_4 32` is 2.5. `log(x, b)` renders with the base as a subscript. A bare `log(x)` fails as ambiguous instead of guessing base e or 10. Arguments must be positive and dimensionless, and the base must be positive, dimensionless and not 1; compatible unit ratios such as `ln(6 mm / (1 mm))` are supported.
