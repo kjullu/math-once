@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.49.0
+
+- Added logarithms to calculations and builder equations, following qalc: `ln(x)` is the natural logarithm, and `log_b(x)` (also `log_b x`, or `log(x, b)` in text) uses base `b`, so `log_10(100)` is 2 and `log_4 32` is 2.5. `log(x, b)` renders with the base as a subscript. A bare `log(x)` fails as ambiguous instead of guessing base e or 10. Arguments must be positive and dimensionless, and the base must be positive, dimensionless and not 1; compatible unit ratios such as `ln(6 mm / (1 mm))` are supported.
+
 ## 0.48.0
 
 - **Breaking**: Variable names with an accent other than `arrow`, such as `hat(x)`, or with primes and corner attachments, such as `x'`, now fail with an error. Before, `hat(x) := 2` silently stored `arrow(x)`, and `x' := 2` silently overwrote `x`. Use a plain or subscripted name instead, for example `x_1 := 2`.

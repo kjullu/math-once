@@ -52,5 +52,11 @@
   "empty-math.typ": "math-once calculate: expression must not be empty",
   "fractional-digits.typ": "math-once: digits must be auto or a whole number",
   "invalid-builder-digits.typ": "math-once calculation-builder: digits must be auto or a whole number",
-  "invalid-call-digits.typ": "math-once calculation-builder: digits must be auto or a whole number"
+  "invalid-call-digits.typ": "math-once calculation-builder: digits must be auto or a whole number",
+  "ln-dimensioned.typ": "math-once calculate: `ln` requires a dimensionless number",
+  "ln-zero.typ": "math-once calculate: `ln` requires a positive number",
+  "log-dimensioned.typ": "math-once calculate: `log` requires a dimensionless number",
+  "log-negative.typ": "math-once calculate: `log` requires a positive number",
+  "log-ambiguous.typ": "math-once calculate: `log(x)` without a base is ambiguous; use `ln(x)`, `log_10(x)`, or `log_b(x)`",
+  "log-base-one.typ": "math-once calculate: `log` requires a positive, dimensionless base other than 1"
 }
