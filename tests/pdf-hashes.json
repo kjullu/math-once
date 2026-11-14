@@ -35,6 +35,7 @@
     "tests/labelled-equations.typ": "a982f08fc1b1cb86472a3847e8206596734fc104368a994de5afa091f4422bbc",
     "tests/layout-function-rename-recovery.typ": "3300dd7d1ec93ac5aad0c788b99b8ec63d892559837a6734b8ccb10062c9fccd",
     "tests/layout-state-recovery.typ": "f2d921c429ccacc253d7b36b45cfd903f5ad067b14fff8da423ea2c681b52311",
+    "tests/logarithms.typ": "c0dc4e8f92960c749de7aa2b9959349f231625ada9b7e133e7009ba4498b6745",
     "tests/negative-structure-display.typ": "8b2969ae727d26a9356c50101ddfaee3b930beec216432d0af5fd30330ea3dd5",
     "tests/non-finite-results.typ": "31bfac4a7113c14519a8b83db166bf3e725f55cb9c2e7fedd7e1484b72bec351",
     "tests/opaque-units.typ": "009cf0a5fb13dadd9e60963d1336fc9d467da7f8b0618065899aec20b2cdf3b8",

@@ -1,4 +1,4 @@
-// math-once v0.48.0
+// math-once v0.49.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3144,7 +3144,7 @@ let trigonometric-functions = ("sin", "cos", "tan")
 let inverse-trigonometric-functions = ("asin", "acos", "atan")
 let inverse-trigonometric-aliases = ("arcsin", "arccos", "arctan")
 let inverse-trigonometric-names = inverse-trigonometric-functions + inverse-trigonometric-aliases
-let math-functions = trigonometric-functions + inverse-trigonometric-names + ("atan2", "sqrt", "root", "abs") + rounding-functions
+let math-functions = trigonometric-functions + inverse-trigonometric-names + ("atan2", "sqrt", "root", "abs", "ln", "log") + rounding-functions
 let structure-functions = ("vec", "matrix", "mat")
 let source-functions = math-functions + cas-functions + structure-functions
 let text-unit-prefix = "⟦"
@@ -3310,7 +3310,32 @@ let math-source-part(value, parse, preserve-text: false) = {
 let math-source-body(body, preserve-text: false) = {
   let parse = child => math-source-body(child, preserve-text: preserve-text)
   let parts = ()
-  for item in math-items(body) {
+  let items = math-items(body)
+  let index = 0
+  while index < items.len() {
+    let item = items.at(index)
+    index += 1
+    // `log_b x` and `log_b(x)` take the base from the subscript.
+    if (item.func() == math.attach and item.has("b")
+      and item.base.func() == math.op and item.base.text == [log]) {
+      if item.has("t") or item.has("tr") or item.has("tl") or item.has("br") or item.has("bl") {
+        panic("math-once calculate: `log_b` supports only a base subscript")
+      }
+      // Typst reads `log_a(x)` as the subscript `a(x)`; split the call back off.
+      let base-items = math-items(item.b)
+      if base-items.len() >= 2 and base-items.last().func() == math.lr {
+        let base = base-items.slice(0, -1).map(parse).filter(part => part != "").join(" ")
+        parts.push("log((" + parse(base-items.last()) + "),(" + base + "))")
+        continue
+      }
+      while index < items.len() and items.at(index).func() == source-space { index += 1 }
+      if index >= items.len() {
+        panic("math-once calculate: `log_b` must be followed by an argument")
+      }
+      parts.push("log((" + parse(items.at(index)) + "),(" + parse(item.b) + "))")
+      index += 1
+      continue
+    }
     let part = if item == [#math.eq] { "=" } else { math-source-part(item, parse, preserve-text: preserve-text) }
     if part != "" { parts.push(part) }
   }
@@ -3529,6 +3554,52 @@ let rendered-operator-names = cas-functions + inverse-trigonometric-names + ("at
 let point-name-pattern = regex("^[A-Z]{2,}$")
 let plain-display-number-pattern = regex("^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)$")
 
+// Rewrite `log(x, b)` as `log _ (b) (x)` so the base renders as a subscript.
+let subscript-log-tokens(tokens) = {
+  // Drop redundant outer parentheses, e.g. `((32))` from `log_4(32)`.
+  let unwrap(part) = {
+    while part.len() >= 2 and part.first() == "(" and part.last() == ")" {
+      let depth = 0
+      let whole = true
+      for (position, token) in part.enumerate() {
+        if token == "(" { depth += 1 }
+        if token == ")" { depth -= 1 }
+        if depth == 0 and position < part.len() - 1 { whole = false; break }
+      }
+      if not whole { break }
+      part = part.slice(1, part.len() - 1)
+    }
+    part
+  }
+  let result = ()
+  let index = 0
+  while index < tokens.len() {
+    if tokens.at(index) == "log" and tokens.at(index + 1, default: none) == "(" {
+      let depth = 0
+      let comma = none
+      let close = none
+      for position in range(index + 1, tokens.len()) {
+        let token = tokens.at(position)
+        if token == "(" { depth += 1 }
+        else if token == ")" {
+          depth -= 1
+          if depth == 0 { close = position; break }
+        } else if token == "," and depth == 1 and comma == none { comma = position }
+      }
+      if comma != none and close != none {
+        let inner = subscript-log-tokens(tokens.slice(index + 2, comma))
+        let base = subscript-log-tokens(tokens.slice(comma + 1, close))
+        result += ("log", "_", "(") + unwrap(base) + (")", "(") + unwrap(inner) + (")",)
+        index = close + 1
+        continue
+      }
+    }
+    result.push(tokens.at(index))
+    index += 1
+  }
+  result
+}
+
 let render-tokens(tokens, scope: (:), aliases: (:)) = {
   // A plain displayed scalar already is the exact math source the general
   // renderer would assemble. Preserve eval's content tree directly.
@@ -3539,6 +3610,7 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
   // Leave unpaired/infix bars (such as a conditional) untouched.
   let absolute = absolute-value-tokens(tokens)
   if absolute != none { tokens = absolute }
+  if "log" in tokens { tokens = subscript-log-tokens(tokens) }
   let absolute-opens = ()
   let absolute-closes = ()
   let parentheses = ()
@@ -3653,7 +3725,7 @@ let render-tokens(tokens, scope: (:), aliases: (:)) = {
   let source = ""
   for (index, item) in rendered.enumerate() {
     if item == "" { continue }
-    if (source != "" and not source.ends-with("lr(|") and item != "|)"
+    if (source != "" and not source.ends-with("lr(|") and item != "|)" and item != "_" and not source.ends-with("_")
       and not (index > 0 and index not in absolute-opens and tokens.at(index - 1) in source-functions and tokens.at(index) == "(")) {
       source += " "
     }
@@ -4352,7 +4424,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
   }
 
   // Evaluate vector-derived scalar arguments before applying scalar functions.
-  if tokens.len() >= 4 and tokens.first() in math-functions and tokens.first() not in ("atan2", "root") and tokens.at(1) == "(" and tokens.last() == ")" {
+  if tokens.len() >= 4 and tokens.first() in math-functions and tokens.first() not in ("atan2", "root", "log") and tokens.at(1) == "(" and tokens.last() == ")" {
     let argument-tokens = unwrap-tokens(tokens.slice(1))
     if argument-tokens != tokens.slice(1) {
       let argument = evaluate-structure(calculate-fn, argument-tokens, digits, scope, aliases, unloaded, strict-units: strict-units, final: false)
@@ -5263,7 +5335,23 @@ let special-angle-value(name, angle, soft: false) = {
   }
 }
 
+let apply-logarithm(name, argument, base, soft: false) = {
+  if not is-dimensionless(argument) {
+    return calculation-fail("`" + name + "` requires a dimensionless number", soft: soft)
+  }
+  if argument.si-value <= 0 {
+    return calculation-fail("`" + name + "` requires a positive number", soft: soft)
+  }
+  if not is-dimensionless(base) or base.si-value <= 0 or base.si-value == 1 {
+    return calculation-fail("`log` requires a positive, dimensionless base other than 1", soft: soft)
+  }
+  quantity(calc.ln(argument.si-value) / calc.ln(base.si-value))
+}
+
 let apply-function(name, argument, soft: false) = {
+  if name == "ln" {
+    return apply-logarithm(name, argument, quantity(calc.e), soft: soft)
+  }
   let canonical-name = if name == "arcsin" { "asin" }
     else if name == "arccos" { "acos" }
     else if name == "arctan" { "atan" }
@@ -5405,7 +5493,11 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
       }
       let (first, next) = parse-expression(tokens, position + 2)
       if (type(first) == dictionary and "error" in first) { return (first, next) }
-      if token in ("root", "atan2") {
+      if token == "log" and (next >= tokens.len() or tokens.at(next) != ",") {
+        // Like qalc, a bare `log(x)` is ambiguous between base e and base 10.
+        return (calculation-fail("`log(x)` without a base is ambiguous; use `ln(x)`, `log_10(x)`, or `log_b(x)`", soft: soft), next)
+      }
+      if token in ("root", "atan2", "log") {
         if next >= tokens.len() or tokens.at(next) != "," {
           let arguments = if token == "root" { "an index and a radicand" } else { "y and x arguments" }
           return (calculation-fail("`" + token + "` requires " + arguments, soft: soft), next)
@@ -5417,6 +5509,8 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
         }
         left = if token == "root" {
           apply-root(first, second, soft: soft)
+        } else if token == "log" {
+          apply-logarithm(token, first, second, soft: soft)
         } else {
           apply-atan2(first, second, soft: soft)
         }
@@ -5633,7 +5727,7 @@ let normalize-math-unit-tokens(tokens) = {
 
 /// Evaluate a unit-aware expression containing numbers, units, variables,
 /// `sin`, `cos`, `tan`, `asin`/`arcsin`, `acos`/`arccos`, `atan`/`arctan`,
-/// `atan2`, `abs`, `floor`, `ceil`, `round`, absolute-value bars,
+/// `atan2`, `ln`, `log_b`, `abs`, `floor`, `ceil`, `round`, absolute-value bars,
 /// and the operators `+`, `-`, `*`, `/`, `^`, `±`, and `∓`.
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
@@ -6828,7 +6922,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 ///
 /// - `source`: A trusted string, raw block, or Typst math equation containing
 ///   numbers, units, variables, parentheses, `sin`, `cos`, `tan`,
-///   `asin`/`arcsin`, `acos`/`arccos`, `atan`/`arctan`, `atan2`, `abs`,
+///   `asin`/`arcsin`, `acos`/`arccos`, `atan`/`arctan`, `atan2`, `ln`, `log_b`, `abs`,
 ///   `floor`, `ceil`, `round`, absolute-value bars, `+`, `-`, `*`, `/`, `^`,
 ///   `±`, `∓`, and optionally `to` or `=` for output conversion.
 /// - `digits`: Decimal places, or `auto` for automatic input precision.
