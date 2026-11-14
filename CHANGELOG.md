@@ -8,6 +8,7 @@
 - Results that overflow, such as `10^400`, `1e400`, or `sin(1e400)`, now show an error instead of stopping compilation. `size:` with an infinite value fails the same way.
 - `0^0` now fails with "zero to the power of zero is undefined" instead of stopping compilation.
 - `round`, `floor`, and `ceil` on very large numbers, such as `round(1e30)`, return the number instead of stopping compilation.
+- `digits` values that are not `auto` or a whole number, such as `digits: 2.5` or `digits: "2"`, now fail with "digits must be auto or a whole number" instead of an internal Typst type error. This applies to `calculate`, `calculation-builder`, and each builder call.
 - An empty equation, such as `eq($ $)`, now fails with "expression must not be empty" instead of an internal Typst error.
 - Added regression fixtures for overflowing results, standalone vectors and matrices, grouping of substituted values, and the new error messages.
 

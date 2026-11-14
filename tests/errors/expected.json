@@ -49,5 +49,8 @@
   "oversized-number.typ": "math-once calculate: the number `1e400` is too large to calculate",
   "accent-variable.typ": "math-once calculate: only the `arrow` accent is supported in variable names",
   "prime-variable.typ": "math-once calculate: primes and corner attachments are not supported in variable names",
-  "empty-math.typ": "math-once calculate: expression must not be empty"
+  "empty-math.typ": "math-once calculate: expression must not be empty",
+  "fractional-digits.typ": "math-once: digits must be auto or a whole number",
+  "invalid-builder-digits.typ": "math-once calculation-builder: digits must be auto or a whole number",
+  "invalid-call-digits.typ": "math-once calculation-builder: digits must be auto or a whole number"
 }

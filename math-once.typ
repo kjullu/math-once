@@ -3437,6 +3437,12 @@ let automatic-significant-digits(tokens, scope, fallback: 4) = {
 
 let valid-auto-digits(auto-digits) = auto-digits in ("decimal", "significant")
 let auto-digits-message = "auto-digits must be decimal or significant"
+// Typst's rounding only takes whole numbers of places; anything else would stop
+// compilation with an internal type error.
+let valid-digits(digits) = (digits == none or digits == auto or type(digits) == int
+  or (type(digits) == dictionary and digits.keys() == ("significant",)
+    and (digits.significant == auto or type(digits.significant) == int)))
+let digits-message = "digits must be auto or a whole number"
 
 // Unset digits (`none`) follow the rounding mode: significant mode rounds
 // automatically, decimal mode keeps the long-standing default of 4 places.
@@ -3445,6 +3451,7 @@ let default-digits(digits, auto-digits) = if digits != none { digits } else if a
 // Carry the automatic mode through scalar, paired, and structure evaluation.
 let automatic-precision(digits, auto-digits) = {
   if not valid-auto-digits(auto-digits) { panic("math-once: " + auto-digits-message) }
+  if not valid-digits(digits) { panic("math-once: " + digits-message) }
   let digits = default-digits(digits, auto-digits)
   if digits == auto and auto-digits == "significant" { (significant: auto) } else { digits }
 }
@@ -5918,6 +5925,9 @@ let calculation-builder(
   if not valid-auto-digits(auto-digits) {
     panic("math-once calculation-builder: " + auto-digits-message)
   }
+  if not valid-digits(digits) {
+    panic("math-once calculation-builder: " + digits-message)
+  }
   if block != auto and type(block) != bool {
     panic("math-once calculation-builder: block must be auto or a boolean")
   }
@@ -6384,6 +6394,9 @@ let calculation-builder(
     }
     if type(result-only) != bool {
       panic("math-once calculation-builder: result-only must be a boolean")
+    }
+    if not valid-digits(digits) {
+      panic("math-once calculation-builder: " + digits-message)
     }
     if type(show-substitution) != bool {
       panic("math-once calculation-builder: show-substitution must be a boolean")
