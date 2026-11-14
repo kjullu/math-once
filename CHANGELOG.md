@@ -1,6 +1,6 @@
 # Changelog
 
-## Fix crashes and substituted-value display demo (based on 0.47.1)
+## 0.48.0
 
 - **Breaking**: Variable names with an accent other than `arrow`, such as `hat(x)`, or with primes and corner attachments, such as `x'`, now fail with an error. Before, `hat(x) := 2` silently stored `arrow(x)`, and `x' := 2` silently overwrote `x`. Use a plain or subscripted name instead, for example `x_1 := 2`.
 - A vector or matrix written on its own, such as `vec(1, 2)`, is now read as one value. Before, its entries were multiplied together, so `vec(1, 2)` gave `2` and `vec(1, 2) / vec(1, 2)` gave `1` instead of an error.

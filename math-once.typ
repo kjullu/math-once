@@ -1,4 +1,4 @@
-// Fix crashes and substituted-value display (0.47.1)
+// math-once v0.48.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
