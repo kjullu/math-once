@@ -1,5 +1,10 @@
 # Changelog
 
+## Ignore exponents in automatic decimal places demo (based on 0.49.0)
+
+- `digits: auto` in the default decimal mode no longer counts numeric exponents as inputs. Before, the `2` in `9.82 m/s^2` counted as a number with no decimal places, so `calculate(`9.82 m/s^2`, digits: auto)` rounded to 0 places instead of 2. A stored value such as `a := 9.82 m/s^2` passed that wrong precision on, so `m := F/a` with `F := 11.5 "N"` showed `1 kg` instead of `1.2 kg`. Exponents on numbers and variables are treated as exact too, as `auto-digits: "significant"` already did: `2.5^2` now keeps one decimal place instead of none. The base of a power and variables used as exponents still count.
+- Added a regression fixture for unit powers, numeric exponents, and a stored-variable chain with `digits: auto`.
+
 ## 0.49.0
 
 - Added logarithms to calculations and builder equations, following qalc: `ln(x)` is the natural logarithm, and `log_b(x)` (also `log_b x`, or `log(x, b)` in text) uses base `b`, so `log_10(100)` is 2 and `log_4 32` is 2.5. `log(x, b)` renders with the base as a subscript. A bare `log(x)` fails as ambiguous instead of guessing base e or 10. Arguments must be positive and dimensionless, and the base must be positive, dimensionless and not 1; compatible unit ratios such as `ln(6 mm / (1 mm))` are supported.

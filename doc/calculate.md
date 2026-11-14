@@ -97,7 +97,7 @@ Written trailing zeros count: `1.20` has two decimal places. Scientific notation
 
 Stored calculation results retain their input precision for reuse, even when their displayed value omits trailing zeros. Plain numeric scope values use their string representation, which cannot recover trailing zeros already lost by Typst.
 
-Unused scope values, unit conversion factors, and output-unit syntax do not affect the choice. Expressions without numeric inputs use four decimal places. Rounding happens in the chosen output unit.
+Unused scope values, unit conversion factors, and output-unit syntax do not affect the choice. Numeric exponents are exact, so they do not count either: the `2` in `9.82 m/s^2` is ignored and the result keeps two decimal places, and `2.5^2` keeps one. The base of a power still counts, and so does a referenced variable used as an exponent. Expressions without numeric inputs use four decimal places. Rounding happens in the chosen output unit.
 
 ```typ
 #calculate(`1.2 + 3.456`, digits: auto).display

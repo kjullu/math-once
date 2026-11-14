@@ -1,4 +1,4 @@
-// math-once v0.49.0
+// Ignore exponents in automatic decimal places (0.49.0)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3395,10 +3395,41 @@ let input-decimal-places(token) = {
   calc.max(0, places - exponent)
 }
 
-// Only referenced inputs contribute. Unit scales and output-unit syntax do not.
+// Powers describe the operation or unit, not measurement precision, so drop
+// every numeric literal inside an exponent, including parenthesized ones such
+// as `s^(2)`. Both automatic precision modes count only the remaining tokens.
+let precision-tokens(tokens) = {
+  let kept = ()
+  let exponent-end = -1
+  for (index, token) in tokens.enumerate() {
+    if token == "^" and index >= exponent-end {
+      let next = index + 1
+      while next < tokens.len() and tokens.at(next) in ("+", "-") { next += 1 }
+      // A function exponent such as `abs(2)` includes its argument list.
+      if next + 1 < tokens.len() and leading-letter-pattern in tokens.at(next) and tokens.at(next + 1) == "(" { next += 1 }
+      if next < tokens.len() and tokens.at(next) == "(" {
+        let depth = 0
+        while next < tokens.len() {
+          if tokens.at(next) == "(" { depth += 1 }
+          if tokens.at(next) == ")" { depth -= 1 }
+          if depth == 0 { break }
+          next += 1
+        }
+      }
+      exponent-end = next + 1
+      continue
+    }
+    if index < exponent-end and (number-pattern in token) { continue }
+    kept.push(token)
+  }
+  kept
+}
+
+// Only referenced inputs contribute. Unit scales, exponents, and output-unit
+// syntax do not.
 let automatic-digits(tokens, scope, fallback: 4) = {
   let places = ()
-  for token in tokens {
+  for token in precision-tokens(tokens) {
     if (number-pattern in token) {
       places.push(input-decimal-places(token))
     } else if token in scope {
@@ -3424,28 +3455,7 @@ let input-significant-digits(token) = {
 
 let automatic-significant-digits(tokens, scope, fallback: 4) = {
   let counts = ()
-  // Powers describe the operation or unit, not measurement precision. Skip
-  // every literal inside an exponent, including parenthesized ones.
-  let exponent-end = -1
-  for (index, token) in tokens.enumerate() {
-    if token == "^" and index >= exponent-end {
-      let next = index + 1
-      while next < tokens.len() and tokens.at(next) in ("+", "-") { next += 1 }
-      // A function exponent such as `abs(2)` includes its argument list.
-      if next + 1 < tokens.len() and leading-letter-pattern in tokens.at(next) and tokens.at(next + 1) == "(" { next += 1 }
-      if next < tokens.len() and tokens.at(next) == "(" {
-        let depth = 0
-        while next < tokens.len() {
-          if tokens.at(next) == "(" { depth += 1 }
-          if tokens.at(next) == ")" { depth -= 1 }
-          if depth == 0 { break }
-          next += 1
-        }
-      }
-      exponent-end = next + 1
-      continue
-    }
-    if index < exponent-end and (number-pattern in token) { continue }
+  for token in precision-tokens(tokens) {
     if (number-pattern in token) {
       counts.push(input-significant-digits(token))
     } else if token in scope {

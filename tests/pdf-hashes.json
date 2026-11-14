@@ -12,6 +12,7 @@
     "tests/alias-in-function-structures.typ": "2b6f2f4b0059bba56a4b448aadcbabc2d846ecb603ac87b485e1de52ded7787e",
     "tests/all-mathematical-symbols.typ": "ef9f918c0b0c19ee4c1714c618a0ac0a39b578666d57297612fcfd5b0006e215",
     "tests/ambiguous-units.typ": "2ec65af5b3aa3996239cd272194a594a22cb7b82f37989df6acf87a2b21750d5",
+    "tests/auto-digits-exponents.typ": "b01f171451914d5895798c703da103cc5296631a8a5740d20dbb91fd54fd950b",
     "tests/auto-digits.typ": "df59b994561ef7c0b455dd8d52ebecb3f803477b165347390f757790ce127145",
     "tests/automatic-block-layout.typ": "b8d2368a318623211c53f68d4f3c3e6ca0f158ee7bb2e8766a0b24dd0ea5ce7f",
     "tests/builder-errors.typ": "ca7d4bc745264c080cd32146f8e259387b851a00172c54b3076809b444102c6f",
