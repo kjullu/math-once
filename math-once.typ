@@ -1,4 +1,4 @@
-// math-once v0.47.1
+// Fix crashes and substituted-value display (0.47.1)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -589,6 +589,11 @@ let calculation-fail(message, soft: false) = if soft {
 } else {
   panic("math-once calculate: " + message)
 }
+
+// Floats overflow to infinity (and then to NaN) instead of failing, and Typst's
+// own comparisons and rounding stop compilation on those values.
+let is-finite-number(value) = not (float.is-nan(float(value)) or float.is-infinite(float(value)))
+let overflow-message = "the result is too large to calculate"
 
 let dims-add(a, b, factor: 1) = {
   let result = zero-dim
@@ -3180,10 +3185,11 @@ let quoted-text-pattern = regex("\"([^\"]*)\"")
 let stored-assignment-pattern = regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*:=\\s*(.+)$")
 let calculated-assignment-pattern = regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*=\\s*(.+)$")
 let reset-name-pattern = regex("^[A-Za-z]+(?:_[A-Za-z0-9]+)*$")
-let math-items(value) = if value.has("children") { value.children } else { (value,) }
-
 let source-space = [ ].func()
 let source-sequence = $a b$.body.func()
+// Only a sequence is a list of items. A lone `vec(...)` also has children, and
+// treating those as items would turn the vector into a product.
+let math-items(value) = if value.func() == source-sequence { value.children } else { (value,) }
 let source-symbol = $alpha$.body.func()
 let vector-point-pattern = regex("^\\p{Lu}( \\p{Lu})+$")
 let math-source-part(value, parse, preserve-text: false) = {
@@ -3193,6 +3199,10 @@ let math-source-part(value, parse, preserve-text: false) = {
     return parse(value)
   }
   if func == math.accent {
+    // Only the arrow is a vector name. Other accents would silently become one.
+    if value.accent != "\u{20d7}" {
+      panic("math-once calculate: only the `arrow` accent is supported in variable names")
+    }
     let base = parse(value.base)
     // Point names such as `arrow(A B)` form one vector name, `arrow_AB`.
     if vector-point-pattern in base { base = base.replace(" ", "") }
@@ -3215,6 +3225,11 @@ let math-source-part(value, parse, preserve-text: false) = {
     }
   }
   if func == math.attach {
+    // A prime or a corner attachment would otherwise be dropped, so that `x'`
+    // silently read and overwrote `x`.
+    if value.has("tr") or value.has("tl") or value.has("br") or value.has("bl") {
+      panic("math-once calculate: primes and corner attachments are not supported in variable names")
+    }
     let base = math-source-part(value.base, parse)
     if value.has("b") {
       let subscript = parse(value.b)
@@ -3299,7 +3314,7 @@ let math-source-body(body, preserve-text: false) = {
     let part = if item == [#math.eq] { "=" } else { math-source-part(item, parse, preserve-text: preserve-text) }
     if part != "" { parts.push(part) }
   }
-  parts.join(" ")
+  if parts.len() == 0 { "" } else { parts.join(" ") }
 }
 
 let input-source(source, preserve-text: false) = if type(source) == content and source.func() == math.equation {
@@ -4613,22 +4628,40 @@ let expand-variables(tokens, scope) = {
       and not symbolic-result
       and not structure-result
       and not (type(scope.at(token)) == dictionary and scope.at(token).at("function", default: false))) {
-      if index > 0 and can-end(tokens.at(index - 1)) {
+      let previous = tokens.at(index - 1, default: none)
+      let implicit-product = index > 0 and can-end(previous)
+      if implicit-product {
         expanded.push("*")
       }
       let item = scope.at(token)
-      if type(item) == dictionary and "value" in item {
-        expanded += display-number-tokens(
+      let substituted = if type(item) == dictionary and "value" in item {
+        let value-tokens = display-number-tokens(
           item.value,
           exact: item.at("exact", default: item.value),
           digits: item.at("digits", default: none),
           significant-digits: item.at("significant-digits", default: none),
         )
         let item-unit = result-unit-source(item)
-        if item-unit != none { expanded += tokenize(item-unit) }
+        if item-unit != none { value-tokens += tokenize(item-unit) }
+        value-tokens
       } else {
-        expanded.push(str(item))
+        (str(item),)
       }
+      // Group a value where the written equation would otherwise read
+      // differently: `x^2` with x = -3 is (-3)^2, not -3^2, and a value with
+      // a unit or a power of ten is one base, exponent, or denominator.
+      // Typst writes negative numbers with the Unicode minus sign.
+      let negative = substituted.first().starts-with("-") or substituted.first().starts-with("\u{2212}")
+      let compound = substituted.len() > 1
+      let follows-operator = index > 0 and previous in ("+", "-", "*", "×", "/", "^")
+      if ((negative or compound)
+        and (tokens.at(index + 1, default: none) == "^"
+          or (compound and tokens.at(index + 1, default: none) == "/")
+          or (index > 0 and previous in ("/", "^"))
+          or (negative and (follows-operator or implicit-product)))) {
+        substituted = ("(",) + substituted + (")",)
+      }
+      expanded += substituted
       if (index + 1 < tokens.len()
         and can-start(tokens.at(index + 1))
         and not (is-name(tokens.at(index + 1)) and tokens.at(index + 1) in scope)) {
@@ -5133,6 +5166,9 @@ let apply-op(op, left, right, soft: false) = {
     if left.si-value == 0 and exponent < 0 {
       return calculation-fail("cannot raise zero to a negative power", soft: soft)
     }
+    if left.si-value == 0 and exponent == 0 {
+      return calculation-fail("zero to the power of zero is undefined", soft: soft)
+    }
     return quantity(
       calc.pow(left.si-value, exponent),
       dims: dims-scale(left.dims, exponent),
@@ -5278,7 +5314,9 @@ let apply-rounding(name, argument, preferred-unit: none, soft: false) = {
     or argument.affine-kind == "difference") { 0.0 }
     else { preferred-unit.affine.offset }
   let value = (argument.si-value - offset) / scale
-  let rounded = if name == "floor" { calc.floor(value) }
+  // Floats this large are already whole numbers and do not fit Typst's integers.
+  let rounded = if calc.abs(value) >= 9007199254740992.0 { value }
+    else if name == "floor" { calc.floor(value) }
     else if name == "ceil" { calc.ceil(value) }
     else if name == "round" { calc.round(value) }
     else { return calculation-fail("unsupported rounding function `" + name + "`", soft: soft) }
@@ -5426,6 +5464,9 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
       position = next + 1
     } else if (number-pattern in token) {
       left = quantity(float(token))
+      if not is-finite-number(left.si-value) {
+        return (calculation-fail("the number `" + token + "` is too large to calculate", soft: soft), position + 1)
+      }
       position += 1
     } else if (name-pattern in token) or (token.starts-with("\"") and token.ends-with("\"") and token.len() >= 2) or (token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix) and token.len() >= 2) {
       let symbolic = (token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix) and token.len() >= 2)
@@ -5506,6 +5547,9 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
       if (type(right) == dictionary and "error" in right) { return (right, next) }
       left = apply-op(op, left, right, soft: soft)
       if (type(left) == dictionary and "error" in left) { return (left, next) }
+      if not is-finite-number(left.si-value) {
+        return (calculation-fail(overflow-message, soft: soft), next)
+      }
       position = next
     }
     (left, position)
@@ -5548,6 +5592,9 @@ let normalize-size(size, soft: false) = {
   }
   if value <= 0 {
     return calculation-fail("size must be greater than zero", soft: soft)
+  }
+  if not is-finite-number(value) {
+    return calculation-fail("size is too large", soft: soft)
   }
   (value: value, notation: notation)
 }
@@ -5789,6 +5836,9 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   }
 
   let exact = (result.si-value - output-offset) / output-scale
+  if not is-finite-number(exact) or not is-finite-number(result.si-value) {
+    return calculation-fail(overflow-message, soft: soft)
+  }
   let input-digits = automatic-digits(expression-tokens, scope)
   let input-significant = automatic-significant-digits(expression-tokens, scope)
   let significant = if type(digits) == dictionary { digits.significant } else { none }

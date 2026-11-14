@@ -1,5 +1,16 @@
 # Changelog
 
+## Fix crashes and substituted-value display demo (based on 0.47.1)
+
+- **Breaking**: Variable names with an accent other than `arrow`, such as `hat(x)`, or with primes and corner attachments, such as `x'`, now fail with an error. Before, `hat(x) := 2` silently stored `arrow(x)`, and `x' := 2` silently overwrote `x`. Use a plain or subscripted name instead, for example `x_1 := 2`.
+- A vector or matrix written on its own, such as `vec(1, 2)`, is now read as one value. Before, its entries were multiplied together, so `vec(1, 2)` gave `2` and `vec(1, 2) / vec(1, 2)` gave `1` instead of an error.
+- Substituted values are put in parentheses where the equation would otherwise read differently: `x^2` with `x := -3` now shows `(−3)^2 = 9`, `2 - x` shows `2 − (−3)`, and values with units or powers of ten are grouped before `^` and `/`, as in `(4 cm)^2` and `(1.5 ⋅ 10^12)^2`.
+- Results that overflow, such as `10^400`, `1e400`, or `sin(1e400)`, now show an error instead of stopping compilation. `size:` with an infinite value fails the same way.
+- `0^0` now fails with "zero to the power of zero is undefined" instead of stopping compilation.
+- `round`, `floor`, and `ceil` on very large numbers, such as `round(1e30)`, return the number instead of stopping compilation.
+- An empty equation, such as `eq($ $)`, now fails with "expression must not be empty" instead of an internal Typst error.
+- Added regression fixtures for overflowing results, standalone vectors and matrices, grouping of substituted values, and the new error messages.
+
 ## 0.47.1
 
 - Real documents compile faster. A 21-page physics document with 135 calculations, 22 resets, and 12 unloads went from about 2.3 s to about 1.5 s, and a generated 500-calculation document from about 8.1 s to about 4.2 s. Output is unchanged.
