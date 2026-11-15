@@ -1,4 +1,6 @@
 {
+  "builder-unit-false.typ": "math-once calculation-builder: `unit:` selects an output unit, such as `unit: $m$`, and cannot be a boolean; to hide the unit, use `show-unit: false` instead of `unit: false`",
+  "builder-unit-true.typ": "math-once calculation-builder: `unit:` selects an output unit, such as `unit: $m$`, and cannot be a boolean; to hide the unit, use `show-unit: false` instead of `unit: true`",
   "ambiguous-dose.typ": "math-once calculate: ambiguous unit; specify `unit:` as `$Gy$`, `$Sv$`, or `$m^2/s^2$`",
   "ambiguous-energy.typ": "math-once calculate: ambiguous unit; specify `unit:` as `$J$`, `$Nm$`, or `$kg*m^2/s^2$`",
   "ambiguous-frequency.typ": "math-once calculate: ambiguous unit; specify `unit:` as `$Hz$`, `$Bq$`, or `$1/s$`",
@@ -58,5 +60,23 @@
   "log-dimensioned.typ": "math-once calculate: `log` requires a dimensionless number",
   "log-negative.typ": "math-once calculate: `log` requires a positive number",
   "log-ambiguous.typ": "math-once calculate: `log(x)` without a base is ambiguous; use `ln(x)`, `log_10(x)`, or `log_b(x)`",
-  "log-base-one.typ": "math-once calculate: `log` requires a positive, dimensionless base other than 1"
+  "log-base-one.typ": "math-once calculate: `log` requires a positive, dimensionless base other than 1",
+  "builder-gap-type.typ": "math-once calculation-builder: `gap:` must be a length, such as `gap: 0.65em`, a relative length, a fraction, or none, not true",
+  "builder-initial-state-type.typ": "math-once calculation-builder: `initial-state:` must be a dictionary of starting values, such as `initial-state: (g: 9.82)`, not (1, 2)",
+  "builder-key-type.typ": "math-once calculation-builder: `key:` must be a string naming the builder state, not 5",
+  "builder-label-string.typ": "math-once calculation-builder: `label:` must be a label in angle brackets, such as `label: <speed>`, or none, not \\\"speed\\\"",
+  "builder-show-result-type.typ": "math-once calculation-builder: show-result must be a boolean",
+  "builder-supplement-type.typ": "math-once calculation-builder: `supplement:` must be auto, none, content, a string, or a function, not 5",
+  "builder-unit-number.typ": "math-once calculation-builder: `unit:` must be an output unit, such as `unit: $m$`, or none, not 5",
+  "builder-unknown-option.typ": "math-once calculation-builder: unknown option `show-units:`; the options are `digits:`, `auto-digits:`, `unit:`, `size:`, `show-result:`, `show-substitution:`, `show-unit:`, `result-only:`, `hidden:`, `block:`, `label:`, `caption:`, `gap:`, `supplement:`",
+  "calculate-block-type.typ": "math-once calculate: block must be a boolean",
+  "calculate-scope-type.typ": "math-once calculate: `scope:` must be a dictionary of values, such as `scope: (v: 12)`, not (1, 2)",
+  "calculate-unit-false.typ": "math-once calculate: `unit:` selects an output unit, such as `unit: $m$`, and cannot be a boolean; to hide the unit, use `show-unit: false` instead of `unit: false`",
+  "equation-gap-type.typ": "math-once equation: `gap:` must be a length, such as `gap: 0.65em`, a relative length, a fraction, or none, not true",
+  "equation-outline-indent-type.typ": "math-once equation-outline: `indent:` must be auto, a length, or a function, not \\\"wide\\\"",
+  "numbered-equations-numbering-type.typ": "math-once number-labelled-equations: `numbering:` must be a pattern string such as `(1)`, a function, or none, not 1",
+  "reset-key-type.typ": "math-once reset: `key:` must be a string naming the builder state, not 5",
+  "unload-name-type.typ": "math-once unload: names must be strings or math, such as `$m$`, not 5",
+  "calculate-size-content.typ": "math-once calculate: size must be a positive number, a string, or a math expression, such as `size: $2 dot 10^3$`, not [bad]",
+  "evaluate-code-scope-type.typ": "math-once evaluate-code: `scope:` must be a dictionary of values, such as `scope: (v: 12)`, not false"
 }

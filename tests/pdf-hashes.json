@@ -40,6 +40,7 @@
     "tests/negative-structure-display.typ": "8b2969ae727d26a9356c50101ddfaee3b930beec216432d0af5fd30330ea3dd5",
     "tests/non-finite-results.typ": "31bfac4a7113c14519a8b83db166bf3e725f55cb9c2e7fedd7e1484b72bec351",
     "tests/opaque-units.typ": "009cf0a5fb13dadd9e60963d1336fc9d467da7f8b0618065899aec20b2cdf3b8",
+    "tests/option-forms.typ": "7b4949b74b1b45540a105c490f4b54b754f9d21bfdb65f702f20addfd9011f7b",
     "tests/package-import.typ": "ada945f86890ecf7bff8e4f3e68b836461e101fe94f9dde3bc77b22a0a156cb5",
     "tests/paired-signs.typ": "cfc891c64397e5b47a84e95d1ada4bf42f2a7cdc50fa6dafecbcf39e381a22d3",
     "tests/point-vectors.typ": "9aef4d0ce04924ad7705041c67422ec7cfd3ceb1eacb9b8cdb4e9f211b984d02",
