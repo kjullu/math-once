@@ -1,5 +1,9 @@
 # Changelog
 
+## Constants as symbols demo (based on 0.49.0)
+
+- The built-in constants `pi` and `e` now stay as symbols in the substituted step, so `2 pi dot epsilon_0` shows `2π ⋅ 8.854 ⋅ 10^(-12) …` instead of `2 ⋅ 3.141592653589793 ⋅ …`. Results are unchanged. Pass `substitute-constants: true` to `calculation-builder` to show their numeric values as before. Reassigned names (after `unload("pi")`) are still substituted.
+
 ## 0.49.0
 
 - Added logarithms to calculations and builder equations, following qalc: `ln(x)` is the natural logarithm, and `log_b(x)` (also `log_b x`, or `log(x, b)` in text) uses base `b`, so `log_10(100)` is 2 and `log_4 32` is 2.5. `log(x, b)` renders with the base as a subscript. A bare `log(x)` fails as ambiguous instead of guessing base e or 10. Arguments must be positive and dimensionless, and the base must be positive, dimensionless and not 1; compatible unit ratios such as `ln(6 mm / (1 mm))` are supported.

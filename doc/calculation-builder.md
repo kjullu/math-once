@@ -225,6 +225,7 @@ calculation-builder(
   supplement: auto,
   strict: false,
   strict-units: false,
+  substitute-constants: false,
 ) -> function
 ```
 
@@ -356,6 +357,26 @@ With `true`, calculation errors panic and stop compilation instead of becoming r
 `bool` — optional, named — default: `false`
 
 With `true`, unknown quoted unit names fail instead of becoming opaque custom units. This also checks vector components, matrix cells, and expressions expanded from stored functions. Known catalog units and explicit `text-unit(...)` output labels still work.
+
+### `substitute-constants`
+
+`bool` — optional, named — default: `false`
+
+By default, the built-in constants `pi` and `e` stay as symbols in the substituted step, while stored variables are replaced by their values. Set this to `true` to substitute their numeric values as well:
+
+```typ
+#let eq = calculation-builder(key: "circle", digits: 2)
+#eq($r := 2 "cm"$)
+#eq($A_1 := pi r^2$)
+// A_1 = π r^2 = π ⋅ (2 cm)^2 = 0.0013 m^2
+
+#let numeric = calculation-builder(key: "circle-numeric", digits: 2, substitute-constants: true)
+#numeric($r := 2 "cm"$)
+#numeric($A_1 := pi r^2$)
+// A_1 = π r^2 = 3.141592653589793 ⋅ (2 cm)^2 = 0.0013 m^2
+```
+
+A name that has been unloaded and reassigned, such as `pi := 4` after `unload("pi")`, is an ordinary variable and is always substituted.
 
 ## Returned runner
 
