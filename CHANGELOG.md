@@ -1,20 +1,15 @@
 # Changelog
 
-## 0.51.0
-
-- The built-in constants `pi` and `e` now stay as symbols in the substituted step, so `2 pi dot epsilon_0` shows `2π ⋅ 8.854 ⋅ 10^(-12) …` instead of `2 ⋅ 3.141592653589793 ⋅ …`. Results are unchanged. Pass `substitute-constants: true` to `calculation-builder` to show their numeric values as before. Reassigned names (after `unload("pi")`) are still substituted.
-
 ## 0.50.0
 
+- **Breaking**: Builder `label:` now requires a Typst label instead of accepting a string printed after the equation. Replace `label: "speed"` with `label: <speed>` for a referenceable label, or use `caption: [speed]` for visible text.
+- **Breaking**: The built-in constants `pi` and `e` now stay as symbols in the substituted step, so `2 pi dot epsilon_0` shows `2π ⋅ 8.854 ⋅ 10^(-12) …` instead of `2 ⋅ 3.141592653589793 ⋅ …`. Results are unchanged. Pass `substitute-constants: true` to `calculation-builder` to show their numeric values as before. Reassigned names (after `unload("pi")`) are still substituted.
 - **Breaking**: `digits: auto` no longer counts whole-number formula constants that multiply or divide, in both decimal and significant mode. Before, the `1` and `3` in `I_0 := 1/3 dot m dot L^2` with `m := 0.60 "kg"` and `L := 1.64 "m"` rounded the result to `1 kg m^2` (decimal) or `0.5 kg m^2` (significant); both now show `0.54 kg m^2`. Signs and parentheses around the constant do not matter (`x / (-2)`), and a whole number that scales a vector or matrix is exact too: `2 * v` with `v := vec(1.20, 3.456)` keeps 2 and 3 decimal places instead of rounding to whole numbers. Whole numbers with their own unit (`12 m`, `12 * m^2`, `3 / s`, `"kg" * 3`), whole numbers that are added or subtracted (`1 + 3.456`), and function arguments (`sin(30)`) still count. This changes documented behavior: `calculate(`2 * 1.25`, digits: auto)` gives `2.5` instead of `3`. If a whole number is a measured value that should limit the precision, give it a unit, pass it through `scope` (for example `calculate(`n * 1.25`, scope: (n: 2), digits: auto)`), or set `digits` explicitly.
+- **Breaking**: Builder equations now reject unknown named options that were previously ignored. Fix misspelled options such as `show-units:` to `show-unit:`; pass builder settings such as `strict: true` to `calculation-builder`, rather than to each equation.
 - `digits: auto` in the default decimal mode no longer counts numeric exponents as inputs. Before, the `2` in `9.82 m/s^2` counted as a number with no decimal places, so `calculate(`9.82 m/s^2`, digits: auto)` rounded to 0 places instead of 2. A stored value such as `a := 9.82 m/s^2` passed that wrong precision on, so `m := F/a` with `F := 11.5 "N"` showed `1 kg` instead of `1.2 kg`. Exponents on numbers and variables are treated as exact too, as `auto-digits: "significant"` already did: `2.5^2` now keeps one decimal place instead of none. The base of a power and variables used as exponents still count.
 - Added a regression fixture for unit powers, numeric exponents, exact formula constants, and stored-variable chains with `digits: auto`.
-
-## 0.49.1
-
 - Passing a boolean to `unit:` in a builder or `calculate` now explains that it selects an output unit and points to `show-unit: false` for hiding the unit, instead of reporting an invalid expression. Other wrong `unit:` values name the option and the value.
-- Builder equations now reject unknown named options, such as a misspelled `show-units:`, and list the valid ones. Before, a typo was silently ignored.
-- Wrong types for `show-result:`, `label:`, `gap:`, `supplement:`, `initial-state:`, `key:`, `scope:`, `block:` in `calculate`, `indent:` in `equation-outline` and `numbering:` in `number-labelled-equations` now fail with a message that names the option, shows an example, and includes the value passed. A string `label:` used to be printed as text after the equation.
+- Wrong types for `show-result:`, `label:`, `gap:`, `supplement:`, `initial-state:`, `key:`, `scope:`, `block:` in `calculate`, `indent:` in `equation-outline` and `numbering:` in `number-labelled-equations` now fail with a message that names the option, shows an example, and includes the value passed.
 - Non-name arguments to `unload`, `rename-unit` and the reset helpers now say that names must be strings or math, instead of reporting an invalid expression.
 - Content other than raw text or math in `size:`, such as `size: [2]`, now reports a `size:` error instead of saying the expression is invalid. A wrong `scope:` in `evaluate-code` now names the option instead of failing with "cannot loop over boolean".
 - `initial-state:` and `scope:` still accept an array of name/value pairs, such as `(("g", 9.82),)`, and `gap: none` still works.

@@ -1,4 +1,4 @@
-// math-once v0.51.0
+// math-once v0.50.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -91,8 +91,6 @@
   )
 }
 
-// The show rule exposes the current equation label to its caption without
-// replacing the original, referenceable math.equation element.
 // Shared option checks. Each returns an error message, or none when valid.
 #let _unit-option-error(unit) = if type(unit) == bool {
   "`unit:` selects an output unit, such as `unit: $m$`, and cannot be a boolean; to hide the unit, use `show-unit: false` instead of `unit: " + repr(unit) + "`"
@@ -114,6 +112,8 @@
   "`label:` must be a label in angle brackets, such as `label: <speed>`, or none, not " + repr(label-value)
 }
 
+// The show rule exposes the current equation label to its caption without
+// replacing the original, referenceable math.equation element.
 #let _caption-label = state("math-once-caption-label", none)
 
 // Keep captions inside the equation element. This lets a postfix label attach
