@@ -1,6 +1,6 @@
 # Changelog
 
-## Clearer option errors demo (based on 0.49.0)
+## 0.49.1
 
 - Passing a boolean to `unit:` in a builder or `calculate` now explains that it selects an output unit and points to `show-unit: false` for hiding the unit, instead of reporting an invalid expression. Other wrong `unit:` values name the option and the value.
 - Builder equations now reject unknown named options, such as a misspelled `show-units:`, and list the valid ones. Before, a typo was silently ignored.
