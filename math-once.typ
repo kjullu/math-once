@@ -1,7 +1,15 @@
-// math-once v0.49.0
+// math-once v0.50.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
+
+// Convert a dictionary or an array of (name, value) pairs to a dictionary.
+// Returns none for anything else.
+#let _pairs-to-dict(value) = if type(value) == dictionary {
+  value
+} else if type(value) == array and value.all(pair => type(pair) == array and pair.len() == 2 and type(pair.first()) == str) {
+  value.to-dict()
+}
 
 /// Evaluate a trusted numerical expression, prepare a visible equation, and
 /// return both the rounded and exact values.
@@ -29,8 +37,12 @@
     panic("math-once: source must not be empty")
   }
 
+  let scope-dict = _pairs-to-dict(scope)
+  if scope-dict == none {
+    panic("math-once evaluate-code: `scope:` must be a dictionary of values, such as `scope: (v: 12)`, not " + repr(scope))
+  }
   let evaluation-scope = (:)
-  for (name, item) in scope {
+  for (name, item) in scope-dict {
     let item = if type(item) == dictionary and "exact" in item {
       item.exact
     } else {
@@ -77,6 +89,27 @@
     source: source,
     unit: unit,
   )
+}
+
+// Shared option checks. Each returns an error message, or none when valid.
+#let _unit-option-error(unit) = if type(unit) == bool {
+  "`unit:` selects an output unit, such as `unit: $m$`, and cannot be a boolean; to hide the unit, use `show-unit: false` instead of `unit: " + repr(unit) + "`"
+} else if unit == none or type(unit) == str or (type(unit) == content and unit.func() in (raw, math.equation)) {
+  none
+} else {
+  "`unit:` must be an output unit, such as `unit: $m$`, or none, not " + repr(unit)
+}
+#let _key-option-error(key) = if type(key) != str {
+  "`key:` must be a string naming the builder state, not " + repr(key)
+}
+#let _supplement-option-error(supplement) = if supplement != auto and supplement != none and type(supplement) not in (content, str, function) {
+  "`supplement:` must be auto, none, content, a string, or a function, not " + repr(supplement)
+}
+#let _gap-option-error(gap) = if gap != none and type(gap) not in (length, ratio, relative, fraction) {
+  "`gap:` must be a length, such as `gap: 0.65em`, a relative length, a fraction, or none, not " + repr(gap)
+}
+#let _label-option-error(label-value) = if label-value != none and type(label-value) != label {
+  "`label:` must be a label in angle brackets, such as `label: <speed>`, or none, not " + repr(label-value)
 }
 
 // The show rule exposes the current equation label to its caption without
@@ -858,7 +891,7 @@ let source-string(source) = if type(source) == str {
 } else if type(source) == content and source.func() == raw {
   source.text.trim()
 } else {
-  panic("math-once calculate: expression must be a string, raw text, or math equation")
+  panic("math-once calculate: expression must be a string, raw text, or math equation, such as `$v := 10 m/s$`, not " + repr(source))
 }
 
 // BEGIN GENERATED TYPST SYMBOL CATALOG
@@ -5669,7 +5702,7 @@ let normalize-size(size, soft: false) = {
   let notation = none
   let value = if type(size) in (int, float, decimal) {
     float(size)
-  } else if type(size) in (str, content) {
+  } else if type(size) == str or (type(size) == content and size.func() in (raw, math.equation)) {
     let source = input-source(size)
     let parsed = parse(add-implicit-multiplication(tokenize(source)), soft: soft)
     if (type(parsed) == dictionary and "error" in parsed) { return parsed }
@@ -5689,7 +5722,7 @@ let normalize-size(size, soft: false) = {
     }
     parsed.si-value
   } else {
-    return calculation-fail("size must be a positive number or math expression", soft: soft)
+    return calculation-fail("size must be a positive number, a string, or a math expression, such as `size: $2 dot 10^3$`, not " + repr(size), soft: soft)
   }
   if value <= 0 {
     return calculation-fail("size must be greater than zero", soft: soft)
@@ -6016,6 +6049,15 @@ let calculation-builder(
   strict: false,
   strict-units: false,
 ) = {
+  let initial-state-dict = _pairs-to-dict(initial-state)
+  if initial-state-dict == none {
+    panic("math-once calculation-builder: `initial-state:` must be a dictionary of starting values, such as `initial-state: (g: 9.82)`, not " + repr(initial-state))
+  }
+  let initial-state = initial-state-dict
+  let key-error = _key-option-error(key)
+  if key-error != none { panic("math-once calculation-builder: " + key-error) }
+  let supplement-error = _supplement-option-error(supplement)
+  if supplement-error != none { panic("math-once calculation-builder: " + supplement-error) }
   if not valid-auto-digits(auto-digits) {
     panic("math-once calculation-builder: " + auto-digits-message)
   }
@@ -6466,6 +6508,10 @@ let calculation-builder(
     }
   }
 
+  let runner-options = (
+    "digits", "auto-digits", "unit", "size", "show-result", "show-substitution",
+    "show-unit", "result-only", "hidden", "block", "label", "caption", "gap", "supplement",
+  )
   (
     ..args,
     digits: digits,
@@ -6497,6 +6543,21 @@ let calculation-builder(
     }
     if type(show-unit) != bool {
       panic("math-once calculation-builder: show-unit must be a boolean")
+    }
+    let unknown = args.named().keys()
+    if unknown.len() > 0 {
+      panic(
+        "math-once calculation-builder: unknown option `" + unknown.first() + ":`; the options are "
+        + runner-options.map(option => "`" + option + ":`").join(", "),
+      )
+    }
+    let unit-error = _unit-option-error(unit)
+    if unit-error != none { panic("math-once calculation-builder: " + unit-error) }
+    if type(show-result) != bool {
+      panic("math-once calculation-builder: show-result must be a boolean")
+    }
+    for error in (_label-option-error(label), _gap-option-error(gap), _supplement-option-error(supplement)) {
+      if error != none { panic("math-once calculation-builder: " + error) }
     }
     if type(hidden) != bool {
       panic("math-once calculation-builder: hidden must be a boolean")
@@ -6689,6 +6750,9 @@ let calculation-builder(
 
 // Normalize a reset or unload argument to a builder state name.
 let state-name(value, action) = {
+  if not (type(value) == str or (type(value) == content and value.func() in (raw, math.equation))) {
+    panic("math-once " + action + ": names must be strings or math, such as `$m$`, not " + repr(value))
+  }
   let name = input-source(value).trim()
   if reset-name-pattern not in name {
     panic(
@@ -6701,11 +6765,15 @@ let state-name(value, action) = {
 
 /// Clear the complete calculation-builder state.
 let reset(key: "math-once-calculation") = {
+  let key-error = _key-option-error(key)
+  if key-error != none { panic("math-once reset: " + key-error) }
   checkpoint-counter(key).step()
 }
 
 /// Clear selected or all stored values while preserving builder configuration.
 let reset-variables(..names, key: "math-once-calculation") = {
+  let key-error = _key-option-error(key)
+  if key-error != none { panic("math-once reset-variables: " + key-error) }
   let selected = names.pos().map(value => state-name(value, "reset-variables"))
   context {
     let variables = checkpoint-state(key)
@@ -6740,6 +6808,8 @@ let reset-variables(..names, key: "math-once-calculation") = {
 
 /// Clear selected or all stored function definitions.
 let reset-functions(..names, key: "math-once-calculation") = {
+  let key-error = _key-option-error(key)
+  if key-error != none { panic("math-once reset-functions: " + key-error) }
   let selected = names.pos().map(value => state-name(value, "reset-functions"))
   context {
     let variables = checkpoint-state(key)
@@ -6759,6 +6829,8 @@ let reset-functions(..names, key: "math-once-calculation") = {
 
 /// Restore selected or all unit names made available with unload.
 let restore-units(..names, key: "math-once-calculation") = {
+  let key-error = _key-option-error(key)
+  if key-error != none { panic("math-once restore-units: " + key-error) }
   let selected = names.pos().map(value => state-name(value, "restore-units"))
   context {
     let variables = checkpoint-state(key)
@@ -6782,6 +6854,8 @@ let restore-units(..names, key: "math-once-calculation") = {
 
 /// Remove selected or all rename-unit relationships.
 let reset-unit-aliases(..names, key: "math-once-calculation") = {
+  let key-error = _key-option-error(key)
+  if key-error != none { panic("math-once reset-unit-aliases: " + key-error) }
   let selected = names.pos().map(value => state-name(value, "reset-unit-aliases"))
   context {
     let variables = checkpoint-state(key)
@@ -6820,6 +6894,8 @@ let reset-unit-aliases(..names, key: "math-once-calculation") = {
 
 /// Temporarily make unit names available as builder variable names.
 let unload(..names, key: "math-once-calculation") = {
+  let key-error = _key-option-error(key)
+  if key-error != none { panic("math-once unload: " + key-error) }
   let selected = names.pos().map(value => state-name(value, "unload"))
   if selected.len() == 0 {
     panic("math-once unload: pass at least one unit name")
@@ -6847,6 +6923,8 @@ let unload(..names, key: "math-once-calculation") = {
 
 /// Move an active unit spelling to a new alias until reset.
 let rename-unit(from, to, key: "math-once-calculation") = {
+  let key-error = _key-option-error(key)
+  if key-error != none { panic("math-once rename-unit: " + key-error) }
   let from = state-name(from, "rename-unit")
   let to = state-name(to, "rename-unit")
   let rename-info(old) = {
@@ -6946,15 +7024,27 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// `dimensions`, `unit`, `size`, and `source`.
 /// A paired-sign expression instead returns `alternatives: true`, `display`,
 /// and tuples named `branches`, `values`, `exacts`, `si-values`, and `units`.
-#let calculate(source, digits: none, auto-digits: "decimal", scope: (:), unit: none, size: none, block: true, strict-units: false) = (_engine.calculate)(
-  source,
-  digits: (_engine.automatic-precision)(digits, auto-digits),
-  scope: scope,
-  unit: unit,
-  size: size,
-  block: block,
-  strict-units: strict-units,
-)
+#let calculate(source, digits: none, auto-digits: "decimal", scope: (:), unit: none, size: none, block: true, strict-units: false) = {
+  let unit-error = _unit-option-error(unit)
+  if unit-error != none { panic("math-once calculate: " + unit-error) }
+  let scope-dict = _pairs-to-dict(scope)
+  if scope-dict == none {
+    panic("math-once calculate: `scope:` must be a dictionary of values, such as `scope: (v: 12)`, not " + repr(scope))
+  }
+  let scope = scope-dict
+  if type(block) != bool {
+    panic("math-once calculate: block must be a boolean")
+  }
+  (_engine.calculate)(
+    source,
+    digits: (_engine.automatic-precision)(digits, auto-digits),
+    scope: scope,
+    unit: unit,
+    size: size,
+    block: block,
+    strict-units: strict-units,
+  )
+}
 
 /// Create a stateful calculator for sequences of equations.
 ///
@@ -7096,6 +7186,9 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   if type(body) != content or body.func() != math.equation {
     panic("math-once equation: body must be a Typst math equation")
   }
+  for error in (_gap-option-error(gap), _supplement-option-error(supplement)) {
+    if error != none { panic("math-once equation: " + error) }
+  }
   if caption == none and supplement == auto {
     return body
   }
@@ -7118,6 +7211,9 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 /// - `title`: Heading above the list. Default: `[List of Equations]`.
 /// - `indent`: Outline indentation. Default: `auto`.
 #let equation-outline(title: [List of Equations], indent: auto) = {
+  if indent != auto and type(indent) not in (length, ratio, relative, function) {
+    panic("math-once equation-outline: `indent:` must be auto, a length, or a function, not " + repr(indent))
+  }
   show outline.entry: entry => {
     let equation = entry.element
     let caption = _equation-caption(equation)
@@ -7161,6 +7257,11 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   if type(captions) != dictionary {
     panic("math-once number-labelled-equations: captions must be a dictionary")
   }
+  if numbering != none and type(numbering) not in (str, function) {
+    panic("math-once number-labelled-equations: `numbering:` must be a pattern string such as `(1)`, a function, or none, not " + repr(numbering))
+  }
+  let supplement-error = _supplement-option-error(supplement)
+  if supplement-error != none { panic("math-once number-labelled-equations: " + supplement-error) }
   set math.equation(numbering: numbering, supplement: supplement)
   show math.equation: equation => {
     if equation.block and not equation.has("label") and equation.numbering != none {
