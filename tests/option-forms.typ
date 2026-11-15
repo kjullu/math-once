@@ -1,0 +1,10 @@
+#import "../math-once.typ": *
+#equation($ x = 1 $, caption: [A], gap: none)
+#let eq = calculation-builder(initial-state: (("factor", 2),))
+#eq("answer := factor * 2")
+#context assert(eq().answer.exact == 4)
+#let e2 = calculation-builder()
+#e2($y := 3$, caption: [B], gap: none, block: true)
+#assert(calculate("factor * 2", scope: (("factor", 2),)).exact == 4)
+#assert(evaluate-code("v * 2", scope: (("v", 3),)).exact == 6)
+#assert(calculate("2 m", unit: "m", size: "3").exact != none)
