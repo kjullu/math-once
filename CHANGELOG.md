@@ -6,6 +6,8 @@
 - Builder equations now reject unknown named options, such as a misspelled `show-units:`, and list the valid ones. Before, a typo was silently ignored.
 - Wrong types for `show-result:`, `label:`, `gap:`, `supplement:`, `initial-state:`, `key:`, `scope:`, `block:` in `calculate`, `indent:` in `equation-outline` and `numbering:` in `number-labelled-equations` now fail with a message that names the option, shows an example, and includes the value passed. A string `label:` used to be printed as text after the equation.
 - Non-name arguments to `unload`, `rename-unit` and the reset helpers now say that names must be strings or math, instead of reporting an invalid expression.
+- Content other than raw text or math in `size:`, such as `size: [2]`, now reports a `size:` error instead of saying the expression is invalid. A wrong `scope:` in `evaluate-code` now names the option instead of failing with "cannot loop over boolean".
+- `initial-state:` and `scope:` still accept an array of name/value pairs, such as `(("g", 9.82),)`, and `gap: none` still works.
 
 ## 0.49.0
 
