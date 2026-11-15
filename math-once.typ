@@ -4821,7 +4821,18 @@ let render-result(result, aliases: (:), show-unit: true) = {
   }
 }
 
-let expand-variables(tokens, scope) = {
+let built-in-constants = (e: calc.e, pi: calc.pi)
+let is-built-in-constant(name) = name in built-in-constants
+
+// A built-in constant still holding its standard value (not an unloaded and
+// reassigned name) stays a symbol unless constants are substituted.
+let kept-constant(token, scope, substitute-constants) = (
+  not substitute-constants
+  and token in built-in-constants
+  and type(scope.at(token, default: none)) != dictionary
+)
+
+let expand-variables(tokens, scope, substitute-constants: false) = {
   let expanded = ()
   let changed = false
   for (index, token) in tokens.enumerate() {
@@ -4836,6 +4847,7 @@ let expand-variables(tokens, scope) = {
       and not unit-alias
       and not symbolic-result
       and not structure-result
+      and not kept-constant(token, scope, substitute-constants)
       and not (type(scope.at(token)) == dictionary and scope.at(token).at("function", default: false))) {
       let previous = tokens.at(index - 1, default: none)
       let implicit-product = index > 0 and can-end(previous)
@@ -4873,7 +4885,9 @@ let expand-variables(tokens, scope) = {
       expanded += substituted
       if (index + 1 < tokens.len()
         and can-start(tokens.at(index + 1))
-        and not (is-name(tokens.at(index + 1)) and tokens.at(index + 1) in scope)) {
+        and not (is-name(tokens.at(index + 1))
+          and tokens.at(index + 1) in scope
+          and not kept-constant(tokens.at(index + 1), scope, substitute-constants))) {
         expanded.push("*")
       }
       changed = true
@@ -4893,8 +4907,6 @@ let is-symbolic-expression(item) = is-symbolic-result(item) and item.at("symboli
 let is-renamed-unit(item) = is-unloaded(item) and type(item) == dictionary and item.at("renamed-unit", default: false)
 let initial-state-marker-name = "math-once--initial-state"
 let is-initial-state-marker(item) = type(item) == dictionary and item.at("initial-state-marker", default: false)
-let built-in-constants = (e: calc.e, pi: calc.pi)
-let is-built-in-constant(name) = name in built-in-constants
 let is-stored-variable(item) = (
   not is-unloaded-marker(item)
   and not (type(item) == dictionary and item.at("unit-alias", default: false))
@@ -6146,6 +6158,7 @@ let calculation-builder(
   supplement: auto,
   strict: false,
   strict-units: false,
+  substitute-constants: false,
 ) = {
   let initial-state-dict = _pairs-to-dict(initial-state)
   if initial-state-dict == none {
@@ -6170,6 +6183,9 @@ let calculation-builder(
   }
   if type(strict-units) != bool {
     panic("math-once calculation-builder: strict-units must be a boolean")
+  }
+  if type(substitute-constants) != bool {
+    panic("math-once calculation-builder: substitute-constants must be a boolean")
   }
   for (name, _) in initial-state {
     if name == initial-state-marker-name {
@@ -6237,7 +6253,7 @@ let calculation-builder(
     name-scope.insert(spec.name, 0)
     let labelled-body = render-tokens((spec.name,), scope: name-scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current, aliases: aliases)
     if spec.show-result {
-      let (expanded, has-variables) = expand-variables(tokens, current)
+      let (expanded, has-variables) = expand-variables(tokens, current, substitute-constants: substitute-constants)
       if has-variables and spec.show-substitution {
         labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
       }
@@ -6591,7 +6607,7 @@ let calculation-builder(
         and matrix-rows(calculation-tokens) == none) {
         labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(calculation-tokens, scope: numeric-scope(current), aliases: aliases)
       }
-      let (expanded, has-variables) = expand-variables(tokens, current)
+      let (expanded, has-variables) = expand-variables(tokens, current, substitute-constants: substitute-constants)
       if has-variables and show-substitution {
         labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
       }
@@ -7162,6 +7178,9 @@ let rename-unit(from, to, key: "math-once-calculation") = {
 ///   Default: `false`.
 /// - `strict-units`: Reject unknown quoted units instead of treating them as
 ///   opaque custom units. Default: `false`.
+/// - `substitute-constants`: Show the numeric values of the built-in constants
+///   `pi` and `e` in the substituted step instead of their symbols.
+///   Default: `false`.
 ///
 /// The returned runner accepts zero or one string, raw block, or Typst math
 /// equation plus the named `digits`, `auto-digits`, `unit`, `size`, `show-result`,
@@ -7193,6 +7212,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   supplement: auto,
   strict: false,
   strict-units: false,
+  substitute-constants: false,
 ) = (_engine.calculation-builder)(
   initial-state: initial-state,
   key: key,
@@ -7202,6 +7222,7 @@ let rename-unit(from, to, key: "math-once-calculation") = {
   supplement: supplement,
   strict: strict,
   strict-units: strict-units,
+  substitute-constants: substitute-constants,
 )
 
 /// Reset all builder state, or explicitly select categories and names.
