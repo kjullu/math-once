@@ -1,9 +1,10 @@
 # Changelog
 
-## Ignore exponents in automatic decimal places demo (based on 0.49.0)
+## Ignore exponents and exact constants in automatic digits demo (based on 0.49.0)
 
+- **Breaking**: `digits: auto` no longer counts whole-number formula constants that multiply or divide, in both decimal and significant mode. Before, the `1` and `3` in `I_0 := 1/3 dot m dot L^2` with `m := 0.60 "kg"` and `L := 1.64 "m"` rounded the result to `1 kg m^2` (decimal) or `0.5 kg m^2` (significant); both now show `0.54 kg m^2`. Signs and parentheses around the constant do not matter (`x / (-2)`), and a whole number that scales a vector or matrix is exact too: `2 * v` with `v := vec(1.20, 3.456)` keeps 2 and 3 decimal places instead of rounding to whole numbers. Whole numbers with their own unit (`12 m`, `12 * m^2`, `3 / s`, `"kg" * 3`), whole numbers that are added or subtracted (`1 + 3.456`), and function arguments (`sin(30)`) still count. This changes documented behavior: `calculate(`2 * 1.25`, digits: auto)` gives `2.5` instead of `3`. If a whole number is a measured value that should limit the precision, give it a unit, pass it through `scope` (for example `calculate(`n * 1.25`, scope: (n: 2), digits: auto)`), or set `digits` explicitly.
 - `digits: auto` in the default decimal mode no longer counts numeric exponents as inputs. Before, the `2` in `9.82 m/s^2` counted as a number with no decimal places, so `calculate(`9.82 m/s^2`, digits: auto)` rounded to 0 places instead of 2. A stored value such as `a := 9.82 m/s^2` passed that wrong precision on, so `m := F/a` with `F := 11.5 "N"` showed `1 kg` instead of `1.2 kg`. Exponents on numbers and variables are treated as exact too, as `auto-digits: "significant"` already did: `2.5^2` now keeps one decimal place instead of none. The base of a power and variables used as exponents still count.
-- Added a regression fixture for unit powers, numeric exponents, and a stored-variable chain with `digits: auto`.
+- Added a regression fixture for unit powers, numeric exponents, exact formula constants, and stored-variable chains with `digits: auto`.
 
 ## 0.49.0
 

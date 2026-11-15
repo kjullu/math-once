@@ -97,7 +97,9 @@ Written trailing zeros count: `1.20` has two decimal places. Scientific notation
 
 Stored calculation results retain their input precision for reuse, even when their displayed value omits trailing zeros. Plain numeric scope values use their string representation, which cannot recover trailing zeros already lost by Typst.
 
-Unused scope values, unit conversion factors, and output-unit syntax do not affect the choice. Numeric exponents are exact, so they do not count either: the `2` in `9.82 m/s^2` is ignored and the result keeps two decimal places, and `2.5^2` keeps one. The base of a power still counts, and so does a referenced variable used as an exponent. Expressions without numeric inputs use four decimal places. Rounding happens in the chosen output unit.
+Unused scope values, unit conversion factors, and output-unit syntax do not affect the choice. Numeric exponents are exact, so they do not count either: the `2` in `9.82 m/s^2` is ignored and the result keeps two decimal places, and `2.5^2` keeps one. The base of a power still counts, and so does a referenced variable used as an exponent.
+
+Whole-number formula constants that multiply or divide are exact too, so the `1` and `3` in `1/3 * m * L^2` and the `2` in `2 x` do not count. Signs and parentheses around the constant do not matter, so `x / (-2)` keeps the precision of `x`. A whole number still counts when a unit follows it, as in `12 m * 1.5`, `12 * m^2`, or `3 / s`, or when it is multiplied by a unit on its own, as in `"kg" * 3`, when it is added or subtracted, as in `1 + 3.456`, or when it is a function argument, as in `sin(30)`. The same applies to a whole number that scales a vector or matrix, as in `2 * v`. A unit before the number belongs to another value, so the `12` in `1.234 m * 12` is exact. To make a whole number limit the precision, give it a unit, pass it through `scope`, or set `digits` explicitly. Expressions without numeric inputs use four decimal places. Rounding happens in the chosen output unit.
 
 ```typ
 #calculate(`1.2 + 3.456`, digits: auto).display

@@ -290,7 +290,7 @@ Choose how `digits: auto` determines precision. `"decimal"` keeps the existing b
 #eq(`1.2 + 3.456`, auto-digits: "decimal") // 4.7
 ```
 
-The mode can be set on the builder or overridden on individual calls. Leading zeros do not count as significant figures; written trailing zeros do. For example, `4.0 cm * 8.00 N` has two significant figures. Stored results from significant mode retain that precision for later calls. Whole numbers such as `1200` count all written digits. Numeric formula constants also count as inputs, while numeric exponents are treated as exact; this option does not implement separate uncertainty rules for addition and multiplication.
+The mode can be set on the builder or overridden on individual calls. Leading zeros do not count as significant figures; written trailing zeros do. For example, `4.0 cm * 8.00 N` has two significant figures. Stored results from significant mode retain that precision for later calls. Whole numbers such as `1200` count all written digits. Numeric exponents and whole-number factors such as the `1` and `3` in `1/3 * m * L^2` are treated as exact, as described under [calculate digits](calculate.md#digits); this option does not implement separate uncertainty rules for addition and multiplication.
 
 Trailing decimal zeros show significant precision, such as `0.320`. Whole-number results use ordinary notation, so `1200` alone does not distinguish two significant figures from four.
 

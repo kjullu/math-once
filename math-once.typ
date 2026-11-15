@@ -1,4 +1,4 @@
-// Ignore exponents in automatic decimal places (0.49.0)
+// Ignore exponents and exact constants in automatic digits (0.49.0)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3395,10 +3395,77 @@ let input-decimal-places(token) = {
   calc.max(0, places - exponent)
 }
 
-// Powers describe the operation or unit, not measurement precision, so drop
-// every numeric literal inside an exponent, including parenthesized ones such
-// as `s^(2)`. Both automatic precision modes count only the remaining tokens.
-let precision-tokens(tokens) = {
+let whole-number-pattern = regex("^[0-9]+$")
+let multiplication-operators = ("*", "×", "/")
+
+// Drop the numeric literals that describe the formula rather than a measured
+// input, so both automatic precision modes count only the remaining tokens:
+// - every literal inside an exponent, including parenthesized ones such as
+//   `s^(2)`, because powers describe the operation or unit;
+// - whole-number factors such as the `1` and `3` in `1/3 * m * L^2` or the `2`
+//   in `2 x`, because formula constants are exact. A whole number followed by a
+//   unit, such as `12 "m"`, is a measurement, and one that is added,
+//   subtracted, or stands alone, such as in `1 + 3.456`, still counts.
+let precision-tokens(tokens, scope: (:), aliases: (:), unloaded: ()) = {
+  let is-unit-token(token) = ((token.len() >= 2 and token.starts-with("\"") and token.ends-with("\""))
+    or (token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix))
+    or (name-pattern in token and token not in scope and token not in unloaded
+      and resolve-unit-with-aliases(token, aliases: aliases) != none))
+  let exact-factor(index) = {
+    if whole-number-pattern not in tokens.at(index) { return false }
+    let after = index + 1
+    if after < tokens.len() and is-unit-token(tokens.at(after)) { return false }
+    // Look through unary signs and parentheses around the literal alone, as
+    // in `(1)/(3)`, `x / (-2)`, or `-(2) * v`.
+    let before = index - 1
+    while before >= 0 {
+      let token = tokens.at(before)
+      if token in ("+", "-") and (before == 0 or tokens.at(before - 1) in ("(", "+", "-", ",", ";", "=", ..multiplication-operators)) {
+        before -= 1
+      } else if token == "(" and after < tokens.len() and tokens.at(after) == ")" {
+        // A function argument such as the `30` in `sin(30)` is an input.
+        if before > 0 and name-pattern in tokens.at(before - 1) { return false }
+        before -= 1
+        after += 1
+      } else {
+        break
+      }
+    }
+    // A whole number times or per a unit is a measurement too: `(12) m`,
+    // `( 3 ) * m` from a stored function body, `3 / s`, `12 * (m^2)`, or
+    // `"kg" * 3`. A unit after another value belongs to that value, so the 12
+    // in `1.5 m * 12` is a count.
+    if after < tokens.len() and is-unit-token(tokens.at(after)) { return false }
+    if after + 1 < tokens.len() and tokens.at(after) in multiplication-operators {
+      let operand = after + 1
+      while operand < tokens.len() and tokens.at(operand) == "(" { operand += 1 }
+      if operand < tokens.len() and is-unit-token(tokens.at(operand)) { return false }
+    }
+    if before >= 1 and tokens.at(before) in multiplication-operators {
+      let unit-index = before - 1
+      while unit-index >= 0 and tokens.at(unit-index) == ")" { unit-index -= 1 }
+      // Step over the unit's power, as in `m^2`, `m^(2)`, or `m^-2`.
+      let probe = unit-index
+      while probe >= 0 and (number-pattern in tokens.at(probe) or tokens.at(probe) in ("(", "+", "-")) { probe -= 1 }
+      if probe >= 1 and probe < unit-index and tokens.at(probe) == "^" {
+        unit-index = probe - 1
+        while unit-index >= 0 and tokens.at(unit-index) == ")" { unit-index -= 1 }
+      }
+      if unit-index >= 0 and is-unit-token(tokens.at(unit-index)) {
+        let previous = unit-index - 1
+        while previous >= 0 and tokens.at(previous) == "(" { previous -= 1 }
+        let owned = (previous >= 0 and (number-pattern in tokens.at(previous) or tokens.at(previous) == ")"
+          or (name-pattern in tokens.at(previous) and not is-unit-token(tokens.at(previous)))))
+        if not owned { return false }
+      }
+    }
+    if before >= 0 and tokens.at(before) in multiplication-operators { return true }
+    if after >= tokens.len() { return false }
+    let next = tokens.at(after)
+    // Implicit multiplication: `2 x`, `3 (x + 1)`, or `1/(3 m)`.
+    (next in multiplication-operators or next == "("
+      or (name-pattern in next and not is-unit-token(next)))
+  }
   let kept = ()
   let exponent-end = -1
   for (index, token) in tokens.enumerate() {
@@ -3420,23 +3487,24 @@ let precision-tokens(tokens) = {
       continue
     }
     if index < exponent-end and (number-pattern in token) { continue }
+    if exact-factor(index) { continue }
     kept.push(token)
   }
   kept
 }
 
-// Only referenced inputs contribute. Unit scales, exponents, and output-unit
-// syntax do not.
+// Only referenced inputs contribute. Unit scales, exponents, exact formula
+// constants, and output-unit syntax do not. `tokens` come from precision-tokens.
 let automatic-digits(tokens, scope, fallback: 4) = {
   let places = ()
-  for token in precision-tokens(tokens) {
+  for token in tokens {
     if (number-pattern in token) {
       places.push(input-decimal-places(token))
     } else if token in scope {
       let item = scope.at(token)
       if type(item) in (int, float, decimal) {
         places.push(input-decimal-places(str(item)))
-      } else if type(item) == dictionary and "exact" in item {
+      } else if type(item) == dictionary and "exact" in item and not item.at("exact-constant", default: false) {
         places.push(item.at("input-digits", default: item.at(
           "digits", default: input-decimal-places(str(item.exact)),
         )))
@@ -3455,14 +3523,14 @@ let input-significant-digits(token) = {
 
 let automatic-significant-digits(tokens, scope, fallback: 4) = {
   let counts = ()
-  for token in precision-tokens(tokens) {
+  for token in tokens {
     if (number-pattern in token) {
       counts.push(input-significant-digits(token))
     } else if token in scope {
       let item = scope.at(token)
       if type(item) in (int, float, decimal) {
         counts.push(input-significant-digits(str(calc.abs(item))))
-      } else if type(item) == dictionary and "exact" in item {
+      } else if type(item) == dictionary and "exact" in item and not item.at("exact-constant", default: false) {
         counts.push(item.at("input-significant-digits", default: input-significant-digits(str(calc.abs(item.exact)))))
       }
     }
@@ -4427,6 +4495,25 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
         unloaded: unloaded, aliases: aliases, strict-units: strict-units, soft: true,
       )
       if (type(right) == dictionary and "error" in right) { return right }
+    }
+    // A bare whole number that scales a vector or matrix, as in `v * 2`, is an
+    // exact constant just like the `2` in the scalar product `2 * x`.
+    if tokens.at(operator-index) in multiplication-operators {
+      let constant(side-tokens) = {
+        let inner = side-tokens
+        while inner.len() >= 2 {
+          if inner.len() >= 3 and inner.first() == "(" and inner.last() == ")" {
+            inner = inner.slice(1, -1)
+          } else if inner.first() in ("+", "-") {
+            inner = inner.slice(1)
+          } else {
+            break
+          }
+        }
+        inner.len() == 1 and whole-number-pattern in inner.first()
+      }
+      if type(left) == dictionary and "exact" in left and constant(left-tokens) { left.insert("exact-constant", true) }
+      if type(right) == dictionary and "exact" in right and constant(right-tokens) { right.insert("exact-constant", true) }
     }
     return structure-operation(
       calculate-fn, left, tokens.at(operator-index), right, digits, aliases, unit: unit, size: size, final: final,
@@ -5950,8 +6037,9 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   if not is-finite-number(exact) or not is-finite-number(result.si-value) {
     return calculation-fail(overflow-message, soft: soft)
   }
-  let input-digits = automatic-digits(expression-tokens, scope)
-  let input-significant = automatic-significant-digits(expression-tokens, scope)
+  let counted-tokens = precision-tokens(expression-tokens, scope: scope, aliases: aliases, unloaded: unloaded)
+  let input-digits = automatic-digits(counted-tokens, scope)
+  let input-significant = automatic-significant-digits(counted-tokens, scope)
   let significant = if type(digits) == dictionary { digits.significant } else { none }
   if significant == auto { significant = input-significant }
   if significant != none {
