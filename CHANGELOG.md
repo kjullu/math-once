@@ -1,5 +1,11 @@
 # Changelog
 
+## Faster calculation pipeline demo (based on 0.50.0)
+
+- Reduce calculation overhead with state updates prepared before layout, cached hashes for stored results, a faster ASCII tokenizer, reused token streams, smaller scope lookups, fast scalar arithmetic, and native rendering of common equations. Public calculation results and equation output are preserved.
+- Alternate before and after compiles in the speed test so changing machine load is less likely to skew the comparison.
+- Add regression checks for quoted and repeated assignments, failed overwrites, shared initial values, hidden equations, resets, and subscripted powers.
+
 ## 0.50.0
 
 - **Breaking**: Builder `label:` now requires a Typst label instead of accepting a string printed after the equation. Replace `label: "speed"` with `label: <speed>` for a referenceable label, or use `caption: [speed]` for visible text.

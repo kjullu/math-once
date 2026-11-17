@@ -44,6 +44,7 @@
     "tests/option-forms.typ": "7b4949b74b1b45540a105c490f4b54b754f9d21bfdb65f702f20addfd9011f7b",
     "tests/package-import.typ": "ada945f86890ecf7bff8e4f3e68b836461e101fe94f9dde3bc77b22a0a156cb5",
     "tests/paired-signs.typ": "cfc891c64397e5b47a84e95d1ada4bf42f2a7cdc50fa6dafecbcf39e381a22d3",
+    "tests/performance-state.typ": "f438cc7cbfdacfbaa1cfe6642f22fa679f9fd8e3cb46c6c4237b58a45246cb25",
     "tests/point-vectors.typ": "9aef4d0ce04924ad7705041c67422ec7cfd3ceb1eacb9b8cdb4e9f211b984d02",
     "tests/public-api.typ": "94a77b358cdc2832cdad01618827753c2552a08f05144ced0440cc7655d8e923",
     "tests/qalc-units.typ": "97fe780ea0067489bf3a4230a6c0c05fbc8ce59ad28fac1195b74fdacfe9e646",

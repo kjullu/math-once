@@ -102,6 +102,24 @@ def time_compile(compiler, root, source, timeout):
     return elapsed
 
 
+def time_pair(compiler, root, before, after, runs, timeout):
+    """Alternate versions to reduce bias from changing machine load."""
+    samples = {before: [], after: []}
+    timed_out = set()
+    for run in range(runs):
+        order = (before, after) if run % 2 == 0 else (after, before)
+        for source in order:
+            if source in timed_out:
+                continue
+            elapsed = time_compile(compiler, root, source, timeout)
+            if elapsed is None:
+                timed_out.add(source)
+            else:
+                samples[source].append(elapsed)
+    return tuple(None if source in timed_out else statistics.median(samples[source])
+                 for source in (before, after))
+
+
 def seconds(value):
     return "timeout" if value is None else f"{value:.2f} s"
 
@@ -145,6 +163,8 @@ def markdown_summary(results, limit):
     notes = [f"Median of {results['runs']} cold compiles each with `{results['compiler']}`."]
     if baseline:
         notes.append(f"Before is `{results['baseline']}`; After is this change.")
+    if baseline:
+        notes.append("Before and After compiles alternate between runs.")
     notes.append(f"Importing math-once without using it takes {results['import_only_seconds']:.2f} s, "
                  f"an empty document {results['empty_seconds']:.2f} s; 'Per calculation' excludes the import.")
     return "\n".join(lines + ["", " ".join(notes), ""]) + "\n"
@@ -216,9 +236,17 @@ def main():
         calls = size * CALLS_PER_SECTION
         body = "".join(math_once_section(index) for index in indexes)
         plain = measure(f"plain-{size}", "".join(plain_section(index) for index in indexes))
-        before = measure(f"baseline-{size}", baseline_header + body) if baseline_alive else None
-        baseline_alive = before is not None
-        with_package = measure(f"math-once-{size}", current_header + body)
+        if baseline_alive:
+            before_source = output / f"baseline-{size}.typ"
+            after_source = output / f"math-once-{size}.typ"
+            before_source.write_text(baseline_header + body)
+            after_source.write_text(current_header + body)
+            before, with_package = time_pair(compiler, root, before_source, after_source,
+                                             args.runs, args.timeout)
+            baseline_alive = before is not None
+        else:
+            before = None
+            with_package = measure(f"math-once-{size}", current_header + body)
         over_limit = with_package is None or (args.max_seconds is not None and with_package > args.max_seconds)
         results["documents"].append({"sections": size, "calls": calls, "plain_seconds": plain,
                                      "baseline_seconds": before, "math_once_seconds": with_package,

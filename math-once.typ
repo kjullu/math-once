@@ -1,4 +1,4 @@
-// math-once v0.50.0
+// Faster calculation pipeline (0.50.0)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3224,7 +3224,39 @@ let source-sequence = $a b$.body.func()
 // treating those as items would turn the vector into a product.
 let math-items(value) = if value.func() == source-sequence { value.children } else { (value,) }
 let source-symbol = $alpha$.body.func()
+let source-equals = [#math.eq]
 let vector-point-pattern = regex("^\\p{Lu}( \\p{Lu})+$")
+// Content carries source spans. Cache the spelling rules independently of
+// those spans so identical symbols in different equations share conversion.
+
+let math-source-text(token, plain-text, symbol, preserve-text) = {
+  if token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix) {
+    return token
+  }
+  if (plain-text
+    and preserve-text != false
+    and variable-symbol-pattern in token
+    and token not in source-functions
+    and (preserve-text == true or resolve-unit(token) != none)) {
+    return "\"" + token + "\""
+  }
+  let variable-name = variable-symbol-name(token)
+  if variable-name != none { variable-name }
+  else if token == "≔" { ":=" }
+  else if token == "|" { "|" }
+  else if token in ("⋅", "∗") { "*" }
+  else if token in ("÷",) { "/" }
+  else if token in ("−",) { "-" }
+  else if token in ("(", ")", ",", ";", "+", "-", "*", "×", "/", "^", "=") { token }
+  else if token in ("°", "℃", "℉", "ℏ", "₂", "☉") { token }
+  else if (symbol
+    and resolve-unit(token) == none
+    and (symbol-by-value(token) != none or letters-pattern not in token)) {
+    normalized-symbol-value(token)
+  }
+  else { token }
+}
+
 let math-source-part(value, parse, preserve-text: false) = {
   let func = value.func()
   if func == source-space { return "" }
@@ -3312,32 +3344,7 @@ let math-source-part(value, parse, preserve-text: false) = {
     panic("math-once calculate: unsupported Typst math element `" + repr(func) + "`")
   }
 
-  let token = value.text.trim()
-  if token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix) {
-    return token
-  }
-  if (func == text
-    and preserve-text != false
-    and variable-symbol-pattern in token
-    and token not in source-functions
-    and (preserve-text == true or resolve-unit(token) != none)) {
-    return "\"" + token + "\""
-  }
-  let variable-name = variable-symbol-name(token)
-  if variable-name != none { variable-name }
-  else if token == "≔" { ":=" }
-  else if token == "|" { "|" }
-  else if token in ("⋅", "∗") { "*" }
-  else if token in ("÷",) { "/" }
-  else if token in ("−",) { "-" }
-  else if token in ("(", ")", ",", ";", "+", "-", "*", "×", "/", "^", "=") { token }
-  else if token in ("°", "℃", "℉", "ℏ", "₂", "☉") { token }
-  else if (func == source-symbol
-    and resolve-unit(token) == none
-    and (symbol-by-value(token) != none or letters-pattern not in token)) {
-    normalized-symbol-value(token)
-  }
-  else { token }
+  math-source-text(value.text.trim(), func == text, func == source-symbol, preserve-text)
 }
 
 let math-source-body(body, preserve-text: false) = {
@@ -3348,6 +3355,7 @@ let math-source-body(body, preserve-text: false) = {
   while index < items.len() {
     let item = items.at(index)
     index += 1
+    if item.func() == source-space { continue }
     // `log_b x` and `log_b(x)` take the base from the subscript.
     if (item.func() == math.attach and item.has("b")
       and item.base.func() == math.op and item.base.text == [log]) {
@@ -3369,7 +3377,9 @@ let math-source-body(body, preserve-text: false) = {
       index += 1
       continue
     }
-    let part = if item == [#math.eq] { "=" } else { math-source-part(item, parse, preserve-text: preserve-text) }
+    let part = if item == source-equals { "=" } else if item.has("text") and type(item.text) == str {
+      math-source-text(item.text.trim(), item.func() == text, item.func() == source-symbol, preserve-text)
+    } else { math-source-part(item, parse, preserve-text: preserve-text) }
     if part != "" { parts.push(part) }
   }
   if parts.len() == 0 { "" } else { parts.join(" ") }
@@ -3389,26 +3399,38 @@ let tokenize-dotted-name = "[A-Za-z][A-Za-z0-9]*(?:\\.[A-Za-z0-9]+)+"
 let tokenize-raw-symbol = "[\\p{S}\\p{P}]\\p{M}*"
 let tokenize-pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|" + tokenize-symbolic + "|" + tokenize-math-symbol + "|\"" + tokenize-name + "\"|" + tokenize-dotted-name + "|" + tokenize-name + "|:=|[=(),;+*/^+\\-]|" + tokenize-raw-symbol)
 let tokenize-raw-only = regex("^" + tokenize-raw-symbol + "$")
+// Cache symbol normalization by token rather than by the entire expression.
+let normalized-token(token) = {
+  let entry = typst-symbol-catalog.at(token, default: none)
+  if (token.starts-with(math-symbol-prefix) and token.ends-with(math-symbol-suffix)) {
+    token
+  } else if entry != none and token not in variable-symbols and resolve-unit(token) == none and token not in source-functions {
+    normalized-symbol(token, value: entry)
+  } else if (tokenize-raw-only in token
+    and resolve-unit(token) == none
+    and token not in ("=", "(", ")", ",", ";", "+", "-", "*", "×", "/", "^", "|")) {
+    normalized-symbol-value(token)
+  } else {
+    token
+  }
+}
+
+// The ASCII subset avoids building the Unicode matcher's large scratch space
+// for ordinary equations. Non-ASCII input keeps the complete tokenizer.
+let non-ascii-pattern = regex("[^\\x00-\\x7f]")
+let ascii-token-name = "[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*"
+let ascii-tokenize-pattern = regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|\"" + ascii-token-name + "\"|" + tokenize-dotted-name + "|" + ascii-token-name + "|:=|[[:punct:]]")
+
+let token-matches(source) = source.matches(if non-ascii-pattern in source { tokenize-pattern } else { ascii-tokenize-pattern })
+
 let tokenize(source) = {
   let tokens = ()
   let cursor = 0
-  for found in source.matches(tokenize-pattern) {
+  for found in token-matches(source) {
     if source.slice(cursor, found.start).trim() != "" {
       panic("math-once calculate: unsupported syntax near `" + source.slice(cursor, found.start) + "`")
     }
-    let token = found.text
-    let entry = typst-symbol-catalog.at(token, default: none)
-    tokens.push(if (token.starts-with(math-symbol-prefix) and token.ends-with(math-symbol-suffix)) {
-      token
-    } else if entry != none and token not in variable-symbols and resolve-unit(token) == none and token not in source-functions {
-      normalized-symbol(token, value: entry)
-    } else if (tokenize-raw-only in token
-      and resolve-unit(token) == none
-      and token not in ("=", "(", ")", ",", ";", "+", "-", "*", "×", "/", "^", "|")) {
-      normalized-symbol-value(token)
-    } else {
-      token
-    })
+    tokens.push(normalized-token(found.text))
     cursor = found.end
   }
   if source.slice(cursor).trim() != "" {
@@ -3711,12 +3733,83 @@ let subscript-log-tokens(tokens) = {
   result
 }
 
+// These atoms have exactly the same content trees as their math source, so
+// common products do not need to invoke the math source compiler.
+let native-number-pattern = regex("^[0-9]+(?:\\.[0-9]+)?$")
+let native-variable-part(part) = if part in variable-symbols {
+  source-symbol(variable-symbols.at(part))
+} else if part.len() == 1 and number-pattern not in part {
+  source-symbol(part)
+} else { text(part) }
+let native-variable(token) = {
+  let parts = token.split("_")
+  if parts.len() > 2 or parts.any(part => number-pattern in part and exponent-marker-pattern in part) { return none }
+  if parts.len() == 2 {
+    return math.attach(native-variable-part(parts.first()), b: native-variable-part(parts.last()))
+  }
+  if token in variable-symbols { source-symbol(variable-symbols.at(token)) } else { text(token) }
+}
+let native-atom(token, variable, alias) = {
+  if native-number-pattern in token { return text(token) }
+  if token == "*" { return source-symbol("⋅") }
+  if token in degree-tokens or token in source-functions or token.starts-with("arrow_") { return none }
+  if is-quoted-unit(token) {
+    let name = quoted-unit-name(token)
+    if resolve-unit(name) == none { return none }
+    return math.upright(text(unit-display-name(name)))
+  }
+  if name-pattern not in token { return none }
+  if alias { return math.upright(text(token)) }
+  if variable { return native-variable(token) }
+  if token in ("meter", "metre") { return math.upright(text("m")) }
+  if resolve-unit(token) != none { return math.upright(text(unit-display-name(token))) }
+  native-variable(token)
+}
+
+let native-power(base, exponent) = if base.func() == math.attach {
+  math.attach(base.base, b: base.b, t: exponent)
+} else { math.attach(base, t: exponent) }
+
 let render-tokens(tokens, scope: (:), aliases: (:)) = {
-  // A plain displayed scalar already is the exact math source the general
-  // renderer would assemble. Preserve eval's content tree directly.
+  if tokens.len() == 1 and native-number-pattern in tokens.first() {
+    return text(tokens.first())
+  }
   if tokens.len() == 1 and plain-display-number-pattern in tokens.first() {
     return eval(tokens.first(), mode: "math").body
   }
+  if (tokens.len() == 3 and tokens.at(1) in ("/", "^")
+    and not (tokens.at(1) == "^" and "_" in tokens.last())) {
+    let left = native-atom(tokens.first(), tokens.first() in scope, tokens.first() in aliases)
+    let right = native-atom(tokens.last(), tokens.last() in scope, tokens.last() in aliases)
+    if left != none and right != none {
+      return if tokens.at(1) == "/" { math.frac(left, right) } else { native-power(left, right) }
+    }
+  }
+  if (tokens.len() == 5 and tokens.at(1) == "/" and tokens.at(3) == "^"
+    and "_" not in tokens.last()) {
+    let atoms = ()
+    for index in (0, 2, 4) {
+      let token = tokens.at(index)
+      atoms.push(native-atom(token, token in scope, token in aliases))
+    }
+    if atoms.all(atom => atom != none) {
+      return math.frac(atoms.first(), native-power(atoms.at(1), atoms.last()))
+    }
+  }
+  if tokens.len() == 1 {
+    let token = tokens.first()
+    let atom = native-atom(token, token in scope, token in aliases)
+    if atom != none { return atom }
+  }
+  let native = []
+  let simple = true
+  for (index, token) in tokens.enumerate() {
+    let atom = native-atom(token, token in scope, token in aliases)
+    if atom == none { simple = false; break }
+    if index > 0 { native += [ ] }
+    native += atom
+  }
+  if simple and tokens.len() > 0 { return native }
   // Give magnitudes real paired delimiters so they scale with column vectors.
   // Leave unpaired/infix bars (such as a conditional) untouched.
   let absolute = absolute-value-tokens(tokens)
@@ -4648,6 +4741,7 @@ let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, u
       strict-units: strict-units,
       soft: true,
       render: render,
+      prepared-tokens: tokens,
     )
   }
   if (type(result) == dictionary and "error" in result) { return result }
@@ -5130,25 +5224,35 @@ let builder-initial-state(initial) = {
   result
 }
 
-// A full reset starts an independent state sequence. The counter only changes
-// at resets, so edits to equations do not invalidate other sections' state.
-let checkpoint-counter(key) = counter("math-once-checkpoint:" + key)
-
-// This function requires the caller's document context, just like state.get.
-let checkpoint-state(key, initial: (:)) = {
-  let checkpoint = checkpoint-counter(key).get().first()
-  state(
-    "math-once-checkpoint-state:" + repr((key, checkpoint)),
-    builder-initial-state(if checkpoint == 0 { initial } else { (:) }),
-  )
+// One persistent state lets stable writers be emitted before layout begins.
+// A full reset writes a constant initial value, so later equations can reuse
+// their calculations even when an earlier section changes.
+// Content caches its hash, unlike a nested dictionary passed repeatedly to
+// state callbacks. Only library-created stored entries use this representation.
+let state-entry(item) = {
+  if type(item) == content and item.func() == metadata {
+    let payload = item.value
+    if type(payload) == dictionary and payload.at("math-once--packed-entry", default: false) == true {
+      return payload.entry
+    }
+  }
+  item
 }
-
-// A new location initially sees the counter's final value. Skip the write
-// until Typst has placed the caller, but still lay out the content so its size
-// is close to final. This function requires the caller's document context.
-let checkpoint-update(variables, update) = if query(here()).len() > 0 {
-  variables.update(update)
+let packed-entry(item) = if type(item) == dictionary and "display" in item and "variable" in item {
+  metadata((math-once--packed-entry: true, entry: item))
+} else { item }
+let unpack-state(scope) = {
+  let result = (:)
+  for (name, item) in scope { result.insert(name, state-entry(item)) }
+  result
 }
+let pack-state(scope) = {
+  let result = (:)
+  for (name, item) in scope { result.insert(name, packed-entry(item)) }
+  result
+}
+let builder-state(key, initial: (:)) = state("math-once-state:" + key, builder-initial-state(initial))
+let update-state(variables, update) = variables.update(old => pack-state(update(unpack-state(old))))
 
 let unit-aliases(scope) = {
   let aliases = (:)
@@ -5159,19 +5263,49 @@ let unit-aliases(scope) = {
 }
 
 // Memoize only the unit spelling, never the stored result or builder state.
-let referenced-unit-tokens(unit) = unit.matches(tokenize-pattern).map(found => found.text)
+let referenced-unit-tokens(unit) = token-matches(unit).map(found => found.text)
 
 // Follow only names reachable from this equation. Function bodies are resolved
 // against the current state at each call, not captured when defined. Visiting
 // each name once also bounds cycles; expand-function-calls reports those later.
+let scope-names(tokens) = tokens.filter(token => name-pattern in token or (token.starts-with("\"") and token.ends-with("\"")))
+
+// Strip layout data before following dependencies. This helper is keyed by
+// one entry, so references to the same variable share the work.
+let scope-entry(item) = {
+  let item = state-entry(item)
+  if type(item) != dictionary { return (item, ()) }
+  if "display" in item { let _ = item.remove("display") }
+  let pending = ()
+  if item.at("function", default: false) {
+    pending = scope-names(item.body-tokens)
+  } else if item.at("unit-alias", default: false) {
+    pending = (item.original,)
+  } else {
+    let values = (item,)
+    while values.len() > 0 {
+      let value = values.pop()
+      if type(value) == dictionary and value.at("vector", default: false) {
+        values += value.components
+      } else if type(value) == dictionary and value.at("matrix", default: false) {
+        for row in value.rows { values += row }
+      } else if "unit" in value {
+        let unit = value.at("unit-source", default: value.unit)
+        if type(unit) == str { pending += scope-names(referenced-unit-tokens(unit)) }
+      }
+    }
+  }
+  (item, pending)
+}
+
 let referenced-scope(tokens, scope) = {
   let selected = (:)
   let seen = (:)
-  // Initial values come first, as in the complete state, so validation
-  // reports the same entry when several are invalid.
+  // Validate user-supplied initial values first. Built-in constants are
+  // already valid and only need to be included when actually referenced.
   let marker = scope.at(initial-state-marker-name, default: none)
   let initial = if type(marker) == dictionary and marker.at("initial-state-marker", default: false) { marker.values } else { (:) }
-  let pending = initial.keys() + tokens
+  let pending = initial.keys().filter(name => name not in built-in-constants) + scope-names(tokens)
   let index = 0
   while index < pending.len() {
     let token = pending.at(index)
@@ -5183,35 +5317,10 @@ let referenced-scope(tokens, scope) = {
     if quoted and name == "Omega" { pending.push("Ω") }
     if name not in scope { continue }
     let item = scope.at(name)
+    if type(item) == dictionary and "display" in item { let _ = item.remove("display") }
+    let (item, dependencies) = scope-entry(item)
     selected.insert(name, item)
-    if (type(item) == dictionary and item.at("function", default: false)) {
-      pending += item.body-tokens
-    } else if (type(item) == dictionary and item.at("unit-alias", default: false)) {
-      pending.push(item.original)
-    } else if type(item) == dictionary and not item.at("vector", default: false) and not item.at("matrix", default: false) {
-      if "unit" in item {
-        let unit = item.at("unit-source", default: item.unit)
-        if type(unit) == str {
-          pending += referenced-unit-tokens(unit)
-        }
-      }
-    } else if type(item) == dictionary {
-      // Substitution can introduce units absent from the original expression.
-      let values = (item,)
-      while values.len() > 0 {
-        let value = values.pop()
-        if (type(value) == dictionary and value.at("vector", default: false)) {
-          values += value.components
-        } else if (type(value) == dictionary and value.at("matrix", default: false)) {
-          for row in value.rows { values += row }
-        } else if "unit" in value {
-          let unit = value.at("unit-source", default: value.unit)
-          if type(unit) == str {
-            pending += referenced-unit-tokens(unit)
-          }
-        }
-      }
-    }
+    pending += dependencies
   }
   selected
 }
@@ -5609,6 +5718,25 @@ let apply-root(index, radicand, soft: false) = {
   )
 }
 
+// Reuse literal atoms without capturing an expression's variable scope.
+// Anything ambiguous stays with the complete parser below.
+let simple-quantity(token, aliases, unloaded) = {
+  if number-pattern in token {
+    let value = float(token)
+    return if is-finite-number(value) { quantity(value) } else { none }
+  }
+  if token in math-functions or token in unloaded { return none }
+  let quoted = token.len() >= 2 and token.starts-with("\"") and token.ends-with("\"")
+  if not quoted and name-pattern not in token { return none }
+  let name = if quoted { quoted-unit-name(token) } else { token }
+  if quoted and name == "Omega" { name = "Ω" }
+  let unit = resolve-unit(aliases.at(name, default: name))
+  if unit == none { return none }
+  let offset = unit.at("offset", default: 0.0)
+  quantity(unit.scale + offset, dims: unit.dims, preferred: name,
+    affine: if offset == 0.0 { none } else { (scale: unit.scale, offset: offset) })
+}
+
 let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, override-opaque: false, strict-units: false, soft: false) = {
   // `times` is the cross product only between two vectors.
   tokens = tokens.map(token => if token == "×" { "*" } else { token })
@@ -5621,6 +5749,31 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
     }
   }
   let precedence = ("+": 1, "-": 1, "*": 2, "/": 2, "^": 3)
+
+  // Flat scalar expressions need no recursive parser closure. Scope
+  // validation above still runs, including unused user-supplied initial values.
+  if tokens.len() == 1 or (tokens.len() == 3 and tokens.at(1) in precedence) {
+    let atoms = ()
+    let simple = true
+    for index in (if tokens.len() == 1 { (0,) } else { (0, 2) }) {
+      let token = tokens.at(index)
+      let atom = if (name-pattern in token and token not in math-functions and token in scope) {
+        scope.at(token)
+      } else if token in scope {
+        // Quoted names can prefer either a unit or a variable.
+        none
+      } else { simple-quantity(token, aliases, unloaded) }
+      if atom == none { simple = false; break }
+      atoms.push(atom)
+    }
+    if simple {
+      if atoms.len() == 1 { return atoms.first() }
+      let result = apply-op(tokens.at(1), atoms.first(), atoms.last(), soft: soft)
+      if type(result) == dictionary and "error" in result { return result }
+      if not is-finite-number(result.si-value) { return calculation-fail(overflow-message, soft: soft) }
+      return result
+    }
+  }
 
   let parse-expression(tokens, position, minimum: 0) = {
     if position >= tokens.len() {
@@ -5874,7 +6027,7 @@ let normalize-math-unit-tokens(tokens) = {
 ///
 /// Use `to`, `=`, or the `unit` argument to request an output unit.
 /// `render: false` leaves `display` empty for callers that render their own.
-let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), aliases: (:), strict-units: false, soft: false, render: true) = {
+let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true, unloaded: (), aliases: (:), strict-units: false, soft: false, render: true, prepared-tokens: none) = {
   if type(strict-units) != bool {
     return calculation-fail("strict-units must be a boolean", soft: soft)
   }
@@ -5886,7 +6039,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   // when the bare name `m` has been unloaded for use as a variable.
   let source-is-math = type(source) == content and source.func() == math.equation
   let source = input-source(source, preserve-text: true)
-  let raw-tokens = tokenize(source)
+  let raw-tokens = if prepared-tokens == none { tokenize(source) } else { prepared-tokens }
   let absolute-tokens = absolute-value-tokens(raw-tokens)
   if absolute-tokens != none { raw-tokens = absolute-tokens }
   if dot-product-token in raw-tokens {
@@ -6223,7 +6376,7 @@ let calculation-builder(
     } else if type(unit) == content and unit.func() == math.equation {
       input-source(unit, preserve-text: true)
     } else { "" }
-    let candidates = unit-source.matches(tokenize-pattern).map(found => found.text)
+    let candidates = token-matches(unit-source).map(found => found.text)
     if type(unit) == content and unit.func() == math.equation {
       candidates += normalize-math-unit-tokens(candidates)
     }
@@ -6278,7 +6431,13 @@ let calculation-builder(
   // Evaluate a stored assignment into the entry that the state keeps. The
   // update and the context output share these inner call sites, so the same
   // inputs reuse one memoized calculation and display.
-  let stored-entry(spec, scope, aliases, unloaded, tokens) = {
+  let stored-entry(spec, scope, aliases, unloaded, tokens, preserve-target: false) = {
+    // A completed assignment is in later state reads but not in its own
+    // writer's input. It cannot affect an expression that never uses its name.
+    if (spec.name not in tokens and ("\"" + spec.name + "\"") not in tokens
+      and not preserve-target and spec.name in scope) {
+      let _ = scope.remove(spec.name)
+    }
     let result = calculate-expanded(
       calculate,
       tokens,
@@ -6302,19 +6461,50 @@ let calculation-builder(
   // Keep the update function identical when missing inputs become available.
   // Changing recovery writes to captured-result writes requires another layout pass.
   let store-assignment(spec, old) = {
+    let marker = old.at(initial-state-marker-name)
+    marker.insert("last-write", false)
+    old.insert(initial-state-marker-name, marker)
     // Paired signs and display-only symbols never emit this update.
     if spec.has-paired-sign or spec.has-display-symbol {
       return old
     }
     let name = spec.name
-    let target = old.at(name, default: none)
+    let target = state-entry(old.at(name, default: none))
     let target-is-dictionary = type(target) == dictionary
     if ((resolve-unit(name) != none or is-built-in-constant(name)
         or (target-is-dictionary and target.at("unit-alias", default: false)))
       and not (target-is-dictionary and target.at("unloaded", default: false) == true)) {
       return old
     }
-    let update-scope = referenced-scope(spec.scope-tokens, old)
+    // Inline selection here to avoid hashing the entire growing state again
+    // as an argument to referenced-scope. The traversal matches that helper.
+    let update-scope = {
+      let scope = old
+      let tokens = spec.scope-tokens
+      let selected = (:)
+      let seen = (:)
+      // Validate user-supplied initial values first, as in referenced-scope.
+      let marker = scope.at(initial-state-marker-name, default: none)
+      let initial = if type(marker) == dictionary and marker.at("initial-state-marker", default: false) { marker.values } else { (:) }
+      let pending = initial.keys().filter(name => name not in built-in-constants) + scope-names(tokens)
+      let index = 0
+      while index < pending.len() {
+        let token = pending.at(index)
+        index += 1
+        let quoted = token.starts-with("\"") and token.ends-with("\"") and token.len() >= 2
+        let name = if quoted { token.slice(1, token.len() - 1) } else { token }
+        if name in seen { continue }
+        seen.insert(name, true)
+        if quoted and name == "Omega" { pending.push("Ω") }
+        if name not in scope { continue }
+        let item = scope.at(name)
+        if type(item) == dictionary and "display" in item { let _ = item.remove("display") }
+        let (item, dependencies) = scope-entry(item)
+        selected.insert(name, item)
+        pending += dependencies
+      }
+      selected
+    }
     let update-aliases = (:)
     let update-unloaded = ()
     for (stored-name, item) in update-scope {
@@ -6348,11 +6538,13 @@ let calculation-builder(
         }
       }
     }
-    let entry = stored-entry(spec, update-scope, update-aliases, update-unloaded, update-tokens)
+    let entry = stored-entry(spec, update-scope, update-aliases, update-unloaded, update-tokens, preserve-target: name in marker.values)
     if type(entry) == dictionary and "error" in entry {
       return old
     }
-    old.insert(name, entry)
+    old.insert(name, packed-entry(entry))
+    marker.insert("last-write", true)
+    old.insert(initial-state-marker-name, marker)
     old
   }
 
@@ -6394,8 +6586,33 @@ let calculation-builder(
     let size = spec.size
     let block = spec.block
     let full-current = variables.get()
-    let current = if full-symbolic-scope { full-current } else {
-      referenced-scope(scope-tokens, full-current)
+    // As in store-assignment, select entries before calling memoized helpers.
+    let current = if full-symbolic-scope { unpack-state(full-current) } else {
+      let scope = full-current
+      let tokens = scope-tokens
+      let selected = (:)
+      let seen = (:)
+      // Validate user-supplied initial values first, as in referenced-scope.
+      let marker = scope.at(initial-state-marker-name, default: none)
+      let initial = if type(marker) == dictionary and marker.at("initial-state-marker", default: false) { marker.values } else { (:) }
+      let pending = initial.keys().filter(name => name not in built-in-constants) + scope-names(tokens)
+      let index = 0
+      while index < pending.len() {
+        let token = pending.at(index)
+        index += 1
+        let quoted = token.starts-with("\"") and token.ends-with("\"") and token.len() >= 2
+        let name = if quoted { token.slice(1, token.len() - 1) } else { token }
+        if name in seen { continue }
+        seen.insert(name, true)
+        if quoted and name == "Omega" { pending.push("Ω") }
+        if name not in scope { continue }
+        let item = scope.at(name)
+        if type(item) == dictionary and "display" in item { let _ = item.remove("display") }
+        let (item, dependencies) = scope-entry(item)
+        selected.insert(name, item)
+        pending += dependencies
+      }
+      selected
     }
     let aliases = (:)
     let unloaded = ()
@@ -6414,7 +6631,7 @@ let calculation-builder(
       let reserved-function-name = (parsed-function.name in aliases
         or (is-built-in-constant(parsed-function.name) and not function-name-is-unloaded)
         or (resolve-unit(parsed-function.name) != none and not function-name-is-unloaded))
-      checkpoint-update(variables, update)
+      update-state(variables, update)
       if reserved-function-name {
         builder-error("`" + parsed-function.name + "` is a reserved unit or constant name and cannot be used as a function")
         return
@@ -6498,7 +6715,7 @@ let calculation-builder(
       if stores-result {
         result.insert("display", math.equation(labelled-body, block: block))
         result.insert("variable", name)
-        checkpoint-update(variables, old => {
+        update-state(variables, old => {
           old.insert(name, result)
           old
         })
@@ -6532,7 +6749,7 @@ let calculation-builder(
       }
     }
     let result = if not evaluates { none } else if stores-result {
-      stored-entry(spec, current, aliases, unloaded, calculation-tokens)
+      stored-entry(spec, current, aliases, unloaded, calculation-tokens, preserve-target: name in full-current.at(initial-state-marker-name).values)
     } else {
       calculate-expanded(
         calculate,
@@ -6553,10 +6770,10 @@ let calculation-builder(
       and (missing.len() > 0 or function-error != none or calculation-error != none))
 
     if illegal-assignment {
-      if update != none and not has-paired-sign { checkpoint-update(variables, update) }
+      if update != none and not has-paired-sign { update-state(variables, update) }
       builder-error("`" + name + "` is " + reserved-name-kind + " and cannot be used as a variable")
     } else if unresolved-absolute and stores-result {
-      if update != none { checkpoint-update(variables, update) }
+      if update != none { update-state(variables, update) }
       builder-error("a non-numeric absolute-value expression cannot be stored as one value")
     } else if unresolved-absolute {
       let visible-tokens = if calculated-assignment { tokenize(source) } else { tokens }
@@ -6566,7 +6783,7 @@ let calculation-builder(
       // second evaluation against the state seen by the update itself so a
       // chain of stored assignments can advance without one layout pass per
       // dependency.
-      if update != none { checkpoint-update(variables, update) }
+      if update != none { update-state(variables, update) }
       builder-error("`" + missing.first() + "` is not set")
     } else if missing.len() > 0 and result-only {
       builder-error("`" + missing.first() + "` is not set, so there is no result to show")
@@ -6577,10 +6794,10 @@ let calculation-builder(
     } else if missing.len() > 0 {
       builder-error("`" + missing.first() + "` is not set")
     } else if function-error != none {
-      if update != none and stores-result { checkpoint-update(variables, update) }
+      if update != none and stores-result { update-state(variables, update) }
       builder-error(function-error)
     } else if calculation-error != none {
-      if update != none and stores-result { checkpoint-update(variables, update) }
+      if update != none and stores-result { update-state(variables, update) }
       builder-error(calculation-error)
     } else if display-only {
       if result-only {
@@ -6591,7 +6808,7 @@ let calculation-builder(
     } else if name != none {
       if stores-result {
         // stored-entry already rendered the display and marked an unloaded name.
-        if update != none { checkpoint-update(variables, update) }
+        if update != none { update-state(variables, update) }
         result.display.body
       } else {
         assignment-body(spec, result, current, aliases)
@@ -6681,9 +6898,9 @@ let calculation-builder(
     }
     let source = args.pos().at(0, default: none)
     if source == none {
-      let variables = checkpoint-state(key, initial: initial-state)
+      let variables = builder-state(key, initial: initial-state)
       let visible = (:)
-      for (name, value) in variables.get() {
+      for (name, value) in unpack-state(variables.get()) {
         if (not is-unloaded-marker(value)
           and not is-unit-alias(value)
           and not is-initial-state-marker(value)
@@ -6742,11 +6959,15 @@ let calculation-builder(
       panic("math-once calculation-builder: caption must be content, a string, or none")
     }
 
-    // Include written labels as well as evaluation tokens.
-    let scope-tokens = if display-tokens != none { display-tokens } else { tokenize(source) }
+    // The assignment grammar already validated its left-hand side. Tokenize
+    // its expression once and reuse those tokens for scope selection too.
+    let evaluation-tokens = if assignment == none { display-tokens } else { tokenize(expression) }
+    let scope-tokens = if assignment == none { display-tokens } else {
+      let name-token = if assignment.captures.at(0) != none { "\"" + name + "\"" } else { name }
+      (normalized-token(name-token),) + evaluation-tokens
+    }
     // CAS substitutions follow dictionary insertion order. Keep that order and
     // its complete scope until substitution can be made order-independent.
-    let evaluation-tokens = if assignment == none { scope-tokens } else { tokenize(expression) }
     let symbolic = symbolic-call(evaluation-tokens)
     let full-symbolic-scope = symbolic != none
     // The written and evaluated tokens do not depend on the state, so derive
@@ -6823,27 +7044,21 @@ let calculation-builder(
       and not has-paired-sign
       and not has-display-symbol)
     let equation-body = if reads-stored-display {
-      context {
-        let variables = checkpoint-state(key, initial: initial-state)
-        // Capture only values that stay the same in every layout pass. The
-        // inner context's location depends on them, and a moved location
-        // costs another pass.
-        let before = here()
-        checkpoint-update(variables, update)
-        // Only this update lies between the two reads and it writes only
-        // `name`. An unchanged entry means it failed or stored an identical
-        // value; then the state after it equals the state before it.
-        context {
-          let stored = variables.get().at(name, default: none)
-          if stored != none and stored != variables.at(before).at(name, default: none) {
-            stored.display.body
-          } else {
-            equation-content(spec, variables, none)
-          }
+      let variables = builder-state(key, initial: initial-state)
+      [#variables.update(update)#context {
+        // A new context initially reads the final state. Wait for its own
+        // location before reading the status of the immediately preceding write.
+        if query(here()).len() == 0 { return [] }
+        let current = variables.get()
+        let written = current.at(initial-state-marker-name).at("last-write", default: false)
+        if written {
+          state-entry(current.at(name)).display.body
+        } else {
+          equation-content(spec, variables, none)
         }
-      }
+      }]
     } else {
-      context equation-content(spec, checkpoint-state(key, initial: initial-state), update)
+      context equation-content(spec, builder-state(key, initial: initial-state), update)
     }
     // Avoid memoizing helpers over a context that captures the runner scope.
     let body = if caption == none { equation-body } else { _captioned-body(equation-body, caption, gap) }
@@ -6881,7 +7096,7 @@ let state-name(value, action) = {
 let reset(key: "math-once-calculation") = {
   let key-error = _key-option-error(key)
   if key-error != none { panic("math-once reset: " + key-error) }
-  checkpoint-counter(key).step()
+  builder-state(key).update(builder-initial-state((:)))
 }
 
 /// Clear selected or all stored values while preserving builder configuration.
@@ -6890,8 +7105,8 @@ let reset-variables(..names, key: "math-once-calculation") = {
   if key-error != none { panic("math-once reset-variables: " + key-error) }
   let selected = names.pos().map(value => state-name(value, "reset-variables"))
   context {
-    let variables = checkpoint-state(key)
-    checkpoint-update(variables, old => {
+    let variables = builder-state(key)
+    update-state(variables, old => {
       let initial = state-initial-values(old)
       let kept = old
       let targets = if selected.len() == 0 { old.keys() } else { selected }
@@ -6926,8 +7141,8 @@ let reset-functions(..names, key: "math-once-calculation") = {
   if key-error != none { panic("math-once reset-functions: " + key-error) }
   let selected = names.pos().map(value => state-name(value, "reset-functions"))
   context {
-    let variables = checkpoint-state(key)
-    checkpoint-update(variables, old => {
+    let variables = builder-state(key)
+    update-state(variables, old => {
       let initial = state-initial-values(old)
       let kept = old
       for (name, value) in old {
@@ -6947,8 +7162,8 @@ let restore-units(..names, key: "math-once-calculation") = {
   if key-error != none { panic("math-once restore-units: " + key-error) }
   let selected = names.pos().map(value => state-name(value, "restore-units"))
   context {
-    let variables = checkpoint-state(key)
-    checkpoint-update(variables, old => {
+    let variables = builder-state(key)
+    update-state(variables, old => {
       let kept = old
       for (name, value) in old {
         if (is-unloaded(value)
@@ -6972,8 +7187,8 @@ let reset-unit-aliases(..names, key: "math-once-calculation") = {
   if key-error != none { panic("math-once reset-unit-aliases: " + key-error) }
   let selected = names.pos().map(value => state-name(value, "reset-unit-aliases"))
   context {
-    let variables = checkpoint-state(key)
-    checkpoint-update(variables, old => {
+    let variables = builder-state(key)
+    update-state(variables, old => {
       let originals = ()
       if selected.len() == 0 {
         for (_, value) in old {
@@ -7015,8 +7230,8 @@ let unload(..names, key: "math-once-calculation") = {
     panic("math-once unload: pass at least one unit name")
   }
   context {
-    let variables = checkpoint-state(key)
-    checkpoint-update(variables, old => {
+    let variables = builder-state(key)
+    update-state(variables, old => {
       for name in selected {
         if is-built-in-constant(name) {
           old.insert(name, (unloaded: true))
@@ -7076,9 +7291,9 @@ let rename-unit(from, to, key: "math-once-calculation") = {
     old
   }
   context {
-    let variables = checkpoint-state(key)
-    let (_, _, error) = rename-info(variables.get())
-    checkpoint-update(variables, rename)
+    let variables = builder-state(key)
+    let (_, _, error) = rename-info(unpack-state(variables.get()))
+    update-state(variables, rename)
 
     if error != none {
       align(center, text(fill: red, [math-once: #error.]))
