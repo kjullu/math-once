@@ -1,4 +1,4 @@
-// Faster calculation pipeline (0.50.0)
+// Faster math input and calculation pipeline (0.50.0)
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
@@ -3215,8 +3215,7 @@ let scientific-pattern = regex(
       "^(?:([0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)\\*)?10\\^\\(?(-?[0-9]+)\\)?$",
     )
 let quoted-text-pattern = regex("\"([^\"]*)\"")
-let stored-assignment-pattern = regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*:=\\s*(.+)$")
-let calculated-assignment-pattern = regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*=\\s*(.+)$")
+let assignment-pattern = regex("^\\s*(?:\"([A-Za-z]+(?:_[A-Za-z0-9]+)*)\"|([A-Za-z]+(?:_[A-Za-z0-9]+)*))\\s*(:?=)\\s*(.+)$")
 let reset-name-pattern = regex("^[A-Za-z]+(?:_[A-Za-z0-9]+)*$")
 let source-space = [ ].func()
 let source-sequence = $a b$.body.func()
@@ -3225,6 +3224,7 @@ let source-sequence = $a b$.body.func()
 let math-items(value) = if value.func() == source-sequence { value.children } else { (value,) }
 let source-symbol = $alpha$.body.func()
 let source-equals = [#math.eq]
+let source-log = [log]
 let vector-point-pattern = regex("^\\p{Lu}( \\p{Lu})+$")
 // Content carries source spans. Cache the spelling rules independently of
 // those spans so identical symbols in different equations share conversion.
@@ -3257,36 +3257,82 @@ let math-source-text(token, plain-text, symbol, preserve-text) = {
   else { token }
 }
 
-let math-source-part(value, parse, preserve-text: false) = {
-  let func = value.func()
+// Parse a whole math body or a single element whose function is already
+// known. Attachment bases use the element rules, with their text unquoted.
+let math-source(value, preserve-text, part: none) = {
+  let func = if part == none { value.func() } else { part }
   if func == source-space { return "" }
-  if func == source-sequence {
-    return parse(value)
+  if func == text or func == source-symbol {
+    return math-source-text(value.text.trim(), func == text, func == source-symbol,
+      if part == none { preserve-text } else { false })
+  }
+  if part == none or func == source-sequence {
+    let items = if func == source-sequence { value.children } else { (value,) }
+    let parts = ()
+    let index = 0
+    while index < items.len() {
+      let item = items.at(index)
+      index += 1
+      let item-func = item.func()
+      if item-func == source-space { continue }
+      let part = if (item-func == math.attach and item.has("b")
+        and item.base.func() == math.op and item.base.text == source-log) {
+        if item.has("t") or item.has("tr") or item.has("tl") or item.has("br") or item.has("bl") {
+          panic("math-once calculate: `log_b` supports only a base subscript")
+        }
+        // Typst reads `log_a(x)` as the subscript `a(x)`.
+        let base-items = math-items(item.b)
+        if base-items.len() >= 2 and base-items.last().func() == math.lr {
+          let base = base-items.slice(0, -1).map(part => math-source(part, preserve-text))
+            .filter(part => part != "").join(" ")
+          "log((" + math-source(base-items.last(), preserve-text) + "),(" + base + "))"
+        } else {
+          while index < items.len() and items.at(index).func() == source-space { index += 1 }
+          if index >= items.len() {
+            panic("math-once calculate: `log_b` must be followed by an argument")
+          }
+          let argument = items.at(index)
+          index += 1
+          ("log((" + math-source(argument, preserve-text)
+            + "),(" + math-source(item.b, preserve-text) + "))")
+        }
+      } else if item-func == text or item-func == source-symbol {
+        math-source-text(item.text.trim(), item-func == text, item-func == source-symbol, preserve-text)
+      } else if item == source-equals {
+        "="
+      } else if item.has("text") and type(item.text) == str {
+        math-source-text(item.text.trim(), item-func == text, item-func == source-symbol, preserve-text)
+      } else {
+        math-source(item, preserve-text, part: item-func)
+      }
+      if part != "" { parts.push(part) }
+    }
+    return if parts.len() == 0 { "" } else { parts.join(" ") }
   }
   if func == math.accent {
     // Only the arrow is a vector name. Other accents would silently become one.
     if value.accent != "\u{20d7}" {
       panic("math-once calculate: only the `arrow` accent is supported in variable names")
     }
-    let base = parse(value.base)
+    let base = math-source(value.base, preserve-text)
     // Point names such as `arrow(A B)` form one vector name, `arrow_AB`.
     if vector-point-pattern in base { base = base.replace(" ", "") }
     return "arrow_" + base
   }
   if func == math.vec {
-    return "vec(" + value.children.map(child => parse(child)).join(",") + ")"
+    return "vec(" + value.children.map(child => math-source(child, preserve-text)).join(",") + ")"
   }
   if func == math.mat {
-    return "matrix(" + value.rows.map(row => row.map(child => parse(child)).join(",")).join(";") + ")"
+    return "matrix(" + value.rows.map(row => row.map(child => math-source(child, preserve-text)).join(",")).join(";") + ")"
   }
   if func == math.frac {
-    return "(" + parse(value.num) + ")/(" + parse(value.denom) + ")"
+    return "(" + math-source(value.num, preserve-text) + ")/(" + math-source(value.denom, preserve-text) + ")"
   }
   if func == math.root {
     return if value.has("index") {
-      "root(" + parse(value.index) + "," + parse(value.radicand) + ")"
+      "root(" + math-source(value.index, preserve-text) + "," + math-source(value.radicand, preserve-text) + ")"
     } else {
-      "sqrt(" + parse(value.radicand) + ")"
+      "sqrt(" + math-source(value.radicand, preserve-text) + ")"
     }
   }
   if func == math.attach {
@@ -3295,9 +3341,9 @@ let math-source-part(value, parse, preserve-text: false) = {
     if value.has("tr") or value.has("tl") or value.has("br") or value.has("bl") {
       panic("math-once calculate: primes and corner attachments are not supported in variable names")
     }
-    let base = math-source-part(value.base, parse)
+    let base = math-source(value.base, preserve-text, part: value.base.func())
     if value.has("b") {
-      let subscript = parse(value.b)
+      let subscript = math-source(value.b, preserve-text)
       if (subscript.len() >= 2
         and subscript.starts-with("\"")
         and subscript.ends-with("\"")) {
@@ -3309,7 +3355,7 @@ let math-source-part(value, parse, preserve-text: false) = {
       base += "_" + subscript
     }
     if value.has("t") {
-      return base + "^(" + parse(value.t) + ")"
+      return base + "^(" + math-source(value.t, preserve-text) + ")"
     }
     return base
   }
@@ -3330,63 +3376,25 @@ let math-source-part(value, parse, preserve-text: false) = {
         none
       }
       if rounding != none {
-        let inner = parts.slice(1, parts.len() - 1).map(part => parse(part))
+        let inner = parts.slice(1, parts.len() - 1).map(part => math-source(part, preserve-text))
           .filter(part => part != "").join(" ")
         return rounding + "(" + inner + ")"
       }
     }
-    return parse(value.body)
+    return math-source(value.body, preserve-text)
   }
   if func == math.op {
-    return parse(value.text)
+    return math-source(value.text, preserve-text)
   }
   if not value.has("text") {
     panic("math-once calculate: unsupported Typst math element `" + repr(func) + "`")
   }
 
-  math-source-text(value.text.trim(), func == text, func == source-symbol, preserve-text)
-}
-
-let math-source-body(body, preserve-text: false) = {
-  let parse = child => math-source-body(child, preserve-text: preserve-text)
-  let parts = ()
-  let items = math-items(body)
-  let index = 0
-  while index < items.len() {
-    let item = items.at(index)
-    index += 1
-    if item.func() == source-space { continue }
-    // `log_b x` and `log_b(x)` take the base from the subscript.
-    if (item.func() == math.attach and item.has("b")
-      and item.base.func() == math.op and item.base.text == [log]) {
-      if item.has("t") or item.has("tr") or item.has("tl") or item.has("br") or item.has("bl") {
-        panic("math-once calculate: `log_b` supports only a base subscript")
-      }
-      // Typst reads `log_a(x)` as the subscript `a(x)`; split the call back off.
-      let base-items = math-items(item.b)
-      if base-items.len() >= 2 and base-items.last().func() == math.lr {
-        let base = base-items.slice(0, -1).map(parse).filter(part => part != "").join(" ")
-        parts.push("log((" + parse(base-items.last()) + "),(" + base + "))")
-        continue
-      }
-      while index < items.len() and items.at(index).func() == source-space { index += 1 }
-      if index >= items.len() {
-        panic("math-once calculate: `log_b` must be followed by an argument")
-      }
-      parts.push("log((" + parse(items.at(index)) + "),(" + parse(item.b) + "))")
-      index += 1
-      continue
-    }
-    let part = if item == source-equals { "=" } else if item.has("text") and type(item.text) == str {
-      math-source-text(item.text.trim(), item.func() == text, item.func() == source-symbol, preserve-text)
-    } else { math-source-part(item, parse, preserve-text: preserve-text) }
-    if part != "" { parts.push(part) }
-  }
-  if parts.len() == 0 { "" } else { parts.join(" ") }
+  math-source-text(value.text.trim(), func == text, func == source-symbol, false)
 }
 
 let input-source(source, preserve-text: false) = if type(source) == content and source.func() == math.equation {
-  math-source-body(source.body, preserve-text: preserve-text).trim()
+  math-source(source.body, preserve-text).trim()
 } else {
   source-string(source)
 }
@@ -3467,7 +3475,6 @@ let precision-tokens(tokens, scope: (:), aliases: (:), unloaded: ()) = {
     or (name-pattern in token and token not in scope and token not in unloaded
       and resolve-unit-with-aliases(token, aliases: aliases) != none))
   let exact-factor(index) = {
-    if whole-number-pattern not in tokens.at(index) { return false }
     let after = index + 1
     if after < tokens.len() and is-unit-token(tokens.at(after)) { return false }
     // Look through unary signs and parentheses around the literal alone, as
@@ -3542,31 +3549,10 @@ let precision-tokens(tokens, scope: (:), aliases: (:), unloaded: ()) = {
       continue
     }
     if index < exponent-end and (number-pattern in token) { continue }
-    if exact-factor(index) { continue }
+    if whole-number-pattern in token and exact-factor(index) { continue }
     kept.push(token)
   }
   kept
-}
-
-// Only referenced inputs contribute. Unit scales, exponents, exact formula
-// constants, and output-unit syntax do not. `tokens` come from precision-tokens.
-let automatic-digits(tokens, scope, fallback: 4) = {
-  let places = ()
-  for token in tokens {
-    if (number-pattern in token) {
-      places.push(input-decimal-places(token))
-    } else if token in scope {
-      let item = scope.at(token)
-      if type(item) in (int, float, decimal) {
-        places.push(input-decimal-places(str(item)))
-      } else if type(item) == dictionary and "exact" in item and not item.at("exact-constant", default: false) {
-        places.push(item.at("input-digits", default: item.at(
-          "digits", default: input-decimal-places(str(item.exact)),
-        )))
-      }
-    }
-  }
-  if places.len() == 0 { fallback } else { calc.min(..places) }
 }
 
 // Leading zeros are placeholders; written trailing zeros express precision.
@@ -3576,21 +3562,31 @@ let input-significant-digits(token) = {
   calc.max(1, meaningful.len())
 }
 
-let automatic-significant-digits(tokens, scope, fallback: 4) = {
-  let counts = ()
+// Both results are stored even when the caller selected a fixed precision,
+// since a later equation can use either precision mode.
+let input-precision(tokens, scope) = {
+  let places = ()
+  let significant = ()
   for token in tokens {
-    if (number-pattern in token) {
-      counts.push(input-significant-digits(token))
+    if number-pattern in token {
+      places.push(input-decimal-places(token))
+      significant.push(input-significant-digits(token))
     } else if token in scope {
       let item = scope.at(token)
       if type(item) in (int, float, decimal) {
-        counts.push(input-significant-digits(str(calc.abs(item))))
+        places.push(input-decimal-places(str(item)))
+        significant.push(input-significant-digits(str(calc.abs(item))))
       } else if type(item) == dictionary and "exact" in item and not item.at("exact-constant", default: false) {
-        counts.push(item.at("input-significant-digits", default: input-significant-digits(str(calc.abs(item.exact)))))
+        places.push(if "input-digits" in item { item.input-digits }
+          else if "digits" in item { item.digits }
+          else { input-decimal-places(str(item.exact)) })
+        significant.push(if "input-significant-digits" in item { item.input-significant-digits }
+          else { input-significant-digits(str(calc.abs(item.exact))) })
       }
     }
   }
-  if counts.len() == 0 { fallback } else { calc.min(..counts) }
+  (if places.len() == 0 { 4 } else { calc.min(..places) },
+    if significant.len() == 0 { 4 } else { calc.min(..significant) })
 }
 
 let valid-auto-digits(auto-digits) = auto-digits in ("decimal", "significant")
@@ -3625,19 +3621,27 @@ let unit-display-name(name) = if name.ends-with("ohm") and resolve-unit(name) !=
 } else {
   name
 }
-let can-end(token) = (number-pattern in token) or (name-pattern in token) or (token.starts-with("\"") and token.ends-with("\"") and token.len() >= 2) or (token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix) and token.len() >= 2) or token == ")"
-let can-start(token) = (number-pattern in token) or (name-pattern in token) or (token.starts-with("\"") and token.ends-with("\"") and token.len() >= 2) or (token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix) and token.len() >= 2) or token == "("
+let multiplication-atom(token) = (
+  number-pattern in token or name-pattern in token
+  or (token.starts-with("\"") and token.ends-with("\"") and token.len() >= 2)
+  or (token.starts-with(text-unit-prefix) and token.ends-with(text-unit-suffix) and token.len() >= 2)
+)
+let can-end(token) = token == ")" or multiplication-atom(token)
+let can-start(token) = token == "(" or multiplication-atom(token)
 
 let add-implicit-multiplication(tokens) = {
   let result = ()
-  for (index, token) in tokens.enumerate() {
-    if (index > 0
-      and can-end(tokens.at(index - 1))
-      and can-start(token)
-      and not (tokens.at(index - 1) in source-functions and token == "(")) {
+  let previous = none
+  let previous-can-end = false
+  for token in tokens {
+    let atom = multiplication-atom(token)
+    if (previous-can-end and (atom or token == "(")
+      and not (token == "(" and previous in source-functions)) {
       result.push("*")
     }
     result.push(token)
+    previous = token
+    previous-can-end = atom or token == ")"
   }
   result
 }
@@ -4090,6 +4094,7 @@ let expand-function-calls(tokens, scope, stack: (), depth: 0) = {
   if depth > 64 {
     return calculation-failure("stored function expansion exceeded 64 nested calls")
   }
+  if "(" not in tokens { return (tokens, false) }
   let result = ()
   let changed = false
   let index = 0
@@ -4516,7 +4521,13 @@ let top-level-structure-operator(tokens) = {
   best-index
 }
 
-let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, strict-units: false, unit: none, size: none, final: true) = {
+let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, strict-units: false, unit: none, size: none, final: true, implicit: false) = {
+  // A user-supplied scope can contain an entry named "*". When it does,
+  // check inserted multiplication tokens for structures too.
+  if implicit and "*" in scope {
+    tokens = add-implicit-multiplication(tokens)
+    implicit = false
+  }
   let has-structure = dot-product-token in tokens
   if not has-structure {
     for token in tokens {
@@ -4529,6 +4540,7 @@ let evaluate-structure(calculate-fn, tokens, digits, scope, aliases, unloaded, s
     }
   }
   if not has-structure { return none }
+  if implicit { tokens = add-implicit-multiplication(tokens) }
   tokens = unwrap-tokens(tokens)
   let scalar-scope = numeric-scope(scope)
   let components = vector-components(tokens)
@@ -4719,7 +4731,7 @@ let paired-sign-branches(tokens) = (
 let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, unloaded, aliases, strict-units: false, render: true) = {
   let result = evaluate-structure(
     calculate-fn,
-    add-implicit-multiplication(tokens),
+    tokens,
     digits,
     scope,
     aliases,
@@ -4727,6 +4739,7 @@ let calculate-expanded(calculate-fn, tokens, digits, scope, unit, size, block, u
     strict-units: strict-units,
     unit: unit,
     size: size,
+    implicit: true,
   )
   if result == none {
     return calculate-fn(
@@ -4927,28 +4940,29 @@ let kept-constant(token, scope, substitute-constants) = (
 )
 
 let expand-variables(tokens, scope, substitute-constants: false) = {
+  if scope.len() == 0 { return (tokens, false) }
   let expanded = ()
   let changed = false
   for (index, token) in tokens.enumerate() {
-    let item = scope.at(token, default: none)
-    let unloaded-marker = type(item) == dictionary and item.at("unloaded", default: false) and "si-value" not in item
-    let unit-alias = type(item) == dictionary and item.at("unit-alias", default: false)
-    let symbolic-result = type(item) == dictionary and item.at("symbolic", default: false)
-    let structure-result = (type(item) == dictionary and (item.at("vector", default: false) or item.at("matrix", default: false)))
-    if ((name-pattern in token)
-      and token in scope
-      and not unloaded-marker
-      and not unit-alias
-      and not symbolic-result
-      and not structure-result
-      and not kept-constant(token, scope, substitute-constants)
-      and not (type(scope.at(token)) == dictionary and scope.at(token).at("function", default: false))) {
+    if token not in scope or name-pattern not in token {
+      expanded.push(token)
+      continue
+    }
+    let item = scope.at(token)
+    if (not kept-constant(token, scope, substitute-constants)
+      and not (type(item) == dictionary and (
+        (item.at("unloaded", default: false) and "si-value" not in item)
+        or item.at("unit-alias", default: false)
+        or item.at("symbolic", default: false)
+        or item.at("vector", default: false)
+        or item.at("matrix", default: false)
+        or item.at("function", default: false)
+      ))) {
       let previous = tokens.at(index - 1, default: none)
       let implicit-product = index > 0 and can-end(previous)
       if implicit-product {
         expanded.push("*")
       }
-      let item = scope.at(token)
       let substituted = if type(item) == dictionary and "value" in item {
         let value-tokens = display-number-tokens(
           item.value,
@@ -5254,6 +5268,14 @@ let pack-state(scope) = {
 let builder-state(key, initial: (:)) = state("math-once-state:" + key, builder-initial-state(initial))
 let update-state(variables, update) = variables.update(old => pack-state(update(unpack-state(old))))
 
+// Clear the write status only when an assignment fails. A successful write
+// can reuse the current marker when the previous assignment also succeeded.
+let failed-store(old, marker) = {
+  marker.insert("last-write", false)
+  old.insert(initial-state-marker-name, marker)
+  old
+}
+
 let unit-aliases(scope) = {
   let aliases = (:)
   for (name, item) in scope {
@@ -5270,12 +5292,16 @@ let referenced-unit-tokens(unit) = token-matches(unit).map(found => found.text)
 // each name once also bounds cycles; expand-function-calls reports those later.
 let scope-names(tokens) = tokens.filter(token => name-pattern in token or (token.starts-with("\"") and token.ends-with("\"")))
 
-// Strip layout data before following dependencies. This helper is keyed by
-// one entry, so references to the same variable share the work.
+// Strip scalar layout data before following dependencies. Structures retain
+// their display field because direct copies preserve the public key order.
+// This helper is keyed by one entry so repeated references share the work.
 let scope-entry(item) = {
   let item = state-entry(item)
   if type(item) != dictionary { return (item, ()) }
-  if "display" in item { let _ = item.remove("display") }
+  if ("display" in item and not item.at("vector", default: false)
+    and not item.at("matrix", default: false)) {
+    let _ = item.remove("display")
+  }
   let pending = ()
   if item.at("function", default: false) {
     pending = scope-names(item.body-tokens)
@@ -5317,7 +5343,10 @@ let referenced-scope(tokens, scope) = {
     if quoted and name == "Omega" { pending.push("Ω") }
     if name not in scope { continue }
     let item = scope.at(name)
-    if type(item) == dictionary and "display" in item { let _ = item.remove("display") }
+    if (type(item) == dictionary and "display" in item
+      and not item.at("vector", default: false) and not item.at("matrix", default: false)) {
+      let _ = item.remove("display")
+    }
     let (item, dependencies) = scope-entry(item)
     selected.insert(name, item)
     pending += dependencies
@@ -5739,7 +5768,7 @@ let simple-quantity(token, aliases, unloaded) = {
 
 let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, override-opaque: false, strict-units: false, soft: false) = {
   // `times` is the cross product only between two vectors.
-  tokens = tokens.map(token => if token == "×" { "*" } else { token })
+  if "×" in tokens { tokens = tokens.map(token => if token == "×" { "*" } else { token }) }
   let scope = normalize-scope(scope)
   if override-opaque {
     for (name, item) in scope {
@@ -5959,6 +5988,14 @@ let parse(tokens, scope: (:), unloaded: (), aliases: (:), custom-units: false, o
   result
 }
 
+let parse-output-unit(tokens, aliases, strict-units, soft: false) = parse(
+  add-implicit-multiplication(tokens),
+  aliases: aliases,
+  custom-units: true,
+  strict-units: strict-units,
+  soft: soft,
+)
+
 let normalize-size(size, soft: false) = {
   if size == none { return none }
   let notation = none
@@ -6038,7 +6075,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   // Preserve quoted Typst math text so `"m"` remains an explicit metre even
   // when the bare name `m` has been unloaded for use as a variable.
   let source-is-math = type(source) == content and source.func() == math.equation
-  let source = input-source(source, preserve-text: true)
+  let source = if prepared-tokens == none { input-source(source, preserve-text: true) } else { source }
   let raw-tokens = if prepared-tokens == none { tokenize(source) } else { prepared-tokens }
   let absolute-tokens = absolute-value-tokens(raw-tokens)
   if absolute-tokens != none { raw-tokens = absolute-tokens }
@@ -6135,13 +6172,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
   let output-scale = 1.0
   let output-offset = 0.0
   if target-tokens != none {
-    let target = parse(
-      add-implicit-multiplication(target-tokens),
-      aliases: aliases,
-      custom-units: true,
-      strict-units: strict-units,
-      soft: soft,
-    )
+    let target = parse-output-unit(target-tokens, aliases, strict-units, soft: soft)
     if (type(target) == dictionary and "error" in target) { return target }
     if target.dims != result.dims or target.opaque != result.opaque {
       if is-dimensionless(result) and not is-dimensionless(target) {
@@ -6186,12 +6217,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     }
     output-unit = canonical-unit(result.dims)
   } else if output-unit != none and result.opaque.len() == 0 {
-    let preferred = parse(
-      add-implicit-multiplication(tokenize(output-unit)),
-      aliases: aliases,
-      custom-units: true,
-      strict-units: strict-units,
-    )
+    let preferred = parse-output-unit(tokenize(output-unit), aliases, strict-units)
     output-scale = if preferred.affine == none { preferred.si-value } else { preferred.affine.scale }
     output-offset = if preferred.affine == none or result.affine-kind == "difference" { 0.0 } else { preferred.affine.offset }
   }
@@ -6236,8 +6262,7 @@ let calculate(source, digits: 4, scope: (:), unit: none, size: none, block: true
     return calculation-fail(overflow-message, soft: soft)
   }
   let counted-tokens = precision-tokens(expression-tokens, scope: scope, aliases: aliases, unloaded: unloaded)
-  let input-digits = automatic-digits(counted-tokens, scope)
-  let input-significant = automatic-significant-digits(counted-tokens, scope)
+  let (input-digits, input-significant) = input-precision(counted-tokens, scope)
   let significant = if type(digits) == dictionary { digits.significant } else { none }
   if significant == auto { significant = input-significant }
   if significant != none {
@@ -6406,7 +6431,9 @@ let calculation-builder(
     name-scope.insert(spec.name, 0)
     let labelled-body = render-tokens((spec.name,), scope: name-scope, aliases: aliases) + h(0.25em) + math.eq + h(0.25em) + render-tokens(tokens, scope: current, aliases: aliases)
     if spec.show-result {
-      let (expanded, has-variables) = expand-variables(tokens, current, substitute-constants: substitute-constants)
+      let (expanded, has-variables) = if spec.show-substitution {
+        expand-variables(tokens, current, substitute-constants: substitute-constants)
+      } else { (tokens, false) }
       if has-variables and spec.show-substitution {
         labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
       }
@@ -6462,11 +6489,9 @@ let calculation-builder(
   // Changing recovery writes to captured-result writes requires another layout pass.
   let store-assignment(spec, old) = {
     let marker = old.at(initial-state-marker-name)
-    marker.insert("last-write", false)
-    old.insert(initial-state-marker-name, marker)
     // Paired signs and display-only symbols never emit this update.
     if spec.has-paired-sign or spec.has-display-symbol {
-      return old
+      return failed-store(old, marker)
     }
     let name = spec.name
     let target = state-entry(old.at(name, default: none))
@@ -6474,19 +6499,19 @@ let calculation-builder(
     if ((resolve-unit(name) != none or is-built-in-constant(name)
         or (target-is-dictionary and target.at("unit-alias", default: false)))
       and not (target-is-dictionary and target.at("unloaded", default: false) == true)) {
-      return old
+      return failed-store(old, marker)
     }
     // Inline selection here to avoid hashing the entire growing state again
     // as an argument to referenced-scope. The traversal matches that helper.
     let update-scope = {
       let scope = old
-      let tokens = spec.scope-tokens
+      let names = spec.scope-names
       let selected = (:)
       let seen = (:)
       // Validate user-supplied initial values first, as in referenced-scope.
       let marker = scope.at(initial-state-marker-name, default: none)
       let initial = if type(marker) == dictionary and marker.at("initial-state-marker", default: false) { marker.values } else { (:) }
-      let pending = initial.keys().filter(name => name not in built-in-constants) + scope-names(tokens)
+      let pending = initial.keys().filter(name => name not in built-in-constants) + names
       let index = 0
       while index < pending.len() {
         let token = pending.at(index)
@@ -6498,7 +6523,10 @@ let calculation-builder(
         if quoted and name == "Omega" { pending.push("Ω") }
         if name not in scope { continue }
         let item = scope.at(name)
-        if type(item) == dictionary and "display" in item { let _ = item.remove("display") }
+        if (type(item) == dictionary and "display" in item
+          and not item.at("vector", default: false) and not item.at("matrix", default: false)) {
+          let _ = item.remove("display")
+        }
         let (item, dependencies) = scope-entry(item)
         selected.insert(name, item)
         pending += dependencies
@@ -6515,17 +6543,19 @@ let calculation-builder(
     }
     let update-expansion = expand-function-calls(spec.evaluation-tokens, update-scope)
     if type(update-expansion) == dictionary and "error" in update-expansion {
-      return old
+      return failed-store(old, marker)
     }
     let update-tokens = update-expansion.first()
     let update-missing = missing-variables(spec.tokens, update-scope, update-unloaded, aliases: update-aliases)
     if update-missing.len() > 0 {
-      return old
+      return failed-store(old, marker)
     }
-    let update-unit-tokens = unit-scope-tokens(spec.unit)
+    let update-unit-tokens = if spec.unit == none { () } else { unit-scope-tokens(spec.unit) }
     let update-rescope = false
-    for unit-name in unit-state-names(update-unit-tokens) {
-      if unit-name in old { update-rescope = true; break }
+    if update-unit-tokens.len() > 0 {
+      for unit-name in unit-state-names(update-unit-tokens) {
+        if unit-name in old { update-rescope = true; break }
+      }
     }
     if update-rescope {
       update-scope = referenced-scope(spec.scope-tokens + update-unit-tokens, old)
@@ -6540,11 +6570,13 @@ let calculation-builder(
     }
     let entry = stored-entry(spec, update-scope, update-aliases, update-unloaded, update-tokens, preserve-target: name in marker.values)
     if type(entry) == dictionary and "error" in entry {
-      return old
+      return failed-store(old, marker)
     }
     old.insert(name, packed-entry(entry))
-    marker.insert("last-write", true)
-    old.insert(initial-state-marker-name, marker)
+    if not marker.at("last-write", default: false) {
+      marker.insert("last-write", true)
+      old.insert(initial-state-marker-name, marker)
+    }
     old
   }
 
@@ -6589,13 +6621,13 @@ let calculation-builder(
     // As in store-assignment, select entries before calling memoized helpers.
     let current = if full-symbolic-scope { unpack-state(full-current) } else {
       let scope = full-current
-      let tokens = scope-tokens
+      let names = spec.scope-names
       let selected = (:)
       let seen = (:)
       // Validate user-supplied initial values first, as in referenced-scope.
       let marker = scope.at(initial-state-marker-name, default: none)
       let initial = if type(marker) == dictionary and marker.at("initial-state-marker", default: false) { marker.values } else { (:) }
-      let pending = initial.keys().filter(name => name not in built-in-constants) + scope-names(tokens)
+      let pending = initial.keys().filter(name => name not in built-in-constants) + names
       let index = 0
       while index < pending.len() {
         let token = pending.at(index)
@@ -6607,7 +6639,10 @@ let calculation-builder(
         if quoted and name == "Omega" { pending.push("Ω") }
         if name not in scope { continue }
         let item = scope.at(name)
-        if type(item) == dictionary and "display" in item { let _ = item.remove("display") }
+        if (type(item) == dictionary and "display" in item
+          and not item.at("vector", default: false) and not item.at("matrix", default: false)) {
+          let _ = item.remove("display")
+        }
         let (item, dependencies) = scope-entry(item)
         selected.insert(name, item)
         pending += dependencies
@@ -6730,7 +6765,7 @@ let calculation-builder(
     let calculation-tokens = if function-error == none { function-expansion.first() } else { tokens }
     let missing = if display-only { () } else { missing-variables(tokens, current, unloaded, aliases: aliases) }
     let evaluates = not (illegal-assignment or display-only or missing.len() > 0 or function-error != none)
-    if evaluates and not full-symbolic-scope {
+    if evaluates and unit != none and not full-symbolic-scope {
       let unit-tokens = unit-scope-tokens(unit)
       let rescope = false
       for unit-name in unit-state-names(unit-tokens) {
@@ -6824,7 +6859,9 @@ let calculation-builder(
         and matrix-rows(calculation-tokens) == none) {
         labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(calculation-tokens, scope: numeric-scope(current), aliases: aliases)
       }
-      let (expanded, has-variables) = expand-variables(tokens, current, substitute-constants: substitute-constants)
+      let (expanded, has-variables) = if spec.show-substitution {
+        expand-variables(tokens, current, substitute-constants: substitute-constants)
+      } else { (tokens, false) }
       if has-variables and show-substitution {
         labelled-body += h(0.25em) + math.eq + h(0.25em) + render-tokens(expanded, aliases: aliases)
       }
@@ -6839,6 +6876,7 @@ let calculation-builder(
     }
   }
 
+  let variables = builder-state(key, initial: initial-state)
   let runner-options = (
     "digits", "auto-digits", "unit", "size", "show-result", "show-substitution",
     "show-unit", "result-only", "hidden", "block", "label", "caption", "gap", "supplement",
@@ -6898,7 +6936,6 @@ let calculation-builder(
     }
     let source = args.pos().at(0, default: none)
     if source == none {
-      let variables = builder-state(key, initial: initial-state)
       let visible = (:)
       for (name, value) in unpack-state(variables.get()) {
         if (not is-unloaded-marker(value)
@@ -6925,15 +6962,9 @@ let calculation-builder(
       block
     }
     let source = input-source(source, preserve-text: true)
-    let parsed-function = function-definition(source)
-    let stored-assignment = source.match(stored-assignment-pattern)
-    let calculated-assignment = if stored-assignment == none {
-      source.match(calculated-assignment-pattern)
-    } else {
-      none
-    }
-    let assignment = if stored-assignment != none { stored-assignment } else { calculated-assignment }
-    let stores-result = stored-assignment != none
+    let assignment = source.match(assignment-pattern)
+    let stores-result = assignment != none and assignment.captures.at(2) == ":="
+    let parsed-function = if assignment == none { function-definition(source) } else { none }
     let name = if assignment == none {
       none
     } else if assignment.captures.at(0) != none {
@@ -6941,7 +6972,7 @@ let calculation-builder(
     } else {
       assignment.captures.at(1)
     }
-    let expression = if assignment == none { source } else { assignment.captures.at(2) }
+    let expression = if assignment == none { source } else { assignment.captures.at(3) }
     let display-tokens = if assignment == none { tokenize(source) } else { none }
     let display-only = display-tokens != none and "=" in display-tokens
 
@@ -7006,10 +7037,11 @@ let calculation-builder(
       source: source,
       name: name,
       stores-result: stores-result,
-      calculated-assignment: calculated-assignment != none,
+      calculated-assignment: assignment != none and not stores-result,
       display-only: display-only,
       parsed-function: parsed-function,
       scope-tokens: scope-tokens,
+      scope-names: scope-names(scope-tokens),
       evaluation-tokens: evaluation-tokens,
       tokens: tokens,
       full-symbolic-scope: full-symbolic-scope,
@@ -7044,7 +7076,6 @@ let calculation-builder(
       and not has-paired-sign
       and not has-display-symbol)
     let equation-body = if reads-stored-display {
-      let variables = builder-state(key, initial: initial-state)
       [#variables.update(update)#context {
         // A new context initially reads the final state. Wait for its own
         // location before reading the status of the immediately preceding write.
@@ -7058,7 +7089,7 @@ let calculation-builder(
         }
       }]
     } else {
-      context equation-content(spec, builder-state(key, initial: initial-state), update)
+      context equation-content(spec, variables, update)
     }
     // Avoid memoizing helpers over a context that captures the runner scope.
     let body = if caption == none { equation-body } else { _captioned-body(equation-body, caption, gap) }

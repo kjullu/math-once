@@ -66,6 +66,7 @@
     "tests/store-syntax.typ": "6f120bf34330043a1027598be57b810c0f787cd35f8d9fd18c8d7cb7429ddc15",
     "tests/stored-display-reuse.typ": "6ab3f8f6f70b0738bec3ef25e7aba6d4eb6186b851f0683c002c723bf95ef770",
     "tests/stored-function-dependencies.typ": "8c6332511a08e83af6cad48d820fb31db06bae7359b79d2423cfe1f1ed527599",
+    "tests/structure-copy-order.typ": "863fc1e44694faf90da3072a30224469a893a36cc1297ed1696d98386467f05c",
     "tests/subscript-variables.typ": "c6268fc4c545d8eab4716b8be857a412b3a8ba45ec966a20f3049e4a1cea4688",
     "tests/substitution-grouping.typ": "d27e4e8e1f9a84192cc67db99ac1dd6e6743e517e6cdb64336457c2118c4379c",
     "tests/supplement-outline.typ": "3950b486a67d6ff14b27fc83f1c05644b50f68dbcee668e740a80286384bfd77",
