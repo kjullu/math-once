@@ -78,5 +78,6 @@
   "reset-key-type.typ": "math-once reset: `key:` must be a string naming the builder state, not 5",
   "unload-name-type.typ": "math-once unload: names must be strings or math, such as `$m$`, not 5",
   "calculate-size-content.typ": "math-once calculate: size must be a positive number, a string, or a math expression, such as `size: $2 dot 10^3$`, not [bad]",
-  "evaluate-code-scope-type.typ": "math-once evaluate-code: `scope:` must be a dictionary of values, such as `scope: (v: 12)`, not false"
+  "evaluate-code-scope-type.typ": "math-once evaluate-code: `scope:` must be a dictionary of values, such as `scope: (v: 12)`, not false",
+  "shared-builder-initial-state.typ": "scope `factor` must be a number or calculate result"
 }
