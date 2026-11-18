@@ -163,7 +163,6 @@ def markdown_summary(results, limit):
     notes = [f"Median of {results['runs']} cold compiles each with `{results['compiler']}`."]
     if baseline:
         notes.append(f"Before is `{results['baseline']}`; After is this change.")
-    if baseline:
         notes.append("Before and After compiles alternate between runs.")
     notes.append(f"Importing math-once without using it takes {results['import_only_seconds']:.2f} s, "
                  f"an empty document {results['empty_seconds']:.2f} s; 'Per calculation' excludes the import.")

@@ -5343,10 +5343,6 @@ let referenced-scope(tokens, scope) = {
     if quoted and name == "Omega" { pending.push("Ω") }
     if name not in scope { continue }
     let item = scope.at(name)
-    if (type(item) == dictionary and "display" in item
-      and not item.at("vector", default: false) and not item.at("matrix", default: false)) {
-      let _ = item.remove("display")
-    }
     let (item, dependencies) = scope-entry(item)
     selected.insert(name, item)
     pending += dependencies
@@ -6523,10 +6519,6 @@ let calculation-builder(
         if quoted and name == "Omega" { pending.push("Ω") }
         if name not in scope { continue }
         let item = scope.at(name)
-        if (type(item) == dictionary and "display" in item
-          and not item.at("vector", default: false) and not item.at("matrix", default: false)) {
-          let _ = item.remove("display")
-        }
         let (item, dependencies) = scope-entry(item)
         selected.insert(name, item)
         pending += dependencies
@@ -6639,10 +6631,6 @@ let calculation-builder(
         if quoted and name == "Omega" { pending.push("Ω") }
         if name not in scope { continue }
         let item = scope.at(name)
-        if (type(item) == dictionary and "display" in item
-          and not item.at("vector", default: false) and not item.at("matrix", default: false)) {
-          let _ = item.remove("display")
-        }
         let (item, dependencies) = scope-entry(item)
         selected.insert(name, item)
         pending += dependencies
