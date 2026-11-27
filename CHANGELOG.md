@@ -1,6 +1,6 @@
 # Changelog
 
-## Faster calculation pipeline demo (based on 0.50.0)
+## 0.51.0
 
 - Preserve public result key order when copying stored vectors and matrices, including results supplied through initial-state.
 - Reduce calculation overhead with state updates prepared before layout, cached hashes for stored results, a faster ASCII tokenizer, reused token streams, smaller scope lookups, fast scalar arithmetic, and native rendering of common equations. Public calculation results and equation output are preserved.

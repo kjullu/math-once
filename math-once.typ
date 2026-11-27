@@ -1,4 +1,4 @@
-// Faster math input and calculation pipeline (0.50.0)
+// math-once v0.51.0
 // Reusable calculations with a unit-aware evaluator.
 
 #import "@preview/typcas:0.2.3": cas
